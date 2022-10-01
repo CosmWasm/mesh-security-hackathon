@@ -1,8 +1,6 @@
 # mesh-security
 
-Implementation of Sunny's Mesh Security talk (Hackathon / Prototype status)
-
-TODO: add link to the videos of his talk on the theory
+Implementation of Sunny's [Mesh Security](https://youtu.be/Z2ZBKo9-iRs?t=4937) talk from Cosmoverse 20220 (Hackathon / Prototype status)
 
 ## Overview
 
