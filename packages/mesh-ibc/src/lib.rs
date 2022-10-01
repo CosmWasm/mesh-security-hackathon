@@ -1,8 +1,10 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
-}
+mod checks;
+
+use cosmwasm_std::IbcOrder;
+
+pub use crate::checks::{check_order, check_version, MeshSecurityError};
+
+pub const IBC_APP_VERSION: &str = "mesh-security-v0.1";
+pub const APP_ORDER: IbcOrder = IbcOrder::Unordered;
+// we use this for tests to ensure it is rejected
+pub const BAD_APP_ORDER: IbcOrder = IbcOrder::Ordered;
