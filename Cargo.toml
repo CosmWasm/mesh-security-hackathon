@@ -1,10 +1,9 @@
 [workspace]
-#members = ["packages/*", "contracts/*"]
-members = ["packages/*"]
+members = ["packages/*", "contracts/*"]
 
-#[profile.release.package.simple-ica-controller]
-#codegen-units = 1
-#incremental = false
+[profile.release.package.mesh-ilp]
+codegen-units = 1
+incremental = false
 
 [profile.release]
 rpath = false
