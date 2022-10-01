@@ -1,0 +1,310 @@
+version: 2.1
+
+orbs:
+  codecov: codecov/codecov@3.2.2
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test-all
+      - lint
+      - wasm-build
+#      - ts-build
+#      - integration:
+#          requires:
+#            - test-all
+#            - wasm-build
+#            - ts-build
+
+  deploy:
+    jobs:
+      - build_and_upload_contracts:
+          filters:
+           tags:
+             only: /^v[0-9]+\.[0-9]+\.[0-9]+.*/
+           branches:
+             ignore: /.*/
+      - build_and_upload_schemas:
+          filters:
+           tags:
+             only: /^v[0-9]+\.[0-9]+\.[0-9]+.*/
+           branches:
+             ignore: /.*/
+
+jobs:
+  test-all:
+    docker:
+      - image: rust:1.58.1
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - restore_cache:
+          keys:
+            - cargocache-all-rust:1.58.1-{{ checksum "~/project/Cargo.lock" }}
+      - run:
+          name: Build code
+          command: cargo build --locked
+      - run:
+          name: Unit Tests
+          environment:
+            RUST_BACKTRACE: 1
+          command: cargo test --locked
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target
+          key: cargocache-all-rust:1.58.1-{{ checksum "~/project/Cargo.lock" }}
+
+  lint:
+    docker:
+      - image: rust:1.58.1
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version; rustup target list --installed
+      - restore_cache:
+          keys:
+            - cargocache-all-rust:1.58.1-{{ checksum "~/project/Cargo.lock" }}
+      - run:
+          name: Add rustfmt component
+          command: rustup component add rustfmt
+      - run:
+          name: Add clippy component
+          command: rustup component add clippy
+      - run:
+          name: Check formatting of workspace
+          command: cargo fmt -- --check
+      - run:
+          name: Clippy linting on workspace
+          command: cargo clippy --all-targets -- -D warnings
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target
+          key: cargocache-all-rust:1.58.1-{{ checksum "~/project/Cargo.lock" }}
+
+  # This runs one time on the top level to ensure all contracts compile properly into wasm.
+  # We don't run the wasm build per contract build, and then reuse a lot of the same dependencies, so this speeds up CI time
+  # for all the other tests.
+  # Resulting wasm files are stored to the workspace, so they can be used by the integration test downstream
+  wasm-build:
+    docker:
+      - image: rust:1.58.1
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - restore_cache:
+          keys:
+            - cargocache-all-rust:1.58.1-{{ checksum "~/project/Cargo.lock" }}
+      - run:
+          name: Add wasm32 target
+          command: rustup target add wasm32-unknown-unknown
+      - run:
+          name: Build Wasm Release
+          # Note: need --lib so it doesn't compile the schema generator (which fails in wasm)
+          command: |
+            for C in ./contracts/*/
+            do
+              echo "Compiling `basename $C`..."
+              (cd $C && RUSTFLAGS='-C link-arg=-s' cargo build --lib --release --target wasm32-unknown-unknown --locked)
+            done
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target
+          key: cargocache-all-rust:1.58.1-{{ checksum "~/project/Cargo.lock" }}
+      - persist_to_workspace:
+          name: Save wasm contracts for integration test usage
+          root: ./target/wasm32-unknown-unknown/release
+          paths:
+            # TODO: add more here
+            - mesh_ilp.wasm
+
+  ts-build:
+    docker:
+      - image: circleci/node:16
+    working_directory: ~/ibc/tests
+    steps:
+      - checkout:
+          path: ~/ibc
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "package-lock.json" }}
+      - run: npm install --frozen-lockfile
+      - save_cache:
+          paths:
+            - node_modules
+          key: v1-dependencies-{{ checksum "package-lock.json" }}
+      - run: npm run build
+      - run: npm run test:lint
+      - run: npm run test:prettier
+
+  integration:
+    machine:
+      # We can't use a containerized environment since it requires remote docker to start custom containers.
+      # However, we can't access the remote docker's network from the primary container. This is a
+      # feature, as documented in https://circleci.com/docs/2.0/building-docker-images/#separation-of-environments
+      # As a consequence, we cannot use the circleci CLI for this job because "You cannot use the machine
+      # executor in local jobs." (https://circleci.com/docs/2.0/local-cli/#limitations-of-running-jobs-locally)
+      #
+      # Available images: https://circleci.com/docs/2.0/configuration-reference/#available-machine-images
+      image: ubuntu-2004:202010-01
+    working_directory: ~/ibc/tests
+    steps:
+      - checkout:
+          path: ~/ibc
+      - run: # start early for less wait time below
+          name: Start wasmd
+          command: ../ci-scripts/wasmd/start.sh
+          background: true
+      - run: # start early for less wait time below
+          name: Start osmosisd
+          command: ../ci-scripts/osmosis/start.sh
+          background: true
+      - run:
+          # TODO: check if still needed with 20.04
+          # The images ubuntu-1604 comes with preinstalled nvm, which does not work well with non-login shells
+          name: Uninstall nvm
+          # Moving to trash is faster than deleting (gvfs-trash is not installed on this image)
+          command: mkdir -p ~/.local/share/Trash && mv "$NVM_DIR" ~/.npm ~/.local/share/Trash
+      - run:
+          name: Install nodejs
+          # In the current image, `sudo apt install nodejs` requires `sudo apt update` which is too slow
+          command: |
+            curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+      - run:
+          name: Version information
+          command: echo "node $(node --version)"; echo "npm $(npm --version)"
+      - restore_cache:
+          name: Restore Npm Package Cache
+          keys:
+            - v1-packages-{{ checksum "package-lock.json" }}
+      - run: npm install --frozen-lockfile
+      - run:
+          name: Wait for chains to start up
+          command: |
+            echo "Wait for wasmd..."
+            timeout 60 bash -c "until curl -s http://localhost:26659/status > /dev/null; do sleep 0.5; done"
+            echo "Wait for osmsoisd..."
+            timeout 60 bash -c "until curl -s http://localhost:26653/status > /dev/null; do sleep 0.5; done"
+            sleep 1
+            echo "Chains up and running!"
+      - attach_workspace:
+          at: internal
+      - run:
+          command: ls -l internal
+      - run:
+          command: npm run build
+      - run:
+          command: npm run test:unit
+      - save_cache:
+          name: Save Npm Package Cache
+          key: v1-packages-{{ checksum "package-lock.json" }}
+          paths:
+            - node_modules
+      - run:
+          name: Stop chains
+          command: |
+            ../ci-scripts/wasmd/stop.sh
+            ../ci-scripts/osmosis/stop.sh
+
+
+  # This job roughly follows the instructions from https://circleci.com/blog/publishing-to-github-releases-via-circleci/
+  build_and_upload_contracts:
+    docker:
+      # Image from https://github.com/cibuilds/github, based on alpine
+      - image: cibuilds/github:0.13
+    steps:
+      - run:
+          name: Install Docker client
+          command: apk add docker-cli
+      - setup_remote_docker
+      - checkout
+      - run:
+          # We cannot mount local folders, see https://circleci.com/docs/2.0/building-docker-images/#mounting-folders
+          name: Prepare volume with source code
+          command: |
+            # create a dummy container which will hold a volume with config
+            docker create -v /code --name with_code alpine /bin/true
+            # copy a config file into this volume
+            docker cp Cargo.toml with_code:/code
+            docker cp Cargo.lock with_code:/code
+            # copy code into this volume
+            docker cp ./contracts with_code:/code
+            docker cp ./packages with_code:/code
+      - run:
+          name: Build development contracts
+          command: |
+            docker run --volumes-from with_code cosmwasm/workspace-optimizer:0.12.6
+            docker cp with_code:/code/artifacts ./artifacts
+      - run:
+          name: Show data
+          command: |
+            ls -l artifacts
+            cat artifacts/checksums.txt
+      - run:
+          name: Publish artifacts on GitHub
+          command: |
+            TAG="$CIRCLE_TAG"
+            TITLE="$TAG"
+            BODY="Attached there are some build artifacts generated at this tag. Those are for development purposes only! Please use crates.io to find the packages of this release."
+            ghr -t "$GITHUB_TOKEN" \
+              -u "$CIRCLE_PROJECT_USERNAME" -r "$CIRCLE_PROJECT_REPONAME" \
+              -c "$CIRCLE_SHA1" \
+              -n "$TITLE" -b "$BODY" \
+              -replace \
+              "$TAG" ./artifacts/
+
+  build_and_upload_schemas:
+    docker:
+      - image: rust:1.58.1
+    working_directory: ~/project
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Create schemas directory
+          command: mkdir -p schemas
+      - run:
+          name: Install ghr
+          command: wget https://github.com/tcnksm/ghr/releases/download/v0.14.0/ghr_v0.14.0_linux_amd64.tar.gz -O - | tar -zxvf - -C /usr/local/bin --wildcards --strip-components 1 */ghr
+      - run:
+          name: Build and run schema generator for packages
+          command: |
+            for S in ./packages/*/examples/schema.rs
+            do
+              P=$(dirname $S)/..
+              echo "Generating schema for $P ..."
+              (cd $P && cargo schema --locked && tar -zcf ~/project/schemas/$(basename $(pwd))_schema.tar.gz ./schema)
+            done
+      - run:
+          name: Build and run schema generator for contracts
+          command: |
+            for C in ./contracts/*/
+            do
+              echo "Generating schema for $C ..."
+              (cd $C && cargo schema --locked && tar -zcf ~/project/schemas/$(basename $(pwd))_schema.tar.gz ./schema)
+            done
+      - run:
+          name: Show data
+          command: ls -l ./schemas
+      - run:
+          name: Publish schemas on GitHub
+          command: |
+            TAG="$CIRCLE_TAG"
+            TITLE="$TAG"
+            BODY="Attached there are some schemas and build artifacts generated at this tag. Those are for development purposes only! Please use crates.io to find the packages of this release."
+            ghr -t "$GITHUB_TOKEN" \
+              -u "$CIRCLE_PROJECT_USERNAME" -r "$CIRCLE_PROJECT_REPONAME" \
+              -c "$CIRCLE_SHA1" \
+              -n "$TITLE" -b "$BODY" \
+              -replace \
+              "$TAG" ./schemas/
