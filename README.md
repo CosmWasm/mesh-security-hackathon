@@ -10,7 +10,7 @@ to be resolved before we can use this in production.
 
 * `meta-staking` - a bridge between the rest of the contracts and the x/staking module to
   provide a consistent, friendly interface for our use case
-* `ilp` - an "IlLiquidity Pool" contract that locks tokens and issues multiple claims
+* `ilp` - an "Illiquidity Pool" contract that locks tokens and issues multiple claims
   to other consumers, who can all slash that stake and eventually release their claim
 * `mesh-provider` - IBC-enabled contract that issues claims on an ILP and speaks IBC to a consumer
 * `mesh-consumer` - an IBC-enabled contract that receives messages from `ibc-provider` and
@@ -18,7 +18,7 @@ to be resolved before we can use this in production.
 
 ## Overview for Users
 
-High Level: You connect Osmosis to Juno and Juno to Osmosis. We will only look at one side
+**High Level:** You connect Osmosis to Juno and Juno to Osmosis. We will only look at one side
 of this, but each chain is able to be both a consumer and producer at the same time.
 You can also connect each chain as a provider to N chains and a consumer from N chains.
 
@@ -53,6 +53,17 @@ Unstaking:
    informs the Osmosis consumer contract that the tokens are available to be withdrawn.
 5. The Osmosis consumer contract sends a message to the Juno provider contract that the stake is unbonded.
 6. The Juno provider contract sends a message to the Osmosis ILP contract to release the claims.
+
+Slashing:
+
+1. A slashing event occurs for a validator on the consumer chain (Juno)
+2. Someone calls a method to submit evidence on the Osmosis `mesh-consumer` contract
+3. The `mesh-consumer` contract veries that a slashing event has indeed occurred on the Juno chain and fires off 
+   an IBC packet to the `mesh-provider` contract on the Osmosis chain containing information about the slashing
+   event.
+4. The `mesh-provider` updates the claims of everyone delegating to the offending validator. Tokens are unbonded
+   and scheduled to be burned.
+5. `mesh-provider` sends IBC packet updates to other chains about the new voting power.
 
 Claiming ILP tokens:
 
