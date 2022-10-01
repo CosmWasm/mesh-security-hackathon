@@ -1,6 +1,6 @@
 # mesh-security
 
-Implementation of Sunny's [Mesh Security](https://youtu.be/Z2ZBKo9-iRs?t=4937) talk from Cosmoverse 20220 (Hackathon / Prototype status)
+Implementation of Sunny's [Mesh Security](https://youtu.be/Z2ZBKo9-iRs?t=4937) talk from Cosmoverse 2022 (Hackathon / Prototype status)
 
 This should run on any CosmWasm enabled chain. This is MVP design and gives people
 hands on use, that should work on a testnet. We will list open questions below that need
@@ -10,11 +10,14 @@ to be resolved before we can use this in production.
 
 * `meta-staking` - a bridge between the rest of the contracts and the x/staking module to
   provide a consistent, friendly interface for our use case
-* `ilp` - an "Illiquidity Pool" contract that locks tokens and issues multiple claims
+* `ilp` - an "Illiquidity Pool" contract that locks tokens and allows lockers to issue multiple claims
   to other consumers, who can all slash that stake and eventually release their claim
-* `mesh-provider` - IBC-enabled contract that issues claims on an ILP and speaks IBC to a consumer
+* `mesh-provider` - an IBC-enabled contract that issues claims on an ILP and speaks IBC to a consumer. It
+  is responsible for submitting slashes it receives from the `slasher` to the `ilp` contract.
 * `mesh-consumer` - an IBC-enabled contract that receives messages from `ibc-provider` and
   communicates with `meta-staking` to update the local delegations / validator power
+* `slasher` - a contract that is authorized by the `mesh-provider` to submit slashes to it. There can
+  be many types of slasher contracts (for different types of evidenses of misbehaviors)
 
 ## Overview for Users
 
@@ -28,47 +31,48 @@ Once the contracts have been deployed, a user can interact with this as follows.
 Cross-staking:
 
 1. User stakes their tokens in ILP contract on Osmosis
-2. User can cross-stake those tokens to a Juno provider contract (on Osmosis), specifying how many of their 
+2. User can cross-stake those tokens to a Juno `mesh-provider` contract (on Osmosis), specifying how many of their 
    tokens to cross-stake and to which validator
-3. The Osmosis consumer contract (on Juno) receives a message from the counterparty and updates
-   the stake in the `meta-staking` contract.
-4. The `meta-staking` contract checks the values and updates it's delegations to `x/staking` accordingly.
+3. The Osmosis `mesh-consumer` contract (on Juno) receives a message from the counterparty `mesh-provider` contract
+   and updates the stake in the `meta-staking` contract (on Juno).
+4. The `meta-staking` contract checks the values and updates it's delegations to `x/staking` accordingly. (The
+   meta-staking contract is assumed to have enough JUNO tokens to do the delegations. How it gets that JUNO is
+   out of scope.)
 
 Claiming Rewards:
 
 1. Anyone can trigger the Osmosis consumer contract to claim rewards from the `meta-staking` contract
-2. The Osmosis consumer contract sends tokens to the Juno provider contract (via ics20)
-3. The Osmosis consumer contract sends a message to the Juno provider contract to inform
+2. The `mesh-consumer` contract (on JUNO) sends tokens to the `mesh-provider` contract (on Osmosis) via ics20
+3. The `mesh-consumer` contract sends a message to the `mesh-provider` contract to inform
    of the new distribution (and how many go to which validator).
-4. The Juno provider contract updates distribution info to all stakers, allowing them to claim
+4. The `mesh-provider` (on Osmosis) contract updates distribution info to all stakers, allowing them to claim
    their share of the $JUNO rewards on Osmosis.
 
 Unstaking:
 
-1. A user unstakes their tokens from the Juno provider contract (on Osmosis)
+1. A user submits a request to unstake their tokens from the `mesh-provider` contract (on Osmosis)
 2. We update the local distribution info to reflect the new amount of tokens staked
-3. This sends a message to the Osmosis consumer contract, which updates the `meta-staking` contract
+3. This sends a message to the `mesh-consumer` contract (on Juno), which updates the Juno `meta-staking` contract
    to remove the delegation.
-4. After the unbonding period has passed (eg. 2 weeks, 4 weeks) the `meta-staking` contract
-   informs the Osmosis consumer contract that the tokens are available to be withdrawn.
-5. The Osmosis consumer contract sends a message to the Juno provider contract that the stake is unbonded.
-6. The Juno provider contract sends a message to the Osmosis ILP contract to release the claims.
+4. The `mesh-provider` contract (on Osmosis) gets the unbonding period for this cross stake by querying
+   the `slasher` contract
+5. After the unbonding period has passed (eg. 2 weeks, 4 weeks) the `mesh-provider` contract
+   informs the `ilp` contract that it removes its claim.
+6. If the user's stake in the `ilp` contract has not more claims on it, they can withdraw their stake.
 
 Slashing:
 
-1. A slashing event occurs for a validator on the consumer chain (Juno)
-2. Someone calls a method to submit evidence on the Osmosis `mesh-consumer` contract
-3. The `mesh-consumer` contract veries that a slashing event has indeed occurred on the Juno chain and fires off 
-   an IBC packet to the `mesh-provider` contract on the Osmosis chain containing information about the slashing
-   event.
-4. The `mesh-provider` updates the claims of everyone delegating to the offending validator. Tokens are unbonded
+1. Someone calls a method to submit evidence of Juno misbehavior on the `slasher` contract (on Osmosis).
+2. The `slasher` contract verifies that a slashing event has indeed occured and makes a contract call to the
+   `mesh-provider` contract with the amount to slash.
+3. The `mesh-provider` updates the `ilp` stakes of everyone delegating to the offending validator. Tokens are unbonded
    and scheduled to be burned.
-5. `mesh-provider` sends IBC packet updates to other chains about the new voting power.
+4. `mesh-provider` sends IBC packet updates to the `mesh-consumer`s on all other chains about the new voting power.
 
 Claiming ILP tokens:
 
 A user can stake any number of tokens to the ILP, and use them in multiple provider contracts.
-The ILP ensures that the user has balance greater than or equal to max(claims) at all time.
+The ILP ensures that the user has balance >= the max claim at all times.
 If you put in eg 1000 OSMO, but then provide 700, 500, and 300 to various providers,
 you can pull out 300 OSMO from the ILP. Once you successfully release the claim on the
 provider with 700, then you can pull out another 200 OSMO.
@@ -76,9 +80,9 @@ provider with 700, then you can pull out another 200 OSMO.
 ## Overview for Installing
 
 1. Deploy the contracts to Osmosis and Juno
-2. Juno `x/gov` will tell the "Osmosis consumer contract" which `(connectionId, portId)` to trust
-3. Juno `x/gov` will provide the "Osmosis consumer contract" with some JUNO tokens with which it can later delegate
-   (This is a known hack... we discuss improvement below).
+2. `x/gov` on Juno will tell the "Osmosis consumer contract" which `(connectionId, portId)` to trust
+3. `x/gov` on Juno will provide the "Osmosis consumer contract" with some JUNO tokens with which it can later delegate
+   (This is a hacky solution to give the consumer contract OSMO to be able to stake... we discuss improvement below).
 4. A relayer connects the two contracts, the consumer contract ensures that the channel is made
    from the authorized `(connectionId, portId)` or rejects it in the channel handshake. It also
    ensures only one channel exists at a time.
@@ -98,14 +102,14 @@ These are unclear and need to be discussed and resolved further.
 
 * How to cleanly grant consumer contracts the proper delegation power?
   * Something like "superfluid staking" module where we can mint "synthetic staking tokens"
-    that work like normal, but are removed from the "totalSupply" query via offet.
+    that work like normal, but are removed from the "totalSupply" query via offset.
   * Fork `x/staking` to allow such synthetic delegations that don't need tokens.
     This is a hard lift, but would allow custom logic, like counting those tokens
     in tendermint voting power, but exclude them from `x/gov`, and decide on some
     reducing factor for their rewards.
 * How to cleanly define limits for the providing chains on how much power they can
   have on the consuming chain? We start with a fixed number (# of JUNO), but better
-  to do something like "max 10% of total staked tokens".
+  to do something like "max 10% of total staking power".
 * Ensure a minimum voting power for the local stake. If we let 3 chains each use up to 30%
   of the voting power, and they all stake to the max, then we only have 10% of the power locally.
   We can set a minimum to say 40% local, and if all remote chains stake to the max, their
@@ -118,7 +122,8 @@ These are unclear and need to be discussed and resolved further.
   to all consumer chains, but there could be performance implications for this.
 * Desired reward payout mechanism. For MVP, we treat this as a normal delegator and
   send the tokens back to the provider chain to be distributed. But maybe we calculate
-  rewards in another way, especially when we modify `x/staking`.
+  rewards in another way, especially when we modify `x/staking`. Should also be computationally
+  efficient
 * How to improve installation UX? Ideally, when the consumer chain votes to instantiate
   mesh security with another chain, all contracts are deployed and configured in one governance
   prop.
