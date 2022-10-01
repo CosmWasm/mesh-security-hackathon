@@ -124,8 +124,11 @@ jobs:
           name: Save wasm contracts for integration test usage
           root: ./target/wasm32-unknown-unknown/release
           paths:
-            # TODO: add more here
+            - mesh_consumer.wasm
             - mesh_ilp.wasm
+            - mesh_provider.wasm
+            - mesh_slasher.wasm
+            - mesh_staking.wasm
 
   ts-build:
     docker:
