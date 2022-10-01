@@ -96,3 +96,25 @@ These are well-defined but removed from the MVP for simplicity. We can add them 
 
 These are unclear and need to be discussed and resolved further.
 
+* How to cleanly grant consumer contracts the proper delegation power?
+  * Something like "superfluid staking" module where we can mint "synthetic staking tokens"
+    that work like normal, but are removed from the "totalSupply" query via offet.
+  * Fork `x/staking` to allow such synthetic delegations that don't need tokens.
+    This is a hard lift, but would allow custom logic, like counting those tokens
+    in tendermint voting power, but exclude them from `x/gov`, and decide on some
+    reducing factor for their rewards.
+* How to cleanly define limits for the providing chains on how much power they can
+  have on the consuming chain? We start with a fixed number (# of JUNO), but better
+  to do something like "max 10% of total staked tokens".
+* Ensure a minimum voting power for the local stake. If we let 3 chains each use up to 30%
+  of the voting power, and they all stake to the max, then we only have 10% of the power locally.
+  We can set a minimum to say 40% local, and if all remote chains stake to the max, their
+  relative powers are reduced proportionally to ensure this local minimum stake.
+* How to normalize the token values? If we stake 2 million $OSMO, we need to convert that
+  to the same $$ value of $JUNO before using it to calculate staking power on the Juno chain.
+* How to properly handle slashing, especially how a slashing on JUNO triggers a slash on OSMO,
+  which should then reduce the voting power of the correlated validators on STARS
+  (that was based on the same OSMO stake). This is a bit tricky... TODO: Jake
+* Desired reward payout mechanism. For MVP, we treat this as a normal delegator and
+  send the tokens back to the provider chain to be distributed. But maybe we calculate
+  rewards in another way, especially when we modify `x/staking`.
