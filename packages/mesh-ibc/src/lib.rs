@@ -1,7 +1,10 @@
+mod ack;
 mod checks;
+mod ibc_msg;
 
 use cosmwasm_std::IbcOrder;
 
+pub use crate::ack::StdAck;
 pub use crate::checks::{check_order, check_version, MeshSecurityError};
 
 pub const IBC_APP_VERSION: &str = "mesh-security-v0.1";
