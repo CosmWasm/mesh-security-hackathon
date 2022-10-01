@@ -16,7 +16,7 @@ to be resolved before we can use this in production.
 * `mesh-consumer` - an IBC-enabled contract that receives messages from `ibc-provider` and
   communicates with `meta-staking` to update the local delegations / validator power
 
-## Overview
+## Overview for Users
 
 High Level: You connect Osmosis to Juno and Juno to Osmosis. We will only look at one side
 of this, but each chain is able to be both a consumer and producer at the same time.
@@ -62,7 +62,26 @@ If you put in eg 1000 OSMO, but then provide 700, 500, and 300 to various provid
 you can pull out 300 OSMO from the ILP. Once you successfully release the claim on the
 provider with 700, then you can pull out another 200 OSMO.
 
+## Overview for Installing
 
+1. Deploy the contracts to Osmosis and Juno
+2. `x/gov` on Juno will tell the "Osmosis consumer contract" which `(connectionId, portId)` to trust
+3. `x/gov` will provide the "Osmosis consumer contract" with some JUNO tokens with which it can later delegate
+   (This is a known hack... we discuss improvement below).
+4. A relayer connects the two contracts, the consumer contract ensures that the channel is made
+   from the authorized `(connectionId, portId)` or rejects it in the channel handshake. It also
+   ensures only one channel exists at a time.
+5. Once the trusted connection is established and the consumer contract has been granted sufficient
+   delegation power, then the user flow above can be used.
 
+## Features to add
+
+These are well-defined but removed from the MVP for simplicity. We can add them later.
+
+* ILP must also allow local staking, and tie into the meta-staking contract to use that
+  same stake to provide security on the home chain.
 
 ## Open Questions
+
+These are unclear and need to be discussed and resolved further.
+
