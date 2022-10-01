@@ -36,12 +36,12 @@ pub fn ibc_channel_open(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_channel_connect(
-    deps: DepsMut,
-    env: Env,
+    _deps: DepsMut,
+    _env: Env,
     msg: IbcChannelConnectMsg,
 ) -> StdResult<IbcBasicResponse> {
     let channel = msg.channel();
-    let channel_id = &channel.endpoint.channel_id;
+    let _channel_id = &channel.endpoint.channel_id;
 
     // TODO: add logic here
 
