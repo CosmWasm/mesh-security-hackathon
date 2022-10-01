@@ -1,7 +1,23 @@
 [workspace]
 members = ["packages/*", "contracts/*"]
 
+[profile.release.package.mesh-consumer]
+codegen-units = 1
+incremental = false
+
 [profile.release.package.mesh-ilp]
+codegen-units = 1
+incremental = false
+
+[profile.release.package.mesh-provider]
+codegen-units = 1
+incremental = false
+
+[profile.release.package.mesh-slasher]
+codegen-units = 1
+incremental = false
+
+[profile.release.package.meta-staking]
 codegen-units = 1
 incremental = false
 
