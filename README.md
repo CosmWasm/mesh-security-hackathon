@@ -13,9 +13,11 @@ to be resolved before we can use this in production.
 * `ilp` - an "Illiquidity Pool" contract that locks tokens and allows lockers to issue multiple claims
   to other consumers, who can all slash that stake and eventually release their claim
 * `mesh-provider` - an IBC-enabled contract that issues claims on an ILP and speaks IBC to a consumer. It
-  can submit slashes to the ILP contract
+  is responsible for submitting slashes it receives from the `slasher` to the `ilp` contract.
 * `mesh-consumer` - an IBC-enabled contract that receives messages from `ibc-provider` and
   communicates with `meta-staking` to update the local delegations / validator power
+* `slasher` - a contract that is authorized by the `mesh-provider` to submit slashes to it. There can
+  be many types of slasher contracts (for different types of evidenses of misbehaviors)
 
 ## Overview for Users
 
@@ -32,7 +34,7 @@ Cross-staking:
 2. User can cross-stake those tokens to a Juno `mesh-provider` contract (on Osmosis), specifying how many of their 
    tokens to cross-stake and to which validator
 3. The Osmosis `mesh-consumer` contract (on Juno) receives a message from the counterparty `mesh-provider` contract
-   and updates the stake in the `meta-staking` contract.
+   and updates the stake in the `meta-staking` contract (on Juno).
 4. The `meta-staking` contract checks the values and updates it's delegations to `x/staking` accordingly. (The
    meta-staking contract is assumed to have enough JUNO tokens to do the delegations. How it gets that JUNO is
    out of scope.)
@@ -48,25 +50,24 @@ Claiming Rewards:
 
 Unstaking:
 
-1. A user unstakes their tokens from the `mesh-provider` contract (on Osmosis)
+1. A user submits a request to unstake their tokens from the `mesh-provider` contract (on Osmosis)
 2. We update the local distribution info to reflect the new amount of tokens staked
-3. This sends a message to the Osmosis consumer contract, which updates the `meta-staking` contract
+3. This sends a message to the `mesh-consumer` contract (on Juno), which updates the Juno `meta-staking` contract
    to remove the delegation.
-4. After the unbonding period has passed (eg. 2 weeks, 4 weeks) the `meta-staking` contract
-   informs the Osmosis consumer contract that the tokens are available to be withdrawn.
-5. The Osmosis consumer contract sends a message to the Juno provider contract that the stake is unbonded.
-6. The Juno provider contract sends a message to the Osmosis ILP contract to release the claims.
+4. The `mesh-provider` contract (on Osmosis) gets the unbonding period for this cross stake by querying
+   the `slasher` contract
+5. After the unbonding period has passed (eg. 2 weeks, 4 weeks) the `mesh-provider` contract
+   informs the `ilp` contract that it removes its claim.
+6. If the user's stake in the `ilp` contract has not more claims on it, they can withdraw their stake.
 
 Slashing:
 
-1. A slashing event occurs for a validator on the consumer chain (Juno)
-2. Someone calls a method to submit evidence on the Osmosis `mesh-consumer` contract
-3. The `mesh-consumer` contract veries that a slashing event has indeed occurred on the Juno chain and fires off 
-   an IBC packet to the `mesh-provider` contract on the Osmosis chain containing information about the slashing
-   event.
-4. The `mesh-provider` updates the claims of everyone delegating to the offending validator. Tokens are unbonded
+1. Someone calls a method to submit evidence of Juno misbehavior on the `slasher` contract (on Osmosis).
+2. The `slasher` contract verifies that a slashing event has indeed occured and makes a contract call to the
+   `mesh-provider` contract with the amount to slash.
+3. The `mesh-provider` updates the `ilp` stakes of everyone delegating to the offending validator. Tokens are unbonded
    and scheduled to be burned.
-5. `mesh-provider` sends IBC packet updates to other chains about the new voting power.
+4. `mesh-provider` sends IBC packet updates to the `mesh-consumer`s on all other chains about the new voting power.
 
 Claiming ILP tokens:
 
