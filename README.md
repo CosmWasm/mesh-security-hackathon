@@ -76,8 +76,8 @@ provider with 700, then you can pull out another 200 OSMO.
 ## Overview for Installing
 
 1. Deploy the contracts to Osmosis and Juno
-2. `x/gov` on Juno will tell the "Osmosis consumer contract" which `(connectionId, portId)` to trust
-3. `x/gov` will provide the "Osmosis consumer contract" with some JUNO tokens with which it can later delegate
+2. Juno `x/gov` will tell the "Osmosis consumer contract" which `(connectionId, portId)` to trust
+3. Juno `x/gov` will provide the "Osmosis consumer contract" with some JUNO tokens with which it can later delegate
    (This is a known hack... we discuss improvement below).
 4. A relayer connects the two contracts, the consumer contract ensures that the channel is made
    from the authorized `(connectionId, portId)` or rejects it in the channel handshake. It also
@@ -114,7 +114,11 @@ These are unclear and need to be discussed and resolved further.
   to the same $$ value of $JUNO before using it to calculate staking power on the Juno chain.
 * How to properly handle slashing, especially how a slashing on JUNO triggers a slash on OSMO,
   which should then reduce the voting power of the correlated validators on STARS
-  (that was based on the same OSMO stake). This is a bit tricky... TODO: Jake
+  (that was based on the same OSMO stake). This is a bit tricky, IBC messages could be sent out
+  to all consumer chains, but there could be performance implications for this.
 * Desired reward payout mechanism. For MVP, we treat this as a normal delegator and
   send the tokens back to the provider chain to be distributed. But maybe we calculate
   rewards in another way, especially when we modify `x/staking`.
+* How to improve installation UX? Ideally, when the consumer chain votes to instantiate
+  mesh security with another chain, all contracts are deployed and configured in one governance
+  prop.
