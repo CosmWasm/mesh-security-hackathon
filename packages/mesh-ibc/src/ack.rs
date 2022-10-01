@@ -1,14 +1,12 @@
-use schemars::JsonSchema;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use cosmwasm_schema::cw_serde;
+use serde::{de::DeserializeOwned, Serialize};
 
 use cosmwasm_std::{from_slice, to_binary, Binary};
 
 /// This is a generic ICS acknowledgement format.
 /// Proto defined here: https://github.com/cosmos/cosmos-sdk/blob/v0.42.0/proto/ibc/core/channel/v1/channel.proto#L141-L147
 /// If ibc_receive_packet returns Err(), then x/wasm runtime will rollback the state and return an error message in this format
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum StdAck {
     Result(Binary),
     Error(String),
