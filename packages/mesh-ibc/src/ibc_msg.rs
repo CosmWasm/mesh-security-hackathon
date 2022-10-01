@@ -1,49 +1,73 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{from_slice, to_binary, Binary, Coin, CosmosMsg, Empty, QueryRequest};
+use cosmwasm_std::Uint128;
 
-/// This is the message we send over the IBC channel
+/// These are messages sent from the provider to the consumer
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum PacketMsg {
-    Dispatch {
-        sender: String,
-        msgs: Vec<CosmosMsg>,
-        callback_id: Option<String>,
+pub enum ProviderMsg {
+    /// Returns the current validator set. The first time this is called, it will
+    /// initiate a stream of `UpdateValidator` messages to be sent through the channel.
+    ListValidators {},
+    Stake {
+        /// How much to stake to which validator
+        validators: Vec<ValidatorAmount>,
+        /// A unique key for this request set by the caller, to be used to
+        /// properly handle ack and timeout messages
+        key: String,
     },
-    IbcQuery {
-        sender: String,
-        msgs: Vec<QueryRequest<Empty>>,
-        callback_id: Option<String>,
+    Unstake {
+        /// How much to unstake from which validator
+        validators: Vec<ValidatorAmount>,
+        /// A unique key for this request set by the caller, to be used to
+        /// properly handle ack and timeout messages
+        key: String,
     },
-    WhoAmI {},
-    Balances {},
 }
 
-/// Return the data field for each message
+/// These are messages sent from the consumer to the provider
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct DispatchResponse {
-    pub results: Vec<Binary>,
+#[serde(rename_all = "snake_case")]
+pub enum ConsumerMsg {
+    /// Shows a diffs of valid addresses to stake to, based on changes in the active set.
+    /// Calling ListValidators and adding every UpdateValidators call will gives you the
+    /// full set of current validators that can be staked to.
+    UpdateValidators {
+        added: Vec<String>,
+        removed: Vec<String>,
+    },
+    Rewards {
+        // TODO: what info do we sent??
+    },
 }
 
-/// Return the data field for each message
+/// Simple struct with a validator and an amount used a few places.
+/// denom is defined in the channel, doesn't need to be every message.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct IbcQueryResponse {
-    pub results: Vec<Binary>,
+pub struct ValidatorAmount {
+    pub validator: String,
+    pub amount: Uint128,
 }
 
-/// This is the success response we send on ack for PacketMsg::WhoAmI.
-/// Return the caller's account address on the remote chain
+/// List the current validator set.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct WhoAmIResponse {
-    pub account: String,
+pub struct ListValidatorsResponse {
+    pub validators: Vec<String>,
 }
 
-/// This is the success response we send on ack for PacketMsg::Balance.
-/// Just acknowledge success or error
+/// TODO: any data we want when incrementing stake
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct BalancesResponse {
-    pub account: String,
-    pub balances: Vec<Coin>,
-}
+pub struct StakeResponse {}
+
+/// TODO: any data we want when decrementing stake
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct UnstakeResponse {}
+
+/// This is an event stream, doesn't ever get a response, but we include it here for clarity
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct UpdateValidatorsResponse {}
+
+/// TODO: any data we want after delivering rewards
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct RewardsResponse {}
