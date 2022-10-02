@@ -146,7 +146,7 @@ impl Suite {
         self.app.execute_contract(
             Addr::unchecked(executor),
             self.mock_contract.clone(),
-            &ExecuteMsg::ReleaseClaim {
+            &super::mock_grantee::ExecuteMsg::Release {
                 owner: executor.to_string(),
                 amount: amount.into(),
             },
@@ -158,7 +158,7 @@ impl Suite {
         self.app.execute_contract(
             Addr::unchecked(executor),
             self.mock_contract.clone(),
-            &ExecuteMsg::SlashClaim {
+            &super::mock_grantee::ExecuteMsg::Slash {
                 owner: executor.to_string(),
                 amount: amount.into(),
             },
