@@ -48,6 +48,7 @@ pub enum ExecuteMsg {
         amount: Uint128,
         validator: String,
     },
+    // TODO: add some way to slash a claim if a lein was slashed somewhere else?
 }
 
 #[cw_serde]

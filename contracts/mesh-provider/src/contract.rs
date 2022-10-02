@@ -78,6 +78,7 @@ pub fn execute(
             percentage,
             force_unbond,
         } => execute_slash(deps, info, validator, percentage, force_unbond),
+        _ => unimplemented!(),
     }
 }
 
@@ -99,6 +100,7 @@ pub fn execute_slash(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        _ => unimplemented!(),
     }
 }
 

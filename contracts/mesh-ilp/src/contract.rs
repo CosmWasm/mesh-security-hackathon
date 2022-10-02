@@ -1,10 +1,11 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128};
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::state::{Config, CONFIG};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-ilp";
@@ -15,9 +16,12 @@ pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    let cfg = Config { denom: msg.denom };
+    CONFIG.save(deps.storage, &cfg)?;
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
@@ -26,12 +30,64 @@ pub fn instantiate(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
-    _msg: ExecuteMsg,
+    info: MessageInfo,
+    msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    unimplemented!();
+    match msg {
+        ExecuteMsg::Bond {} => execute_bond(deps, info),
+        ExecuteMsg::Unbond { amount } => execute_unbond(deps, info, amount),
+        ExecuteMsg::GrantClaim {
+            leinholder,
+            amount,
+            validator,
+        } => execute_grant_claim(deps, info, leinholder, amount, validator),
+        ExecuteMsg::ReleaseClaim { owner, amount } => {
+            execute_release_claim(deps, info, owner, amount)
+        }
+        ExecuteMsg::SlashClaim { owner, amount } => execute_slash_claim(deps, info, owner, amount),
+    }
+}
+
+pub fn execute_bond(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    unimplemented!()
+}
+
+pub fn execute_unbond(
+    deps: DepsMut,
+    info: MessageInfo,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    unimplemented!()
+}
+
+pub fn execute_grant_claim(
+    deps: DepsMut,
+    info: MessageInfo,
+    leinholder: String,
+    amount: Uint128,
+    validator: String,
+) -> Result<Response, ContractError> {
+    unimplemented!()
+}
+
+pub fn execute_release_claim(
+    deps: DepsMut,
+    info: MessageInfo,
+    owner: String,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    unimplemented!()
+}
+
+pub fn execute_slash_claim(
+    deps: DepsMut,
+    info: MessageInfo,
+    owner: String,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    unimplemented!()
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
