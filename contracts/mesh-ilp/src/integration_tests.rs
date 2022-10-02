@@ -38,7 +38,7 @@ mod tests {
         let mut app = mock_app();
         let cw_template_id = app.store_code(contract_template());
 
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg { denom: NATIVE_DENOM.to_string()};
         let cw_template_contract_addr = app
             .instantiate_contract(
                 cw_template_id,
@@ -53,5 +53,10 @@ mod tests {
         let cw_template_contract = MeshIlpContract(cw_template_contract_addr);
 
         (app, cw_template_contract)
+    }
+
+    #[test]
+    fn safe_init() {
+        let (_app, _contract) = proper_instantiate();
     }
 }
