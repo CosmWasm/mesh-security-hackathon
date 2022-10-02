@@ -1,4 +1,5 @@
 import { CosmWasmSigner, Link, testutils } from "@confio/relayer";
+import { toBinary } from "@cosmjs/cosmwasm-stargate";
 import { assert } from "@cosmjs/utils";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
@@ -37,7 +38,7 @@ interface SetupInfo {
   osmoClient: CosmWasmSigner;
   wasmMeshConsumer: string;
   osmoMeshProvider: string;
-  osmoMeshSlasher: string;
+  // osmoMeshSlasher: string;
   osmoMetaStaking: string;
   osmoMeshIlp: string;
   meshConsumerPort: string;
@@ -59,6 +60,12 @@ async function demoSetup(): Promise<SetupInfo> {
   const initMeshProvider = {
     consumer: {
       connection_id: link.endB.connectionID,
+    },
+    slasher: {
+      code_id: osmosisIds.mesh_slasher,
+      msg: toBinary({
+        owner: osmoClient.senderAddress,
+      }),
     },
   };
   const { contractAddress: osmoMeshProvider } = await osmoClient.sign.instantiate(
@@ -99,17 +106,7 @@ async function demoSetup(): Promise<SetupInfo> {
     "auto"
   );
 
-  // instantiate mesh_slasher on osmosis
-  const initMeshSlasher = {};
-  const { contractAddress: osmoMeshSlasher } = await osmoClient.sign.instantiate(
-    osmoClient.senderAddress,
-    osmosisIds.mesh_slasher,
-    initMeshSlasher,
-    "mesh_slasher contract",
-    "auto"
-  );
-
-  // instantiate mesh_slasher on osmosis
+  // instantiate meta_staking on osmosis
   const initMetaStaking = {};
   const { contractAddress: osmoMetaStaking } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -135,7 +132,7 @@ async function demoSetup(): Promise<SetupInfo> {
     wasmMeshConsumer,
     osmoMeshProvider,
     osmoMeshIlp,
-    osmoMeshSlasher,
+    // osmoMeshSlasher,
     osmoMetaStaking,
     meshConsumerPort,
     meshProviderPort,
@@ -156,7 +153,7 @@ test.serial("Fails to connect a second time", async (t) => {
   try {
     await link.createChannel("A", meshConsumerPort, meshProviderPort, Order.ORDER_UNORDERED, IbcVersion);
   } catch (e) {
-    return t.assert(true);
+    return t.assert((e as Error).message.includes("Contract already has a bound channel"));
   }
   throw Error("Should fail to connect a second time");
 });
@@ -171,6 +168,12 @@ test.serial("fail if connect from different connect or port", async (t) => {
   const initMeshProvider = {
     consumer: {
       connection_id: link.endB.connectionID,
+    },
+    slasher: {
+      code_id: osmosisIds.mesh_slasher,
+      msg: toBinary({
+        owner: osmoClient.senderAddress,
+      }),
     },
   };
   const { contractAddress: osmoMeshProvider } = await osmoClient.sign.instantiate(
@@ -187,7 +190,7 @@ test.serial("fail if connect from different connect or port", async (t) => {
   const wasmClient = await setupWasmClient();
   const initMeshConsumer = {
     provider: {
-      port_id: meshProviderPort,
+      port_id: "connection-123456",
       connection_id: link.endA.connectionID,
     },
   };
@@ -203,9 +206,9 @@ test.serial("fail if connect from different connect or port", async (t) => {
 
   // Create connection with a different port
   try {
-    await link.createChannel("A", meshConsumerPort, "1", Order.ORDER_UNORDERED, IbcVersion);
+    await link.createChannel("A", meshConsumerPort, meshProviderPort, Order.ORDER_UNORDERED, IbcVersion);
   } catch (e) {
-    return t.assert(true);
+    return t.assert((e as Error).message.includes("Unauthorized"));
   }
   throw Error("Should fail to when connecting with wrong port");
 });
