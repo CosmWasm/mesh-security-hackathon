@@ -1,11 +1,13 @@
-use cosmwasm_schema::write_api;
+// use cosmwasm_schema::write_api;
 
-use mesh_slasher::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+// use mesh_slasher::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 fn main() {
-    write_api! {
-        instantiate: InstantiateMsg,
-        execute: ExecuteMsg,
-        query: QueryMsg,
-    }
+    //// TODO re-enable writing schema, fails with empty query message
+    //// ERR: the trait `QueryResponses` is not implemented for `QueryMsg`
+    // write_api! {
+    //     instantiate: InstantiateMsg,
+    //     execute: ExecuteMsg,
+    //     query: QueryMsg,
+    // }
 }
