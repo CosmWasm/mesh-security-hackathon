@@ -127,16 +127,47 @@ impl Suite {
         )
     }
 
-    //     /// This gives a claim on my balance to leinholder, granting it to a given validator
-    //     GrantClaim {
-    //     leinholder: String,
-    //     amount: Uint128,
-    //     validator: String,
-    // },
-    // /// This releases a previously received claim without slashing it
-    // ReleaseClaim { owner: String, amount: Uint128 },
-    // /// This slashes a previously provided claim
-    // SlashClaim { owner: String, amount: Uint128 },
+    pub fn grant_claim(
+        &mut self,
+        executor: &str,
+        amount: u128,
+        validator: &str,
+    ) -> AnyResult<AppResponse> {
+        self.app.execute_contract(
+            Addr::unchecked(executor),
+            self.ilp_contract.clone(),
+            &ExecuteMsg::GrantClaim {
+                leinholder: self.mock_contract.to_string(),
+                amount: amount.into(),
+                validator: validator.to_string(),
+            },
+            &[],
+        )
+    }
+
+    pub fn release_claim(&mut self, executor: &str, amount: u128) -> AnyResult<AppResponse> {
+        self.app.execute_contract(
+            Addr::unchecked(executor),
+            self.mock_contract.clone(),
+            &ExecuteMsg::ReleaseClaim {
+                owner: executor.to_string(),
+                amount: amount.into(),
+            },
+            &[],
+        )
+    }
+
+    pub fn slash_claim(&mut self, executor: &str, amount: u128) -> AnyResult<AppResponse> {
+        self.app.execute_contract(
+            Addr::unchecked(executor),
+            self.mock_contract.clone(),
+            &ExecuteMsg::SlashClaim {
+                owner: executor.to_string(),
+                amount: amount.into(),
+            },
+            &[],
+        )
+    }
 
     pub fn ilp_balance(&self, account: impl Into<String>) -> StdResult<BalanceResponse> {
         self.app.wrap().query_wasm_smart(
