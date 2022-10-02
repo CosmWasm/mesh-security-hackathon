@@ -61,6 +61,8 @@ mod tests {
                 })
                 .unwrap(),
             },
+            ilp: "ilp_contract".to_string(),
+            unbonding_period: 86400 * 14,
         };
         let provider_addr = app
             .instantiate_contract(

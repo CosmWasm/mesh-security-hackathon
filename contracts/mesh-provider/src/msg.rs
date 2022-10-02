@@ -1,13 +1,17 @@
 use serde::Serialize;
 
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{to_binary, Binary, Decimal, StdResult};
+use cosmwasm_std::{to_binary, Binary, Decimal, StdResult, Uint128};
 
 #[cw_serde]
 pub struct InstantiateMsg {
     pub consumer: ConsumerInfo,
-    // data for the slasher to instantiate
+    /// data to instantiate the slasher
     pub slasher: SlasherInfo,
+    /// Address of ILP contract from which we accept ReceiveClaim
+    pub ilp: String,
+    /// Unbonding period of the remote chain in seconds
+    pub unbonding_period: u64,
 }
 
 #[cw_serde]
@@ -33,7 +37,22 @@ impl SlasherInfo {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    Slash { validator: String, amount: Decimal },
+    Slash {
+        /// which validator to slash
+        validator: String,
+        /// what percentage we should slash all stakers
+        percentage: Decimal,
+        /// do we forcibly unbond this validator on the provider side,
+        /// regardless of the behavior of the consumer?
+        force_unbond: bool,
+    },
+    /// This gives the receiver access to slash part up to this much claim
+    ReceiveClaim {
+        owner: String,
+        amount: Uint128,
+        validator: String,
+    },
+    // TODO: add some way to slash a claim if a lein was slashed somewhere else?
 }
 
 #[cw_serde]
@@ -41,10 +60,26 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     #[returns(ConfigResponse)]
     Config {},
+    /// how much this account has staked where
+    #[returns(AccountResponse)]
+    Account { address: String },
+    /// how much power each validator has received
+    #[returns(ValidatorPowerResponse)]
+    ValidatorPower {},
 }
 
 #[cw_serde]
 pub struct ConfigResponse {
     pub consumer: ConsumerInfo,
     pub slasher: Option<String>,
+}
+
+#[cw_serde]
+pub struct AccountResponse {
+    // TODO
+}
+
+#[cw_serde]
+pub struct ValidatorPowerResponse {
+    // TODO
 }

@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdResult, SubMsg, SubMsgResponse, WasmMsg,
+    StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_instantiate_response_data;
@@ -28,6 +28,8 @@ pub fn instantiate(
     let state = Config {
         consumer: msg.consumer,
         slasher: None,
+        ilp: deps.api.addr_validate(&msg.ilp)?,
+        unbonding_period: msg.unbonding_period,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &state)?;
@@ -73,15 +75,39 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Slash { validator, amount } => execute_slash(deps, info, validator, amount),
+        ExecuteMsg::ReceiveClaim {
+            owner,
+            amount,
+            validator,
+        } => execute_receive_claim(deps, info, owner, amount, validator),
+        ExecuteMsg::Slash {
+            validator,
+            percentage,
+            force_unbond,
+        } => execute_slash(deps, info, validator, percentage, force_unbond),
     }
+}
+
+pub fn execute_receive_claim(
+    deps: DepsMut,
+    info: MessageInfo,
+    _owner: String,
+    _amount: Uint128,
+    _validator: String,
+) -> Result<Response, ContractError> {
+    let cfg = CONFIG.load(deps.storage)?;
+    ensure_eq!(cfg.ilp, info.sender, ContractError::Unauthorized);
+
+    // TODO: implement receipt
+    unimplemented!()
 }
 
 pub fn execute_slash(
     deps: DepsMut,
     info: MessageInfo,
     _validator: String,
-    _amount: Decimal,
+    _percentage: Decimal,
+    _force_unbond: bool,
 ) -> Result<Response, ContractError> {
     let cfg = CONFIG.load(deps.storage)?;
     ensure_eq!(cfg.slasher, Some(info.sender), ContractError::Unauthorized);
@@ -94,6 +120,7 @@ pub fn execute_slash(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        _ => unimplemented!(),
     }
 }
 
@@ -125,6 +152,8 @@ mod tests {
                 code_id: 17,
                 msg: b"{}".into(),
             },
+            ilp: "ilp_contract".to_string(),
+            unbonding_period: 86400 * 14,
         };
         let info = mock_info("creator", &coins(1000, "earth"));
 
