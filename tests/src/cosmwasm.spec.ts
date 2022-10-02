@@ -23,7 +23,7 @@ test.before(async (t) => {
 
   console.debug("Upload contracts to osmosis...");
   const osmosisContracts = {
-    mesh_ilp: "./internal/mesh_ilp.wasm",
+    mesh_lockup: "./internal/mesh_lockup.wasm",
     mesh_provider: "./internal/mesh_provider.wasm",
     mesh_slasher: "./internal/mesh_slasher.wasm",
   };
@@ -40,7 +40,7 @@ interface SetupInfo {
   wasmMetaStaking: string;
   osmoMeshProvider: string;
   osmoMeshSlasher: string;
-  osmoMeshIlp: string;
+  osmoMeshLockup: string;
   meshConsumerPort: string;
   meshProviderPort: string;
   link: Link;
@@ -56,13 +56,13 @@ async function demoSetup(): Promise<SetupInfo> {
   const link = await Link.createWithNewConnections(src, dest);
   const osmoClient = await setupOsmosisClient();
 
-  // instantiate mesh_ilp on osmosis
-  const initMeshIlp = { denom: osmosis.denomStaking };
-  const { contractAddress: osmoMeshIlp } = await osmoClient.sign.instantiate(
+  // instantiate mesh_lockup on osmosis
+  const initMeshLockup = { denom: osmosis.denomStaking };
+  const { contractAddress: osmoMeshLockup } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
-    osmosisIds.mesh_ilp,
-    initMeshIlp,
-    "mesh_ilp contract",
+    osmosisIds.mesh_lockup,
+    initMeshLockup,
+    "mesh_lockup contract",
     "auto"
   );
 
@@ -77,7 +77,7 @@ async function demoSetup(): Promise<SetupInfo> {
         owner: osmoClient.senderAddress,
       }),
     },
-    ilp: osmoMeshIlp,
+    lockup: osmoMeshLockup,
     // TODO: get real number somehow... look at tendermint client queries
     unbonding_period: 86400 * 7,
   };
@@ -137,7 +137,7 @@ async function demoSetup(): Promise<SetupInfo> {
     osmoClient,
     wasmMeshConsumer,
     osmoMeshProvider,
-    osmoMeshIlp,
+    osmoMeshLockup,
     osmoMeshSlasher,
     wasmMetaStaking,
     meshConsumerPort,
@@ -181,7 +181,7 @@ test.serial("fail if connect from different connect or port", async (t) => {
         owner: osmoClient.senderAddress,
       }),
     },
-    ilp: osmoClient.senderAddress,
+    lockup: osmoClient.senderAddress,
     unbonding_period: 86400 * 7,
   };
   const { contractAddress: osmoMeshProvider } = await osmoClient.sign.instantiate(

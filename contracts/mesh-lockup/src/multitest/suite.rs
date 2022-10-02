@@ -7,7 +7,7 @@ use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Exe
 use super::mock_grantee::contract_mock;
 use crate::msg::{BalanceResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 
-pub fn contract_ilp() -> Box<dyn Contract<Empty>> {
+pub fn contract_lockup() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
         crate::contract::execute,
         crate::contract::instantiate,
@@ -47,16 +47,13 @@ impl SuiteBuilder {
 
         let mut app = AppBuilder::new().build(|router, _, storage| {
             for (addr, fund) in funds.into_iter() {
-                router
-                    .bank
-                    .init_balance(storage, &addr, vec![fund])
-                    .unwrap();
+                router.bank.init_balance(storage, addr, vec![fund]).unwrap();
             }
         });
 
         let owner = Addr::unchecked("foobar");
-        let contract_id = app.store_code(contract_ilp());
-        let ilp_contract = app
+        let contract_id = app.store_code(contract_lockup());
+        let lockup_contract = app
             .instantiate_contract(
                 contract_id,
                 owner.clone(),
@@ -64,7 +61,7 @@ impl SuiteBuilder {
                     denom: denom.clone(),
                 },
                 &[],
-                "ilp demo",
+                "lockup demo",
                 None,
             )
             .unwrap();
@@ -73,9 +70,9 @@ impl SuiteBuilder {
         let mock_contract = app
             .instantiate_contract(
                 mock_contract_id,
-                owner.clone(),
+                owner,
                 &super::mock_grantee::InstantiateMsg {
-                    ilp: ilp_contract.to_string(),
+                    lockup: lockup_contract.to_string(),
                 },
                 &[],
                 "mock grantee",
@@ -85,7 +82,7 @@ impl SuiteBuilder {
 
         Suite {
             app,
-            ilp_contract,
+            lockup_contract,
             mock_contract,
             denom,
         }
@@ -97,8 +94,8 @@ impl SuiteBuilder {
 pub struct Suite {
     #[derivative(Debug = "ignore")]
     pub app: App,
-    /// ILP contract address
-    pub ilp_contract: Addr,
+    /// Lockup contract address
+    pub lockup_contract: Addr,
     /// Mock receiver address
     pub mock_contract: Addr,
     /// Denom of tokens which might be distributed by this contract
@@ -110,7 +107,7 @@ impl Suite {
         let funds = coins(amount, &self.denom);
         self.app.execute_contract(
             Addr::unchecked(executor),
-            self.ilp_contract.clone(),
+            self.lockup_contract.clone(),
             &ExecuteMsg::Bond {},
             &funds,
         )
@@ -119,7 +116,7 @@ impl Suite {
     pub fn unbond(&mut self, executor: &str, amount: u128) -> AnyResult<AppResponse> {
         self.app.execute_contract(
             Addr::unchecked(executor),
-            self.ilp_contract.clone(),
+            self.lockup_contract.clone(),
             &ExecuteMsg::Unbond {
                 amount: amount.into(),
             },
@@ -135,7 +132,7 @@ impl Suite {
     ) -> AnyResult<AppResponse> {
         self.app.execute_contract(
             Addr::unchecked(executor),
-            self.ilp_contract.clone(),
+            self.lockup_contract.clone(),
             &ExecuteMsg::GrantClaim {
                 leinholder: self.mock_contract.to_string(),
                 amount: amount.into(),
@@ -149,7 +146,7 @@ impl Suite {
         self.app.execute_contract(
             Addr::unchecked(executor),
             self.mock_contract.clone(),
-            &ExecuteMsg::ReleaseClaim {
+            &super::mock_grantee::ExecuteMsg::Release {
                 owner: executor.to_string(),
                 amount: amount.into(),
             },
@@ -161,7 +158,7 @@ impl Suite {
         self.app.execute_contract(
             Addr::unchecked(executor),
             self.mock_contract.clone(),
-            &ExecuteMsg::SlashClaim {
+            &super::mock_grantee::ExecuteMsg::Slash {
                 owner: executor.to_string(),
                 amount: amount.into(),
             },
@@ -169,9 +166,9 @@ impl Suite {
         )
     }
 
-    pub fn ilp_balance(&self, account: impl Into<String>) -> StdResult<BalanceResponse> {
+    pub fn lockup_balance(&self, account: impl Into<String>) -> StdResult<BalanceResponse> {
         self.app.wrap().query_wasm_smart(
-            self.ilp_contract.clone(),
+            self.lockup_contract.clone(),
             &QueryMsg::Balance {
                 account: account.into(),
             },

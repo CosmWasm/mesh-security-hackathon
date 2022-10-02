@@ -5,7 +5,7 @@ members = ["packages/*", "contracts/*"]
 codegen-units = 1
 incremental = false
 
-[profile.release.package.mesh-ilp]
+[profile.release.package.mesh-lockup]
 codegen-units = 1
 incremental = false
 

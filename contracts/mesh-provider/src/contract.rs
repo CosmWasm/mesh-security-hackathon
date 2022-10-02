@@ -28,7 +28,7 @@ pub fn instantiate(
     let state = Config {
         consumer: msg.consumer,
         slasher: None,
-        ilp: deps.api.addr_validate(&msg.ilp)?,
+        lockup: deps.api.addr_validate(&msg.lockup)?,
         unbonding_period: msg.unbonding_period,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -96,7 +96,7 @@ pub fn execute_receive_claim(
     _validator: String,
 ) -> Result<Response, ContractError> {
     let cfg = CONFIG.load(deps.storage)?;
-    ensure_eq!(cfg.ilp, info.sender, ContractError::Unauthorized);
+    ensure_eq!(cfg.lockup, info.sender, ContractError::Unauthorized);
 
     // TODO: implement receipt
     unimplemented!()
@@ -152,7 +152,7 @@ mod tests {
                 code_id: 17,
                 msg: b"{}".into(),
             },
-            ilp: "ilp_contract".to_string(),
+            lockup: "lockup_contract".to_string(),
             unbonding_period: 86400 * 14,
         };
         let info = mock_info("creator", &coins(1000, "earth"));

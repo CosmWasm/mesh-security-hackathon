@@ -13,7 +13,7 @@ use crate::state::{Config, BALANCES, CONFIG};
 use mesh_apis::ClaimReceiverMsg;
 
 // version info for migration info
-const CONTRACT_NAME: &str = "crates.io:mesh-ilp";
+const CONTRACT_NAME: &str = "crates.io:mesh-lockup";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -56,8 +56,6 @@ pub fn execute(
 }
 
 pub fn execute_bond(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
-    // TODO: ensure the caller is the correct ILP contract (must be set in CONFIG in init)
-
     let denom = CONFIG.load(deps.storage)?.denom;
     let amount = must_pay(&info, &denom)?;
 

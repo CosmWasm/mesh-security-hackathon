@@ -8,8 +8,8 @@ pub struct InstantiateMsg {
     pub consumer: ConsumerInfo,
     /// data to instantiate the slasher
     pub slasher: SlasherInfo,
-    /// Address of ILP contract from which we accept ReceiveClaim
-    pub ilp: String,
+    /// Address of Lockup contract from which we accept ReceiveClaim
+    pub lockup: String,
     /// Unbonding period of the remote chain in seconds
     pub unbonding_period: u64,
 }

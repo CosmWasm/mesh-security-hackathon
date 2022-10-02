@@ -140,7 +140,7 @@ mod tests {
     #[test_case(250_000, &[&[12000, 17000], &[5000, 8000, 1000], &[8000, 22000, 70000]], 150_000; "handles many holders")]
     fn max_from_multiple_clains(bonded: u128, add_claims: &[&[u128]], free: u128) {
         let mut balance = Balance::new(bonded);
-        for (i, claims) in add_claims.into_iter().enumerate() {
+        for (i, claims) in add_claims.iter().enumerate() {
             let leinholder = Addr::unchecked(format! {"Owner {}", i});
             for claim in *claims {
                 balance

@@ -18,7 +18,7 @@ fn bond_and_unbond_same_tokens() {
 
     // query amounts
     assert_eq!(suite.balance(actor).unwrap().u128(), start - bond);
-    let bal = suite.ilp_balance(actor).unwrap();
+    let bal = suite.lockup_balance(actor).unwrap();
     assert_eq!(bal.bonded.u128(), bond);
     assert_eq!(bal.free.u128(), bond);
     assert_eq!(bal.claims.len(), 0);
@@ -29,7 +29,7 @@ fn bond_and_unbond_same_tokens() {
 
     // query amounts
     assert_eq!(suite.balance(actor).unwrap().u128(), start - bond + unbond);
-    let bal = suite.ilp_balance(actor).unwrap();
+    let bal = suite.lockup_balance(actor).unwrap();
     assert_eq!(bal.bonded.u128(), bond - unbond);
     assert_eq!(bal.free.u128(), bond - unbond);
     assert_eq!(bal.claims.len(), 0);
@@ -62,7 +62,7 @@ fn grant_and_release_tokens() {
     assert_eq!(suite.balance(actor).unwrap().u128(), start - grant);
 
     // query amounts
-    let bal = suite.ilp_balance(actor).unwrap();
+    let bal = suite.lockup_balance(actor).unwrap();
     assert_eq!(bal.bonded.u128(), grant);
     assert_eq!(bal.free.u128(), 0);
     assert_eq!(bal.claims.len(), 1);
@@ -75,7 +75,7 @@ fn grant_and_release_tokens() {
     suite.release_claim(actor, release).unwrap();
 
     // query amounts
-    let bal = suite.ilp_balance(actor).unwrap();
+    let bal = suite.lockup_balance(actor).unwrap();
     assert_eq!(bal.bonded.u128(), grant);
     assert_eq!(bal.free.u128(), release);
     assert_eq!(bal.claims.len(), 1);
@@ -105,14 +105,14 @@ fn slashing_tokens() {
     suite.slash_claim(actor, slash).unwrap();
 
     // query amounts
-    let bal = suite.ilp_balance(actor).unwrap();
+    let bal = suite.lockup_balance(actor).unwrap();
     assert_eq!(bal.bonded.u128(), start - slash);
     assert_eq!(bal.free.u128(), start - grant);
     assert_eq!(bal.claims.len(), 1);
 
     // release rest and unbond
     suite.release_claim(actor, release).unwrap();
-    let bal = suite.ilp_balance(actor).unwrap();
+    let bal = suite.lockup_balance(actor).unwrap();
     assert_eq!(bal.bonded.u128(), start - slash);
     assert_eq!(bal.free.u128(), start - slash);
     assert_eq!(bal.claims.len(), 0);

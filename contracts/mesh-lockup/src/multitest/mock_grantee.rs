@@ -14,8 +14,8 @@ pub fn contract_mock() -> Box<dyn Contract<Empty>> {
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    /// Address of ILP contract from which we accept ReceiveClaim
-    pub ilp: String,
+    /// Address of Lockup contract from which we accept ReceiveClaim
+    pub lockup: String,
 }
 
 #[cw_serde]
@@ -27,9 +27,9 @@ pub enum ExecuteMsg {
         validator: String,
     },
     /// This releases a previously received claim without slashing it
-    ReleaseClaim { owner: String, amount: Uint128 },
+    Release { owner: String, amount: Uint128 },
     /// This slashes a previously provided claim
-    SlashClaim { owner: String, amount: Uint128 },
+    Slash { owner: String, amount: Uint128 },
 }
 
 #[cw_serde]
@@ -37,7 +37,7 @@ pub enum QueryMsg {
     DoNothing {},
 }
 
-const ILP: Item<Addr> = Item::new("ilp");
+const LOCKUP: Item<Addr> = Item::new("lockup");
 
 pub fn instantiate(
     deps: DepsMut,
@@ -45,8 +45,8 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    let addr = deps.api.addr_validate(&msg.ilp)?;
-    ILP.save(deps.storage, &addr)?;
+    let addr = deps.api.addr_validate(&msg.lockup)?;
+    LOCKUP.save(deps.storage, &addr)?;
     Ok(Response::new())
 }
 
@@ -58,17 +58,17 @@ pub fn execute(
 ) -> StdResult<Response> {
     match msg {
         ExecuteMsg::ReceiveClaim { .. } => Ok(Response::new()),
-        ExecuteMsg::ReleaseClaim { owner, amount } => {
+        ExecuteMsg::Release { owner, amount } => {
             let msg = WasmMsg::Execute {
-                contract_addr: ILP.load(deps.storage)?.into_string(),
+                contract_addr: LOCKUP.load(deps.storage)?.into_string(),
                 msg: to_binary(&crate::msg::ExecuteMsg::ReleaseClaim { owner, amount })?,
                 funds: vec![],
             };
             Ok(Response::new().add_message(msg))
         }
-        ExecuteMsg::SlashClaim { owner, amount } => {
+        ExecuteMsg::Slash { owner, amount } => {
             let msg = WasmMsg::Execute {
-                contract_addr: ILP.load(deps.storage)?.into_string(),
+                contract_addr: LOCKUP.load(deps.storage)?.into_string(),
                 msg: to_binary(&crate::msg::ExecuteMsg::SlashClaim { owner, amount })?,
                 funds: vec![],
             };
