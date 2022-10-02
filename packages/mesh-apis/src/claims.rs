@@ -1,10 +1,15 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Decimal, Uint128};
+use cosmwasm_std::{Binary, Decimal, Uint128};
 
 #[cw_serde]
 pub enum ReceiveClaimMsg {
     /// This gives the receiver access to slash part up to this much claim
-    ReceiveClaim { owner: String, amount: Uint128 },
+    /// TODO: shall we limit Binary to a small subset, as we may need to add more logic here
+    ReceiveClaim {
+        owner: String,
+        amount: Uint128,
+        msg: Binary,
+    },
 }
 
 #[cw_serde]
