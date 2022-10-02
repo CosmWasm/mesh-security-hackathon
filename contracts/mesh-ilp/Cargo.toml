@@ -42,3 +42,6 @@ thiserror = { version = "1.0.31" }
 
 [dev-dependencies]
 cw-multi-test = "0.15.1"
+test-case = "2.1.0"
+derivative = "2"
+anyhow = "1"
