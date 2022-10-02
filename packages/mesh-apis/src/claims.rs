@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Binary, Decimal, Uint128};
 
 #[cw_serde]
-pub enum ReceiveClaimMsg {
+pub enum ClaimReceiverMsg {
     /// This gives the receiver access to slash part up to this much claim
     /// TODO: shall we limit Binary to a small subset, as we may need to add more logic here
     ReceiveClaim {
@@ -13,7 +13,7 @@ pub enum ReceiveClaimMsg {
 }
 
 #[cw_serde]
-pub enum ProvideClaimMsg {
+pub enum ClaimProviderMsg {
     /// This releases a previously received claim without slashing it
     ReleaseClaim {
         owner: String,
@@ -21,6 +21,6 @@ pub enum ProvideClaimMsg {
     },
     SlashClaim {
         owner: String,
-        percentage: Decimal,
+        amount: Uint128,
     },
 }
