@@ -5,7 +5,7 @@ use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, GetCountResponse, InstantiateMsg, QueryMsg};
-use crate::state::{State, STATE};
+use crate::state::{Config, CONFIG};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-ilp";
@@ -18,12 +18,13 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    let state = State {
+    let state = Config {
         count: msg.count,
         owner: info.sender.clone(),
+        consumer: msg.consumer,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    STATE.save(deps.storage, &state)?;
+    CONFIG.save(deps.storage, &state)?;
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
@@ -48,7 +49,7 @@ pub mod execute {
     use super::*;
 
     pub fn increment(deps: DepsMut) -> Result<Response, ContractError> {
-        STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        CONFIG.update(deps.storage, |mut state| -> Result<_, ContractError> {
             state.count += 1;
             Ok(state)
         })?;
@@ -57,7 +58,7 @@ pub mod execute {
     }
 
     pub fn reset(deps: DepsMut, info: MessageInfo, count: i32) -> Result<Response, ContractError> {
-        STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        CONFIG.update(deps.storage, |mut state| -> Result<_, ContractError> {
             if info.sender != state.owner {
                 return Err(ContractError::Unauthorized {});
             }
@@ -79,7 +80,7 @@ pub mod query {
     use super::*;
 
     pub fn count(deps: Deps) -> StdResult<GetCountResponse> {
-        let state = STATE.load(deps.storage)?;
+        let state = CONFIG.load(deps.storage)?;
         Ok(GetCountResponse { count: state.count })
     }
 }
@@ -87,14 +88,24 @@ pub mod query {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::msg::ConsumerInfo;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{coins, from_binary};
+
+    fn consumer_info() -> ConsumerInfo {
+        ConsumerInfo {
+            connection_id: "conn-2".to_string(),
+        }
+    }
 
     #[test]
     fn proper_initialization() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg { count: 17 };
+        let msg = InstantiateMsg {
+            count: 17,
+            consumer: consumer_info(),
+        };
         let info = mock_info("creator", &coins(1000, "earth"));
 
         // we can just call .unwrap() to assert this was a success
@@ -111,7 +122,10 @@ mod tests {
     fn increment() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg { count: 17 };
+        let msg = InstantiateMsg {
+            count: 17,
+            consumer: consumer_info(),
+        };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -130,7 +144,10 @@ mod tests {
     fn reset() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg { count: 17 };
+        let msg = InstantiateMsg {
+            count: 17,
+            consumer: consumer_info(),
+        };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 

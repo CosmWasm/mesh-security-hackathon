@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::helpers::CwTemplateContract;
-    use crate::msg::InstantiateMsg;
+    use crate::msg::{InstantiateMsg, ProviderInfo};
     use cosmwasm_std::{Addr, Coin, Empty, Uint128};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
@@ -17,6 +17,13 @@ mod tests {
     const USER: &str = "USER";
     const ADMIN: &str = "ADMIN";
     const NATIVE_DENOM: &str = "denom";
+
+    fn provider_info() -> ProviderInfo {
+        ProviderInfo {
+            port_id: "port-1".to_string(),
+            connection_id: "conn-2".to_string(),
+        }
+    }
 
     fn mock_app() -> App {
         AppBuilder::new().build(|router, _, storage| {
@@ -38,7 +45,10 @@ mod tests {
         let mut app = mock_app();
         let cw_template_id = app.store_code(contract_template());
 
-        let msg = InstantiateMsg { count: 1i32 };
+        let msg = InstantiateMsg {
+            count: 1i32,
+            provider: provider_info(),
+        };
         let cw_template_contract_addr = app
             .instantiate_contract(
                 cw_template_id,
