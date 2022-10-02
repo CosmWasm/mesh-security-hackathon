@@ -1,11 +1,14 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128};
+use cosmwasm_std::{
+    BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+};
 use cw2::set_contract_version;
+use cw_utils::{must_pay, nonpayable};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, CONFIG};
+use crate::state::{Config, BALANCES, CONFIG};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-ilp";
@@ -51,7 +54,16 @@ pub fn execute(
 }
 
 pub fn execute_bond(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
-    unimplemented!()
+    let denom = CONFIG.load(deps.storage)?.denom;
+    let amount = must_pay(&info, &denom)?;
+
+    BALANCES.update::<_, ContractError>(deps.storage, &info.sender, |old| {
+        let mut old = old.unwrap_or_default();
+        old.bonded += amount;
+        Ok(old)
+    })?;
+
+    Ok(Response::new())
 }
 
 pub fn execute_unbond(
@@ -59,7 +71,27 @@ pub fn execute_unbond(
     info: MessageInfo,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
-    unimplemented!()
+    nonpayable(&info)?;
+
+    BALANCES.update::<_, ContractError>(deps.storage, &info.sender, |old| {
+        // if they have nothing, we error (can we make it cleaner??)
+        let mut acct = old.unwrap();
+        let free = acct.free();
+        if free < amount {
+            return Err(ContractError::ClaimsLocked(free));
+        }
+        acct.bonded -= amount;
+        Ok(acct)
+    })?;
+
+    let denom = CONFIG.load(deps.storage)?.denom;
+
+    let msg = BankMsg::Send {
+        to_address: info.sender.to_string(),
+        amount: vec![Coin { denom, amount }],
+    };
+
+    Ok(Response::new().add_message(msg))
 }
 
 pub fn execute_grant_claim(
