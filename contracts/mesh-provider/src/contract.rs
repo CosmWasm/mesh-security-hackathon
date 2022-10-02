@@ -73,7 +73,11 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Slash { validator, amount } => execute_slash(deps, info, validator, amount),
+        ExecuteMsg::Slash {
+            validator,
+            percentage,
+            force_unbond,
+        } => execute_slash(deps, info, validator, percentage, force_unbond),
     }
 }
 
@@ -81,7 +85,8 @@ pub fn execute_slash(
     deps: DepsMut,
     info: MessageInfo,
     _validator: String,
-    _amount: Decimal,
+    _percentage: Decimal,
+    _force_unbond: bool,
 ) -> Result<Response, ContractError> {
     let cfg = CONFIG.load(deps.storage)?;
     ensure_eq!(cfg.slasher, Some(info.sender), ContractError::Unauthorized);
