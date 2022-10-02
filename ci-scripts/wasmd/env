@@ -1,0 +1,4 @@
+REPOSITORY="confio/wasm-ci"
+# This should be pinned to the newest version we support
+VERSION="0.27.0"
+CONTAINER_NAME="wasmd"

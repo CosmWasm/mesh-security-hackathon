@@ -1,0 +1,58 @@
+{
+  "name": "ibc-tests-simple-ica",
+  "version": "0.2.0",
+  "description": "Simple repo showing how to use ts-relayer as a library to test cw20-ics20 contract",
+  "browserslist": [
+    "maintained node versions"
+  ],
+  "author": "Ethan Frey <ethanfrey@users.noreply.github.com>",
+  "license": "Apache-2.0",
+  "private": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "fix": "run-s fix:*",
+    "fix:prettier": "prettier \"**/*.{ts,md}\" --write",
+    "fix:lint": "eslint src --ext .ts --fix",
+    "test": "run-s build test:*",
+    "test:lint": "eslint src --ext .ts",
+    "test:prettier": "prettier \"**/*.{ts,md}\" --list-different",
+    "test:unit": "nyc --silent ava --serial"
+  },
+  "dependencies": {
+    "@confio/relayer": "^0.5.1"
+  },
+  "devDependencies": {
+    "@ava/typescript": "^3.0.1",
+    "@istanbuljs/nyc-config-typescript": "^1.0.2",
+    "@types/node": "^18.0.6",
+    "@types/sinon": "^10.0.13",
+    "@typescript-eslint/eslint-plugin": "^5.30.7",
+    "@typescript-eslint/parser": "^5.30.7",
+    "ava": "^4.3.1",
+    "eslint": "^8.20.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-eslint-comments": "^3.2.0",
+    "eslint-plugin-import": "^2.26.0",
+    "npm-run-all": "^4.1.5",
+    "nyc": "^15.1.0",
+    "prettier": "^2.7.1",
+    "sinon": "^14.0.0",
+    "typescript": "^4.7.4"
+  },
+  "ava": {
+    "failFast": true,
+    "timeout": "120s",
+    "typescript": {
+      "rewritePaths": {
+        "src/": "build/"
+      },
+      "compile": false
+    }
+  },
+  "nyc": {
+    "extends": "@istanbuljs/nyc-config-typescript",
+    "exclude": [
+      "**/*.spec.js"
+    ]
+  }
+}
