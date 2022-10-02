@@ -8,7 +8,7 @@ use cw2::set_contract_version;
 use cw_utils::{must_pay, nonpayable};
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{BalanceResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, BALANCES, CONFIG};
 use mesh_apis::ClaimReceiverMsg;
 
@@ -172,8 +172,21 @@ pub fn execute_slash_claim(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
-    unimplemented!();
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::Balance { account } => to_binary(&query_balance(deps, account)?),
+    }
+}
+
+pub fn query_balance(deps: Deps, account: String) -> StdResult<BalanceResponse> {
+    let account = deps.api.addr_validate(&account)?;
+    let bal = BALANCES.load(deps.storage, &account)?;
+    let free = bal.free();
+    Ok(BalanceResponse {
+        bonded: bal.bonded,
+        free,
+        claims: bal.claims.into_iter().map(Into::into).collect(),
+    })
 }
 
 #[cfg(test)]
