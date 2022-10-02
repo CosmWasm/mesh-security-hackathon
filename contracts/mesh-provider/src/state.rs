@@ -14,5 +14,4 @@ pub struct Config {
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
-
 pub const CHANNEL: Item<String> = Item::new("channel");
