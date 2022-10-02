@@ -1,7 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    to_binary, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_utils::{must_pay, nonpayable};
@@ -9,6 +10,7 @@ use cw_utils::{must_pay, nonpayable};
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, BALANCES, CONFIG};
+use mesh_apis::ClaimReceiverMsg;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-ilp";
@@ -54,6 +56,8 @@ pub fn execute(
 }
 
 pub fn execute_bond(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    // TODO: ensure the caller is the correct ILP contract (must be set in CONFIG in init)
+
     let denom = CONFIG.load(deps.storage)?.denom;
     let amount = must_pay(&info, &denom)?;
 
@@ -94,6 +98,7 @@ pub fn execute_unbond(
     Ok(Response::new().add_message(msg))
 }
 
+// this is called by the account holder
 pub fn execute_grant_claim(
     deps: DepsMut,
     info: MessageInfo,
@@ -101,16 +106,50 @@ pub fn execute_grant_claim(
     amount: Uint128,
     validator: String,
 ) -> Result<Response, ContractError> {
-    unimplemented!()
+    nonpayable(&info)?;
+    // validation
+    let leiner = deps.api.addr_validate(&leinholder)?;
+
+    // ensure we have balance for this, and update count
+    BALANCES.update::<_, ContractError>(deps.storage, &info.sender, |bal| {
+        let mut bal = bal.unwrap_or_default();
+        bal.add_claim(&leiner, amount)?;
+        Ok(bal)
+    })?;
+
+    // send a message to the receiver
+    let exec = ClaimReceiverMsg::ReceiveClaim {
+        owner: info.sender.into_string(),
+        amount,
+        validator,
+    };
+    let msg = WasmMsg::Execute {
+        contract_addr: leinholder,
+        msg: to_binary(&exec)?,
+        funds: vec![],
+    };
+
+    Ok(Response::new().add_message(msg))
 }
 
+// this is called by the leinholder
 pub fn execute_release_claim(
     deps: DepsMut,
     info: MessageInfo,
     owner: String,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
-    unimplemented!()
+    nonpayable(&info)?;
+    let owner = deps.api.addr_validate(&owner)?;
+
+    // ensure we have balance for this, and update count
+    BALANCES.update::<_, ContractError>(deps.storage, &owner, |bal| {
+        let mut bal = bal.unwrap_or_default();
+        bal.release_claim(&info.sender, amount)?;
+        Ok(bal)
+    })?;
+
+    Ok(Response::new())
 }
 
 pub fn execute_slash_claim(
@@ -119,7 +158,17 @@ pub fn execute_slash_claim(
     owner: String,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
-    unimplemented!()
+    nonpayable(&info)?;
+    let owner = deps.api.addr_validate(&owner)?;
+
+    // ensure we have balance for this, and update count
+    BALANCES.update::<_, ContractError>(deps.storage, &owner, |bal| {
+        let mut bal = bal.unwrap_or_default();
+        bal.slash_claim(&info.sender, amount)?;
+        Ok(bal)
+    })?;
+
+    Ok(Response::new())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

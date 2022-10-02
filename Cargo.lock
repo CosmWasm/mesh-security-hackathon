@@ -507,6 +507,7 @@ dependencies = [
  "cw-storage-plus",
  "cw-utils",
  "cw2",
+ "mesh-apis",
  "schemars",
  "serde",
  "thiserror",

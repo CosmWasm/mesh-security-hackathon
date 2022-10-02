@@ -43,11 +43,11 @@ impl Balance {
         self.bonded.saturating_sub(claimed)
     }
 
-    pub fn add_claim(&mut self, leinholder: Addr, amount: Uint128) -> Result<(), ContractError> {
+    pub fn add_claim(&mut self, leinholder: &Addr, amount: Uint128) -> Result<(), ContractError> {
         if amount > self.bonded {
             return Err(ContractError::InsufficentBalance);
         }
-        let pos = self.claims.iter().position(|c| c.leinholder == &leinholder);
+        let pos = self.claims.iter().position(|c| &c.leinholder == leinholder);
         match pos {
             Some(idx) => {
                 let mut current = self.claims[idx].clone();
@@ -57,17 +57,20 @@ impl Balance {
                 }
                 self.claims[idx] = current;
             }
-            None => self.claims.push(LeinAddr { leinholder, amount }),
+            None => self.claims.push(LeinAddr {
+                leinholder: leinholder.clone(),
+                amount,
+            }),
         };
         Ok(())
     }
 
     pub fn release_claim(
         &mut self,
-        leinholder: Addr,
+        leinholder: &Addr,
         amount: Uint128,
     ) -> Result<(), ContractError> {
-        let pos = self.claims.iter().position(|c| c.leinholder == &leinholder);
+        let pos = self.claims.iter().position(|c| &c.leinholder == leinholder);
         let pos = pos.ok_or(ContractError::UnknownLeinholder)?;
         self.claims[pos].amount = self.claims[pos]
             .amount
@@ -76,8 +79,8 @@ impl Balance {
         Ok(())
     }
 
-    pub fn slash_claim(&mut self, leinholder: Addr, amount: Uint128) -> Result<(), ContractError> {
-        let pos = self.claims.iter().position(|c| c.leinholder == &leinholder);
+    pub fn slash_claim(&mut self, leinholder: &Addr, amount: Uint128) -> Result<(), ContractError> {
+        let pos = self.claims.iter().position(|c| &c.leinholder == leinholder);
         let pos = pos.ok_or(ContractError::UnknownLeinholder)?;
         self.claims[pos].amount = self.claims[pos]
             .amount
