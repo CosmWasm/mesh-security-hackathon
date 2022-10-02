@@ -6,8 +6,12 @@ use cosmwasm_std::{to_binary, Binary, Decimal, StdResult, Uint128};
 #[cw_serde]
 pub struct InstantiateMsg {
     pub consumer: ConsumerInfo,
-    // data for the slasher to instantiate
+    /// data to instantiate the slasher
     pub slasher: SlasherInfo,
+    /// Address of ILP contract from which we accept ReceiveClaim
+    pub ilp: String,
+    /// Unbonding period of the remote chain in seconds
+    pub unbonding_period: u64,
 }
 
 #[cw_serde]
