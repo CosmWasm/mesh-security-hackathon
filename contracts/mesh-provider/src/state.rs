@@ -8,7 +8,6 @@ use crate::msg::ConsumerInfo;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
-    pub count: i32,
     pub owner: Addr,
     pub consumer: ConsumerInfo,
 }
