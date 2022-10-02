@@ -40,7 +40,7 @@ interface SetupInfo {
   wasmMetaStaking: string;
   osmoMeshProvider: string;
   osmoMeshSlasher: string;
-  osmoMeshIlp: string;
+  osmoMeshLockup: string;
   meshConsumerPort: string;
   meshProviderPort: string;
   link: Link;
@@ -57,11 +57,11 @@ async function demoSetup(): Promise<SetupInfo> {
   const osmoClient = await setupOsmosisClient();
 
   // instantiate mesh_lockup on osmosis
-  const initMeshIlp = { denom: osmosis.denomStaking };
-  const { contractAddress: osmoMeshIlp } = await osmoClient.sign.instantiate(
+  const initMeshLockup = { denom: osmosis.denomStaking };
+  const { contractAddress: osmoMeshLockup } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisIds.mesh_lockup,
-    initMeshIlp,
+    initMeshLockup,
     "mesh_lockup contract",
     "auto"
   );
@@ -77,7 +77,7 @@ async function demoSetup(): Promise<SetupInfo> {
         owner: osmoClient.senderAddress,
       }),
     },
-    ilp: osmoMeshIlp,
+    lockup: osmoMeshLockup,
     // TODO: get real number somehow... look at tendermint client queries
     unbonding_period: 86400 * 7,
   };
@@ -137,7 +137,7 @@ async function demoSetup(): Promise<SetupInfo> {
     osmoClient,
     wasmMeshConsumer,
     osmoMeshProvider,
-    osmoMeshIlp,
+    osmoMeshLockup,
     osmoMeshSlasher,
     wasmMetaStaking,
     meshConsumerPort,
@@ -181,7 +181,7 @@ test.serial("fail if connect from different connect or port", async (t) => {
         owner: osmoClient.senderAddress,
       }),
     },
-    ilp: osmoClient.senderAddress,
+    lockup: osmoClient.senderAddress,
     unbonding_period: 86400 * 7,
   };
   const { contractAddress: osmoMeshProvider } = await osmoClient.sign.instantiate(
