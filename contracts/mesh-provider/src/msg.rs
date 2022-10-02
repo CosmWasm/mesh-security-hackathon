@@ -3,12 +3,12 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 #[cw_serde]
 pub struct InstantiateMsg {
     pub count: i32,
-    pub provider: ProviderInfo,
+    pub consumer: ConsumerInfo,
 }
 
 #[cw_serde]
-pub struct ProviderInfo {
-    pub port_id: String,
+pub struct ConsumerInfo {
+    /// We can add port later if we have it, for now, just assert the chain we talk with
     pub connection_id: String,
 }
 

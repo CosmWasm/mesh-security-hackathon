@@ -21,7 +21,7 @@ pub fn instantiate(
     let state = Config {
         count: msg.count,
         owner: info.sender.clone(),
-        consumer: msg.consumer,
+        provider: msg.provider,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &state)?;
@@ -88,12 +88,13 @@ pub mod query {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::msg::ConsumerInfo;
+    use crate::msg::ProviderInfo;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{coins, from_binary};
 
-    fn consumer_info() -> ConsumerInfo {
-        ConsumerInfo {
+    fn provider_info() -> ProviderInfo {
+        ProviderInfo {
+            port_id: "port-1".to_string(),
             connection_id: "conn-2".to_string(),
         }
     }
@@ -104,7 +105,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             count: 17,
-            consumer: consumer_info(),
+            provider: provider_info(),
         };
         let info = mock_info("creator", &coins(1000, "earth"));
 
@@ -124,7 +125,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             count: 17,
-            consumer: consumer_info(),
+            provider: provider_info(),
         };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -146,7 +147,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             count: 17,
-            consumer: consumer_info(),
+            provider: provider_info(),
         };
         let info = mock_info("creator", &coins(2, "token"));
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();

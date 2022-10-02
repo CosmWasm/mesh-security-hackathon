@@ -1,9 +1,16 @@
 #[cfg(test)]
 mod tests {
     use crate::helpers::CwTemplateContract;
-    use crate::msg::{InstantiateMsg, ProviderInfo};
+    use crate::msg::ConsumerInfo;
+    use crate::msg::InstantiateMsg;
     use cosmwasm_std::{Addr, Coin, Empty, Uint128};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
+
+    fn consumer_info() -> ConsumerInfo {
+        ConsumerInfo {
+            connection_id: "conn-2".to_string(),
+        }
+    }
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -17,13 +24,6 @@ mod tests {
     const USER: &str = "USER";
     const ADMIN: &str = "ADMIN";
     const NATIVE_DENOM: &str = "denom";
-
-    fn provider_info() -> ProviderInfo {
-        ProviderInfo {
-            port_id: "port-1".to_string(),
-            connection_id: "conn-2".to_string(),
-        }
-    }
 
     fn mock_app() -> App {
         AppBuilder::new().build(|router, _, storage| {
@@ -47,7 +47,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             count: 1i32,
-            provider: provider_info(),
+            consumer: consumer_info(),
         };
         let cw_template_contract_addr = app
             .instantiate_contract(
