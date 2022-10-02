@@ -45,4 +45,12 @@ impl StdAck {
             StdAck::Error(err) => err,
         }
     }
+
+    pub fn is_err(&self) -> bool {
+        matches!(self, StdAck::Error(_))
+    }
+
+    pub fn is_ok(&self) -> bool {
+        matches!(self, StdAck::Result(_))
+    }
 }
