@@ -1,5 +1,5 @@
 [package]
-name = "mesh-ilp"
+name = "mesh-lockup"
 version = "0.1.0"
 authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
 edition = "2021"
