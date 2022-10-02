@@ -1,5 +1,7 @@
-use cosmwasm_std::StdError;
 use thiserror::Error;
+
+use cosmwasm_std::StdError;
+use cw_utils::ParseReplyError;
 
 use mesh_ibc::MeshSecurityError;
 
@@ -9,10 +11,13 @@ pub enum ContractError {
     Std(#[from] StdError),
 
     #[error("{0}")]
+    Parse(#[from] ParseReplyError),
+
+    #[error("{0}")]
     MeshSecurity(#[from] MeshSecurityError),
 
     #[error("Unauthorized")]
-    Unauthorized {},
+    Unauthorized,
 
     #[error("Contract already has a bound channel: {0}")]
     ChannelExists(String),
@@ -22,6 +27,9 @@ pub enum ContractError {
 
     #[error("Refuse to respond on unregistered channel '{0}'")]
     UnknownChannel(String),
+
+    #[error("Invalid reply id: {0}")]
+    InvalidReplyId(u64),
 
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
