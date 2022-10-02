@@ -17,7 +17,7 @@ pub enum ContractError {
     MeshSecurity(#[from] MeshSecurityError),
 
     #[error("Unauthorized")]
-    Unauthorized {},
+    Unauthorized,
 
     #[error("Contract already has a bound channel: {0}")]
     ChannelExists(String),

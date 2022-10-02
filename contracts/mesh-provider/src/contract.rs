@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg,
-    SubMsgResponse, WasmMsg,
+    ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    StdResult, SubMsg, SubMsgResponse, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_instantiate_response_data;
@@ -67,12 +67,27 @@ pub fn reply_init_callback(deps: DepsMut, resp: SubMsgResponse) -> Result<Respon
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
-    _msg: ExecuteMsg,
+    info: MessageInfo,
+    msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    unimplemented!();
+    match msg {
+        ExecuteMsg::Slash { validator, amount } => execute_slash(deps, info, validator, amount),
+    }
+}
+
+pub fn execute_slash(
+    deps: DepsMut,
+    info: MessageInfo,
+    _validator: String,
+    _amount: Decimal,
+) -> Result<Response, ContractError> {
+    let cfg = CONFIG.load(deps.storage)?;
+    ensure_eq!(cfg.slasher, Some(info.sender), ContractError::Unauthorized);
+
+    // TODO: implement slashing
+    unimplemented!()
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
