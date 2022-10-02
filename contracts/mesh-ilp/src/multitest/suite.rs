@@ -4,6 +4,7 @@ use derivative::Derivative;
 use cosmwasm_std::{coin, coins, Addr, Empty, StdResult, Uint128};
 use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};
 
+use super::mock_grantee::contract_mock;
 use crate::msg::{BalanceResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 
 pub fn contract_ilp() -> Box<dyn Contract<Empty>> {
@@ -55,7 +56,7 @@ impl SuiteBuilder {
 
         let owner = Addr::unchecked("foobar");
         let contract_id = app.store_code(contract_ilp());
-        let contract = app
+        let ilp_contract = app
             .instantiate_contract(
                 contract_id,
                 owner.clone(),
@@ -68,10 +69,24 @@ impl SuiteBuilder {
             )
             .unwrap();
 
+        let mock_contract_id = app.store_code(contract_mock());
+        let mock_contract = app
+            .instantiate_contract(
+                mock_contract_id,
+                owner.clone(),
+                &super::mock_grantee::InstantiateMsg {
+                    ilp: ilp_contract.to_string(),
+                },
+                &[],
+                "mock grantee",
+                None,
+            )
+            .unwrap();
+
         Suite {
             app,
-            contract,
-            owner,
+            ilp_contract,
+            mock_contract,
             denom,
         }
     }
@@ -82,10 +97,10 @@ impl SuiteBuilder {
 pub struct Suite {
     #[derivative(Debug = "ignore")]
     pub app: App,
-    /// Engagement contract address
-    pub contract: Addr,
-    /// Mixer contract address
-    pub owner: Addr,
+    /// ILP contract address
+    pub ilp_contract: Addr,
+    /// Mock receiver address
+    pub mock_contract: Addr,
     /// Denom of tokens which might be distributed by this contract
     pub denom: String,
 }
@@ -95,7 +110,7 @@ impl Suite {
         let funds = coins(amount, &self.denom);
         self.app.execute_contract(
             Addr::unchecked(executor),
-            self.contract.clone(),
+            self.ilp_contract.clone(),
             &ExecuteMsg::Bond {},
             &funds,
         )
@@ -104,7 +119,7 @@ impl Suite {
     pub fn unbond(&mut self, executor: &str, amount: u128) -> AnyResult<AppResponse> {
         self.app.execute_contract(
             Addr::unchecked(executor),
-            self.contract.clone(),
+            self.ilp_contract.clone(),
             &ExecuteMsg::Unbond {
                 amount: amount.into(),
             },
@@ -125,7 +140,7 @@ impl Suite {
 
     pub fn ilp_balance(&self, account: impl Into<String>) -> StdResult<BalanceResponse> {
         self.app.wrap().query_wasm_smart(
-            self.contract.clone(),
+            self.ilp_contract.clone(),
             &QueryMsg::Balance {
                 account: account.into(),
             },
