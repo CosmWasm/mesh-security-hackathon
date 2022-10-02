@@ -9,7 +9,7 @@ use cw_utils::parse_instantiate_response_data;
 
 use crate::error::ContractError;
 use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, CONFIG};
+use crate::state::{Config, ValStatus, CONFIG, STAKED, VALIDATORS};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
@@ -91,29 +91,58 @@ pub fn execute(
 pub fn execute_receive_claim(
     deps: DepsMut,
     info: MessageInfo,
-    _owner: String,
-    _amount: Uint128,
-    _validator: String,
+    owner: String,
+    amount: Uint128,
+    validator: String,
 ) -> Result<Response, ContractError> {
     let cfg = CONFIG.load(deps.storage)?;
     ensure_eq!(cfg.lockup, info.sender, ContractError::Unauthorized);
+    let owner = deps.api.addr_validate(&owner)?;
 
-    // TODO: implement receipt
-    unimplemented!()
+    if amount.is_zero() {
+        return Err(ContractError::ZeroAmount);
+    }
+
+    let mut val = VALIDATORS
+        .may_load(deps.storage, &validator)?
+        .ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
+    let mut stake = STAKED
+        .may_load(deps.storage, (&owner, &validator))?
+        .unwrap_or_default();
+    stake.stake_validator(&mut val, amount);
+    STAKED.save(deps.storage, (&owner, &validator), &stake)?;
+    VALIDATORS.save(deps.storage, &validator, &val)?;
+
+    // TODO: send out IBC packet for additional power (validator, amount)
+
+    Ok(Response::new())
 }
 
 pub fn execute_slash(
     deps: DepsMut,
     info: MessageInfo,
-    _validator: String,
-    _percentage: Decimal,
-    _force_unbond: bool,
+    validator: String,
+    percentage: Decimal,
+    force_unbond: bool,
 ) -> Result<Response, ContractError> {
     let cfg = CONFIG.load(deps.storage)?;
     ensure_eq!(cfg.slasher, Some(info.sender), ContractError::Unauthorized);
+    if percentage.is_zero() {
+        return Err(ContractError::ZeroAmount);
+    }
 
-    // TODO: implement slashing
-    unimplemented!()
+    VALIDATORS.update::<_, ContractError>(deps.storage, &validator, |val| {
+        let mut val = val.ok_or(ContractError::UnknownValidator(validator.clone()))?;
+        val.slash(percentage);
+        if force_unbond {
+            val.status = ValStatus::Tombstoned;
+        }
+        Ok(val)
+    })?;
+
+    Ok(Response::new()
+        .add_attribute("action", "slash")
+        .add_attribute("validator", validator))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

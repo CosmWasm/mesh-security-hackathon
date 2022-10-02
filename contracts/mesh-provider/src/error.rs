@@ -34,6 +34,12 @@ pub enum ContractError {
     #[error("Insufficient stake to withdraw this")]
     InsufficientStake,
 
+    #[error("Cannot send zero tokens to any methods")]
+    ZeroAmount,
+
+    #[error("Validator is not registered: {0}")]
+    UnknownValidator(String),
+
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
     // Add any other custom errors you like here.
