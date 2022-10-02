@@ -2,12 +2,12 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
+    from_slice, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, StdResult,
+    IbcPacketTimeoutMsg, IbcReceiveResponse,
 };
 
-use mesh_ibc::{check_order, check_version};
+use mesh_ibc::{check_order, check_version, ConsumerMsg, ProviderMsg, StdAck, ValidatorAmount};
 
 use crate::error::ContractError;
 use crate::state::{CHANNEL, CONFIG};
@@ -90,31 +90,95 @@ pub fn ibc_channel_close(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_receive(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
-    _packet: IbcPacketReceiveMsg,
-) -> StdResult<IbcReceiveResponse> {
+    msg: IbcPacketReceiveMsg,
+) -> Result<IbcReceiveResponse, ContractError> {
+    // paranoia: ensure it was sent on proper channel
+    let caller = msg.packet.dest.channel_id;
+    if CHANNEL.load(deps.storage)? != caller {
+        return Err(ContractError::UnknownChannel(caller));
+    }
+
+    let msg: ProviderMsg = from_slice(&msg.packet.data)?;
+    match msg {
+        ProviderMsg::ListValidators {} => receive_list_validators(deps),
+        ProviderMsg::Stake { validators, key: _ } => receive_stake(deps, validators),
+        ProviderMsg::Unstake { validators, key: _ } => receive_unstake(deps, validators),
+    }
+}
+
+pub fn receive_list_validators(_deps: DepsMut) -> Result<IbcReceiveResponse, ContractError> {
     // TODO
     unimplemented!();
 }
 
+pub fn receive_stake(
+    _deps: DepsMut,
+    _validators: Vec<ValidatorAmount>,
+) -> Result<IbcReceiveResponse, ContractError> {
+    // TODO
+    unimplemented!();
+}
+
+pub fn receive_unstake(
+    _deps: DepsMut,
+    _validators: Vec<ValidatorAmount>,
+) -> Result<IbcReceiveResponse, ContractError> {
+    // TODO
+    unimplemented!();
+}
+
+/// Only handle errors in send
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
-    _msg: IbcPacketAckMsg,
+    msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
+    // we only care if there was an error...
+    let res: StdAck = from_slice(&msg.acknowledgement.data)?;
+    if res.is_ok() {
+        return Ok(IbcBasicResponse::new());
+    }
+
+    // we need to parse the ack based on our request
+    let original_packet: ConsumerMsg = from_slice(&msg.original_packet.data)?;
+    match original_packet {
+        ConsumerMsg::Rewards {} => fail_rewards(deps),
+        ConsumerMsg::UpdateValidators { added, removed } => {
+            fail_update_validators(deps, added, removed)
+        }
+    }
+}
+
+/// Handle timeout like ack errors
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn ibc_packet_timeout(
+    deps: DepsMut,
+    _env: Env,
+    msg: IbcPacketTimeoutMsg,
+) -> Result<IbcBasicResponse, ContractError> {
+    // we need to parse the ack based on our request
+    let original_packet: ConsumerMsg = from_slice(&msg.packet.data)?;
+    match original_packet {
+        ConsumerMsg::Rewards {} => fail_rewards(deps),
+        ConsumerMsg::UpdateValidators { added, removed } => {
+            fail_update_validators(deps, added, removed)
+        }
+    }
+}
+
+pub fn fail_rewards(_deps: DepsMut) -> Result<IbcBasicResponse, ContractError> {
     // TODO
     unimplemented!();
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-/// we just ignore these now. shall we store some info?
-pub fn ibc_packet_timeout(
+pub fn fail_update_validators(
     _deps: DepsMut,
-    _env: Env,
-    _msg: IbcPacketTimeoutMsg,
-) -> StdResult<IbcBasicResponse> {
+    _added: Vec<String>,
+    _removed: Vec<String>,
+) -> Result<IbcBasicResponse, ContractError> {
     // TODO
     unimplemented!();
 }
