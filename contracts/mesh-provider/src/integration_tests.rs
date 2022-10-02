@@ -1,12 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::{to_binary, Addr, Coin, Empty, Querier, Uint128};
+    use cosmwasm_std::{to_binary, Addr, Coin, Empty, Uint128};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
-    use mesh_slasher::msg::ConfigResponse;
 
-    use crate::msg::{InstantiateMsg, QueryMsg, SlasherInfo};
-    use crate::state::Config;
-    use crate::{helpers::MeshProviderContract, msg::ConsumerInfo};
+    use crate::msg::{ConfigResponse, ConsumerInfo, InstantiateMsg, QueryMsg, SlasherInfo};
 
     pub fn contract_provider() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -67,7 +64,7 @@ mod tests {
         };
         let provider_addr = app
             .instantiate_contract(
-                cw_template_id,
+                cw_provider_id,
                 Addr::unchecked(ADMIN),
                 &msg,
                 &[],
@@ -94,7 +91,7 @@ mod tests {
         // query slasher config
         let cfg: mesh_slasher::msg::ConfigResponse = app
             .wrap()
-            .query_wasm_smart(&slasher_addr, &mesh_slasher::QueryMsg::Config {})
+            .query_wasm_smart(&slasher_addr, &mesh_slasher::msg::QueryMsg::Config {})
             .unwrap();
         assert_eq!(cfg.owner, USER.to_string());
         assert_eq!(cfg.slashee, provider_addr.to_string());

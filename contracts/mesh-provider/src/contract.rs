@@ -32,15 +32,13 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &state)?;
 
-    let my_info = deps
-        .querier
-        .query_wasm_contract_info(&env.contract.address)?;
+    let label = format!("Slasher for {}", &env.contract.address);
     let msg = WasmMsg::Instantiate {
-        admin: my_info.admin,
+        admin: Some(env.contract.address.into_string()),
         code_id: msg.slasher.code_id,
         msg: msg.slasher.msg,
         funds: vec![],
-        label: format!("Slasher for {}", env.contract.address),
+        label,
     };
     let msg = SubMsg::reply_on_success(msg, INIT_CALLBACK_ID);
 
@@ -107,6 +105,6 @@ mod tests {
 
         // we can just call .unwrap() to assert this was a success
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
+        assert_eq!(1, res.messages.len());
     }
 }
