@@ -47,10 +47,7 @@ impl SuiteBuilder {
 
         let mut app = AppBuilder::new().build(|router, _, storage| {
             for (addr, fund) in funds.into_iter() {
-                router
-                    .bank
-                    .init_balance(storage, &addr, vec![fund])
-                    .unwrap();
+                router.bank.init_balance(storage, addr, vec![fund]).unwrap();
             }
         });
 
@@ -73,7 +70,7 @@ impl SuiteBuilder {
         let mock_contract = app
             .instantiate_contract(
                 mock_contract_id,
-                owner.clone(),
+                owner,
                 &super::mock_grantee::InstantiateMsg {
                     lockup: lockup_contract.to_string(),
                 },

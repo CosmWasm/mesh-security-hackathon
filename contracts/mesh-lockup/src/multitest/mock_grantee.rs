@@ -27,9 +27,9 @@ pub enum ExecuteMsg {
         validator: String,
     },
     /// This releases a previously received claim without slashing it
-    ReleaseClaim { owner: String, amount: Uint128 },
+    Release { owner: String, amount: Uint128 },
     /// This slashes a previously provided claim
-    SlashClaim { owner: String, amount: Uint128 },
+    Slash { owner: String, amount: Uint128 },
 }
 
 #[cw_serde]
@@ -58,7 +58,7 @@ pub fn execute(
 ) -> StdResult<Response> {
     match msg {
         ExecuteMsg::ReceiveClaim { .. } => Ok(Response::new()),
-        ExecuteMsg::ReleaseClaim { owner, amount } => {
+        ExecuteMsg::Release { owner, amount } => {
             let msg = WasmMsg::Execute {
                 contract_addr: LOCKUP.load(deps.storage)?.into_string(),
                 msg: to_binary(&crate::msg::ExecuteMsg::ReleaseClaim { owner, amount })?,
@@ -66,7 +66,7 @@ pub fn execute(
             };
             Ok(Response::new().add_message(msg))
         }
-        ExecuteMsg::SlashClaim { owner, amount } => {
+        ExecuteMsg::Slash { owner, amount } => {
             let msg = WasmMsg::Execute {
                 contract_addr: LOCKUP.load(deps.storage)?.into_string(),
                 msg: to_binary(&crate::msg::ExecuteMsg::SlashClaim { owner, amount })?,
