@@ -1,8 +1,10 @@
+use anyhow::Result as AnyResult;
 use derivative::Derivative;
 
-use cosmwasm_std::{coin, Addr, Empty};
+use cosmwasm_std::{coin, coins, Addr, Empty, StdResult, Uint128};
 use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};
 
+use crate::msg::{BalanceResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 
 pub fn contract_ilp() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
@@ -57,7 +59,7 @@ impl SuiteBuilder {
             .instantiate_contract(
                 contract_id,
                 owner.clone(),
-                &crate::msg::InstantiateMsg {
+                &InstantiateMsg {
                     denom: denom.clone(),
                 },
                 &[],
@@ -86,4 +88,51 @@ pub struct Suite {
     pub owner: Addr,
     /// Denom of tokens which might be distributed by this contract
     pub denom: String,
+}
+
+impl Suite {
+    pub fn bond(&mut self, executor: &str, amount: u128) -> AnyResult<AppResponse> {
+        let funds = coins(amount, &self.denom);
+        self.app.execute_contract(
+            Addr::unchecked(executor),
+            self.contract.clone(),
+            &ExecuteMsg::Bond {},
+            &funds,
+        )
+    }
+
+    pub fn unbond(&mut self, executor: &str, amount: u128) -> AnyResult<AppResponse> {
+        self.app.execute_contract(
+            Addr::unchecked(executor),
+            self.contract.clone(),
+            &ExecuteMsg::Unbond {
+                amount: amount.into(),
+            },
+            &[],
+        )
+    }
+
+    //     /// This gives a claim on my balance to leinholder, granting it to a given validator
+    //     GrantClaim {
+    //     leinholder: String,
+    //     amount: Uint128,
+    //     validator: String,
+    // },
+    // /// This releases a previously received claim without slashing it
+    // ReleaseClaim { owner: String, amount: Uint128 },
+    // /// This slashes a previously provided claim
+    // SlashClaim { owner: String, amount: Uint128 },
+
+    pub fn ilp_balance(&self, account: impl Into<String>) -> StdResult<BalanceResponse> {
+        self.app.wrap().query_wasm_smart(
+            self.contract.clone(),
+            &QueryMsg::Balance {
+                account: account.into(),
+            },
+        )
+    }
+
+    pub fn balance(&self, account: impl Into<String>) -> StdResult<Uint128> {
+        Ok(self.app.wrap().query_balance(account, &self.denom)?.amount)
+    }
 }
