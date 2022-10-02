@@ -125,7 +125,7 @@ jobs:
           root: ./target/wasm32-unknown-unknown/release
           paths:
             - mesh_consumer.wasm
-            - mesh_ilp.wasm
+            - mesh_lockup.wasm
             - mesh_provider.wasm
             - mesh_slasher.wasm
             - meta_staking.wasm
