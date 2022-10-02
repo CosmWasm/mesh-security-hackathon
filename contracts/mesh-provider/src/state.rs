@@ -10,8 +10,8 @@ use crate::msg::ConsumerInfo;
 pub struct Config {
     pub consumer: ConsumerInfo,
     pub slasher: Option<Addr>,
-    /// Address of ILP contract from which we accept ReceiveClaim
-    pub ilp: Addr,
+    /// Address of Lockup contract from which we accept ReceiveClaim
+    pub lockup: Addr,
     /// Unbonding period of the remote chain in seconds
     pub unbonding_period: u64,
 }

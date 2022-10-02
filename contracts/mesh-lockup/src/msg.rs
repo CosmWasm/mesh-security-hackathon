@@ -9,10 +9,10 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    /// Places tokens in ILP so they can be staked in multiple contracts.
+    /// Places tokens in Lockup so they can be staked in multiple contracts.
     /// Must be sent in funds and proper denom
     Bond {},
-    /// Withdraws tokens from ILP.
+    /// Withdraws tokens from Lockup.
     /// Only works if the account has sufficient funds that is not backing open claims
     Unbond { amount: Uint128 },
     /// This gives a claim on my balance to leinholder, granting it to a given validator
