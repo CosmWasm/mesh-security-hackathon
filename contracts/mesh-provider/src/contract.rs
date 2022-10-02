@@ -1,7 +1,11 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{
+    Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg, SubMsgResponse,
+    WasmMsg,
+};
 use cw2::set_contract_version;
+use cw_utils::parse_instantiate_response_data;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -11,22 +15,56 @@ use crate::state::{Config, CONFIG};
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+// for reply callbacks
+const INIT_CALLBACK_ID: u64 = 1;
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let state = Config {
         consumer: msg.consumer,
+        slasher: None,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &state)?;
 
+    let my_info = deps
+        .querier
+        .query_wasm_contract_info(&env.contract.address)?;
+    let msg = WasmMsg::Instantiate {
+        admin: my_info.admin,
+        code_id: msg.slasher.code_id,
+        msg: msg.slasher.msg,
+        funds: vec![],
+        label: format!("Slasher for {}", env.contract.address),
+    };
+    let msg = SubMsg::reply_on_success(msg, INIT_CALLBACK_ID);
+
     Ok(Response::new()
+        .add_submessage(msg)
         .add_attribute("method", "instantiate")
         .add_attribute("owner", info.sender))
+}
+
+#[entry_point]
+pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, ContractError> {
+    match reply.id {
+        INIT_CALLBACK_ID => reply_init_callback(deps, reply.result.unwrap()),
+        _ => Err(ContractError::InvalidReplyId(reply.id)),
+    }
+}
+
+pub fn reply_init_callback(deps: DepsMut, resp: SubMsgResponse) -> Result<Response, ContractError> {
+    CONFIG.update::<_, ContractError>(deps.storage, |mut cfg| {
+        let init_response = parse_instantiate_response_data(&resp.data.unwrap_or_default())?;
+        cfg.slasher = Some(deps.api.addr_validate(&init_response.contract_address)?);
+        Ok(cfg)
+    })?;
+    Ok(Response::new())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

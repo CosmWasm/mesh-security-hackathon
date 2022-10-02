@@ -33,6 +33,7 @@ mesh-ibc = { path = "../../packages/mesh-ibc", version = "0.1.0" }
 cosmwasm-schema = "1.1.2"
 cosmwasm-std = "1.1.2"
 cosmwasm-storage = "1.1.2"
+cw-utils = "0.15.1"
 cw-storage-plus = "0.15.1"
 cw2 = "0.15.1"
 schemars = "0.8.8"
