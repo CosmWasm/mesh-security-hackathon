@@ -23,7 +23,7 @@ test.before(async (t) => {
 
   console.debug("Upload contracts to osmosis...");
   const osmosisContracts = {
-    mesh_ilp: "./internal/mesh_ilp.wasm",
+    mesh_lockup: "./internal/mesh_lockup.wasm",
     mesh_provider: "./internal/mesh_provider.wasm",
     mesh_slasher: "./internal/mesh_slasher.wasm",
   };
@@ -56,13 +56,13 @@ async function demoSetup(): Promise<SetupInfo> {
   const link = await Link.createWithNewConnections(src, dest);
   const osmoClient = await setupOsmosisClient();
 
-  // instantiate mesh_ilp on osmosis
+  // instantiate mesh_lockup on osmosis
   const initMeshIlp = { denom: osmosis.denomStaking };
   const { contractAddress: osmoMeshIlp } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
-    osmosisIds.mesh_ilp,
+    osmosisIds.mesh_lockup,
     initMeshIlp,
-    "mesh_ilp contract",
+    "mesh_lockup contract",
     "auto"
   );
 
