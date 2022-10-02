@@ -3,6 +3,13 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 #[cw_serde]
 pub struct InstantiateMsg {
     pub count: i32,
+    pub provider: ProviderInfo,
+}
+
+#[cw_serde]
+pub struct ProviderInfo {
+    pub port_id: String,
+    pub connection_id: String,
 }
 
 #[cw_serde]
