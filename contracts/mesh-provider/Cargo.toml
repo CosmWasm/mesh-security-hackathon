@@ -42,3 +42,4 @@ thiserror = { version = "1.0.31" }
 
 [dev-dependencies]
 cw-multi-test = "0.15.1"
+mesh-slasher = { path = "../mesh-slasher", version = "0.1.0", features = ["library"] }

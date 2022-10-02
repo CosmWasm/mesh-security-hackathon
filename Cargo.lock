@@ -523,6 +523,7 @@ dependencies = [
  "cw-utils",
  "cw2",
  "mesh-ibc",
+ "mesh-slasher",
  "schemars",
  "serde",
  "thiserror",

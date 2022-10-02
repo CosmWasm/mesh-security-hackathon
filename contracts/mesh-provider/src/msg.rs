@@ -38,4 +38,13 @@ pub enum ExecuteMsg {
 
 #[cw_serde]
 #[derive(QueryResponses)]
-pub enum QueryMsg {}
+pub enum QueryMsg {
+    #[returns(ConfigResponse)]
+    Config {},
+}
+
+#[cw_serde]
+pub struct ConfigResponse {
+    pub consumer: ConsumerInfo,
+    pub slasher: Option<String>,
+}

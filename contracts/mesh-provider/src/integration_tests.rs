@@ -1,15 +1,28 @@
 #[cfg(test)]
 mod tests {
-    use crate::msg::InstantiateMsg;
-    use crate::{helpers::MeshProviderContract, msg::ConsumerInfo};
-    use cosmwasm_std::{Addr, Coin, Empty, Uint128};
+    use cosmwasm_std::{to_binary, Addr, Coin, Empty, Querier, Uint128};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
+    use mesh_slasher::msg::ConfigResponse;
 
-    pub fn contract_template() -> Box<dyn Contract<Empty>> {
+    use crate::msg::{InstantiateMsg, QueryMsg, SlasherInfo};
+    use crate::state::Config;
+    use crate::{helpers::MeshProviderContract, msg::ConsumerInfo};
+
+    pub fn contract_provider() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
             crate::contract::execute,
             crate::contract::instantiate,
             crate::contract::query,
+        )
+        .with_reply(crate::contract::reply);
+        Box::new(contract)
+    }
+
+    pub fn contract_slasher() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(
+            mesh_slasher::contract::execute,
+            mesh_slasher::contract::instantiate,
+            mesh_slasher::contract::query,
         );
         Box::new(contract)
     }
@@ -17,6 +30,7 @@ mod tests {
     const USER: &str = "USER";
     const ADMIN: &str = "ADMIN";
     const NATIVE_DENOM: &str = "denom";
+    const CONNECTION: &str = "connection-1";
 
     fn mock_app() -> App {
         AppBuilder::new().build(|router, _, storage| {
@@ -34,28 +48,61 @@ mod tests {
         })
     }
 
-    fn proper_instantiate() -> (App, MeshProviderContract) {
+    fn proper_instantiate() -> (App, Addr) {
         let mut app = mock_app();
-        let cw_template_id = app.store_code(contract_template());
+        let cw_provider_id = app.store_code(contract_provider());
+        let cw_slasher_id = app.store_code(contract_slasher());
 
         let msg = InstantiateMsg {
             consumer: ConsumerInfo {
-                connection_id: "1".to_string(),
+                connection_id: CONNECTION.to_string(),
+            },
+            slasher: SlasherInfo {
+                code_id: cw_slasher_id,
+                msg: to_binary(&mesh_slasher::msg::InstantiateMsg {
+                    owner: "USER".to_string(),
+                })
+                .unwrap(),
             },
         };
-        let cw_template_contract_addr = app
+        let provider_addr = app
             .instantiate_contract(
                 cw_template_id,
                 Addr::unchecked(ADMIN),
                 &msg,
                 &[],
                 "test",
-                None,
+                Some(ADMIN.to_string()),
             )
             .unwrap();
 
-        let cw_template_contract = MeshProviderContract(cw_template_contract_addr);
+        (app, provider_addr)
+    }
 
-        (app, cw_template_contract)
+    #[test]
+    fn instantiate_works() {
+        let (app, provider_addr) = proper_instantiate();
+
+        // check provider config proper
+        let cfg: ConfigResponse = app
+            .wrap()
+            .query_wasm_smart(&provider_addr, &QueryMsg::Config {})
+            .unwrap();
+        assert_eq!(cfg.consumer.connection_id.as_str(), CONNECTION);
+        let slasher_addr = cfg.slasher.unwrap();
+
+        // query slasher config
+        let cfg: mesh_slasher::msg::ConfigResponse = app
+            .wrap()
+            .query_wasm_smart(&slasher_addr, &mesh_slasher::QueryMsg::Config {})
+            .unwrap();
+        assert_eq!(cfg.owner, USER.to_string());
+        assert_eq!(cfg.slashee, provider_addr.to_string());
+
+        // check the proper admin set for both
+        let info = app.wrap().query_wasm_contract_info(&provider_addr).unwrap();
+        assert_eq!(info.admin, Some(ADMIN.into()));
+        let info = app.wrap().query_wasm_contract_info(&slasher_addr).unwrap();
+        assert_eq!(info.admin, Some(ADMIN.into()));
     }
 }
