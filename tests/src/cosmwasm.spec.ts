@@ -39,7 +39,7 @@ interface SetupInfo {
   wasmMeshConsumer: string;
   wasmMetaStaking: string;
   osmoMeshProvider: string;
-  // osmoMeshSlasher: string;
+  osmoMeshSlasher: string;
   osmoMeshIlp: string;
   meshConsumerPort: string;
   meshProviderPort: string;
@@ -91,6 +91,9 @@ async function demoSetup(): Promise<SetupInfo> {
   const { ibcPortId: meshProviderPort } = await osmoClient.sign.getContract(osmoMeshProvider);
   assert(meshProviderPort);
 
+  // query the newly created slasher
+  const { slasher: osmoMeshSlasher } = await osmoClient.sign.queryContractSmart(osmoMeshProvider, { config: {} });
+
   // instantiate mesh_consumer on wasmd
   const wasmClient = await setupWasmClient();
   const initMeshConsumer = {
@@ -136,7 +139,7 @@ async function demoSetup(): Promise<SetupInfo> {
     wasmMeshConsumer,
     osmoMeshProvider,
     osmoMeshIlp,
-    // osmoMeshSlasher,
+    osmoMeshSlasher,
     wasmMetaStaking,
     meshConsumerPort,
     meshProviderPort,
