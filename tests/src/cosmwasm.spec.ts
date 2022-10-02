@@ -181,6 +181,8 @@ test.serial("fail if connect from different connect or port", async (t) => {
         owner: osmoClient.senderAddress,
       }),
     },
+    ilp: osmoClient.senderAddress,
+    unbonding_period: 86400 * 7,
   };
   const { contractAddress: osmoMeshProvider } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -196,6 +198,7 @@ test.serial("fail if connect from different connect or port", async (t) => {
   const wasmClient = await setupWasmClient();
   const initMeshConsumer = {
     provider: {
+      // this is not the meshProviderPort, so authentication will reject it
       port_id: "connection-123456",
       connection_id: link.endA.connectionID,
     },
