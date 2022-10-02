@@ -82,10 +82,15 @@ impl Balance {
     ) -> Result<(), ContractError> {
         let pos = self.claims.iter().position(|c| &c.leinholder == leinholder);
         let pos = pos.ok_or(ContractError::UnknownLeinholder)?;
-        self.claims[pos].amount = self.claims[pos]
+        let after = self.claims[pos]
             .amount
             .checked_sub(amount)
             .map_err(|_| ContractError::InsufficientLein)?;
+        if !after.is_zero() {
+            self.claims[pos].amount = after;
+        } else {
+            self.claims.remove(pos);
+        }
         Ok(())
     }
 
@@ -183,5 +188,18 @@ mod tests {
         }
         let err = balance.release_claim(&leinholder, release.into());
         assert!(err.is_err())
+    }
+
+    #[test]
+    fn delete_when_all_release() {
+        let leinholder = Addr::unchecked("foo");
+        let init = 12345;
+        let mut balance = Balance::new(init);
+        balance.add_claim(&leinholder, init.into()).unwrap();
+        assert_eq!(balance.free().u128(), 0);
+        assert_eq!(balance.claims.len(), 1);
+        balance.release_claim(&leinholder, init.into()).unwrap();
+        assert_eq!(balance.free().u128(), init);
+        assert_eq!(balance.claims.len(), 0);
     }
 }
