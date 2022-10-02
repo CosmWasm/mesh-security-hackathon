@@ -2,7 +2,6 @@ use cosmwasm_std::{Addr, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::msg::Lein;
 use crate::ContractError;
 use cw_storage_plus::{Item, Map};
 
@@ -30,15 +29,6 @@ impl Default for Balance {
 pub struct LeinAddr {
     pub leinholder: Addr,
     pub amount: Uint128,
-}
-
-impl Into<Lein> for LeinAddr {
-    fn into(self) -> Lein {
-        Lein {
-            leinholder: self.leinholder.into_string(),
-            amount: self.amount,
-        }
-    }
 }
 
 impl Balance {

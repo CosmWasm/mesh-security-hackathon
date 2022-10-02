@@ -1,3 +1,4 @@
+use crate::state::LeinAddr;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 
@@ -44,4 +45,13 @@ pub struct BalanceResponse {
 pub struct Lein {
     pub leinholder: String,
     pub amount: Uint128,
+}
+
+impl From<LeinAddr> for Lein {
+    fn from(lein: LeinAddr) -> Self {
+        Lein {
+            leinholder: lein.leinholder.into_string(),
+            amount: lein.amount,
+        }
+    }
 }

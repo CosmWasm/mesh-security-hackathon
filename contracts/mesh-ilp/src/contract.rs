@@ -195,11 +195,15 @@ mod tests {
     use cosmwasm_std::coins;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 
+    const DENOM: &str = "uosmo";
+
     #[test]
     fn proper_initialization() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg {
+            denom: DENOM.to_string(),
+        };
         let info = mock_info("creator", &coins(1000, "earth"));
 
         // we can just call .unwrap() to assert this was a success
