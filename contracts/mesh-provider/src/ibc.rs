@@ -55,7 +55,7 @@ pub fn ibc_channel_connect(
 
     // save the channel id for future use
     match CHANNEL.may_load(deps.storage)? {
-        Some(chan) => Err(ContractError::ChannelExists(chan))?,
+        Some(chan) => return Err(ContractError::ChannelExists(chan)),
         None => CHANNEL.save(deps.storage, channel_id)?,
     };
 
