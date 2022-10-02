@@ -31,6 +31,9 @@ pub enum ContractError {
     #[error("Invalid reply id: {0}")]
     InvalidReplyId(u64),
 
+    #[error("Insufficient stake to withdraw this")]
+    InsufficientStake,
+
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
     // Add any other custom errors you like here.
