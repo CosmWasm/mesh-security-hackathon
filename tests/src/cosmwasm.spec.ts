@@ -16,6 +16,7 @@ test.before(async (t) => {
   console.debug("Upload contracts to wasmd...");
   const wasmContracts = {
     mesh_consumer: "./internal/mesh_consumer.wasm",
+    meta_staking: "./internal/meta_staking.wasm",
   };
   const wasmSign = await setupWasmClient();
   wasmIds = await setupContracts(wasmSign, wasmContracts);
@@ -25,7 +26,6 @@ test.before(async (t) => {
     mesh_ilp: "./internal/mesh_ilp.wasm",
     mesh_provider: "./internal/mesh_provider.wasm",
     mesh_slasher: "./internal/mesh_slasher.wasm",
-    meta_staking: "./internal/meta_staking.wasm",
   };
   const osmosisSign = await setupOsmosisClient();
   osmosisIds = await setupContracts(osmosisSign, osmosisContracts);
@@ -37,9 +37,9 @@ interface SetupInfo {
   wasmClient: CosmWasmSigner;
   osmoClient: CosmWasmSigner;
   wasmMeshConsumer: string;
+  wasmMetaStaking: string;
   osmoMeshProvider: string;
   // osmoMeshSlasher: string;
-  osmoMetaStaking: string;
   osmoMeshIlp: string;
   meshConsumerPort: string;
   meshProviderPort: string;
@@ -54,9 +54,19 @@ async function demoSetup(): Promise<SetupInfo> {
   // create a connection and channel
   const [src, dest] = await setup(wasmd, osmosis);
   const link = await Link.createWithNewConnections(src, dest);
+  const osmoClient = await setupOsmosisClient();
+
+  // instantiate mesh_ilp on osmosis
+  const initMeshIlp = { denom: osmosis.denomStaking };
+  const { contractAddress: osmoMeshIlp } = await osmoClient.sign.instantiate(
+    osmoClient.senderAddress,
+    osmosisIds.mesh_ilp,
+    initMeshIlp,
+    "mesh_ilp contract",
+    "auto"
+  );
 
   // instantiate mesh_provider on osmosis
-  const osmoClient = await setupOsmosisClient();
   const initMeshProvider = {
     consumer: {
       connection_id: link.endB.connectionID,
@@ -67,6 +77,9 @@ async function demoSetup(): Promise<SetupInfo> {
         owner: osmoClient.senderAddress,
       }),
     },
+    ilp: osmoMeshIlp,
+    // TODO: get real number somehow... look at tendermint client queries
+    unbonding_period: 86400 * 7,
   };
   const { contractAddress: osmoMeshProvider } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -96,21 +109,12 @@ async function demoSetup(): Promise<SetupInfo> {
   const { ibcPortId: meshConsumerPort } = await wasmClient.sign.getContract(wasmMeshConsumer);
   assert(meshConsumerPort);
 
-  // instantiate mesh_ilp on osmosis
-  const initMeshIlp = {};
-  const { contractAddress: osmoMeshIlp } = await osmoClient.sign.instantiate(
-    osmoClient.senderAddress,
-    osmosisIds.mesh_ilp,
-    initMeshIlp,
-    "mesh_ilp contract",
-    "auto"
-  );
 
-  // instantiate meta_staking on osmosis
+  // instantiate meta_staking on wasmd
   const initMetaStaking = {};
-  const { contractAddress: osmoMetaStaking } = await osmoClient.sign.instantiate(
-    osmoClient.senderAddress,
-    osmosisIds.meta_staking,
+  const { contractAddress: wasmMetaStaking } = await wasmClient.sign.instantiate(
+    wasmClient.senderAddress,
+    wasmIds.meta_staking,
     initMetaStaking,
     "meta_staking contract",
     "auto"
@@ -133,7 +137,7 @@ async function demoSetup(): Promise<SetupInfo> {
     osmoMeshProvider,
     osmoMeshIlp,
     // osmoMeshSlasher,
-    osmoMetaStaking,
+    wasmMetaStaking,
     meshConsumerPort,
     meshProviderPort,
     link,
