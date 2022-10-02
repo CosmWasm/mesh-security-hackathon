@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{to_binary, Binary, Decimal, StdResult};
+use cosmwasm_std::{to_binary, Binary, Decimal, StdResult, Uint128};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -42,6 +42,12 @@ pub enum ExecuteMsg {
         /// regardless of the behavior of the consumer?
         force_unbond: bool,
     },
+    /// This gives the receiver access to slash part up to this much claim
+    ReceiveClaim {
+        owner: String,
+        amount: Uint128,
+        validator: String,
+    },
 }
 
 #[cw_serde]
@@ -49,10 +55,26 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     #[returns(ConfigResponse)]
     Config {},
+    /// how much this account has staked where
+    #[returns(AccountResponse)]
+    Account { address: String },
+    /// how much power each validator has received
+    #[returns(ValidatorPowerResponse)]
+    ValidatorPower {},
 }
 
 #[cw_serde]
 pub struct ConfigResponse {
     pub consumer: ConsumerInfo,
     pub slasher: Option<String>,
+}
+
+#[cw_serde]
+pub struct AccountResponse {
+    // TODO
+}
+
+#[cw_serde]
+pub struct ValidatorPowerResponse {
+    // TODO
 }
