@@ -46,7 +46,7 @@ pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
 
 #[cfg(test)]
 mod tests {
-    use crate::msg::ConsumerInfo;
+    use crate::msg::{ConsumerInfo, SlasherInfo};
 
     use super::*;
     use cosmwasm_std::coins;
@@ -59,6 +59,10 @@ mod tests {
         let msg = InstantiateMsg {
             consumer: ConsumerInfo {
                 connection_id: "1".to_string(),
+            },
+            slasher: SlasherInfo {
+                code_id: 17,
+                msg: b"{}".into(),
             },
         };
         let info = mock_info("creator", &coins(1000, "earth"));
