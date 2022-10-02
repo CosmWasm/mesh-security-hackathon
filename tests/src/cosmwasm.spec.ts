@@ -112,7 +112,6 @@ async function demoSetup(): Promise<SetupInfo> {
   const { ibcPortId: meshConsumerPort } = await wasmClient.sign.getContract(wasmMeshConsumer);
   assert(meshConsumerPort);
 
-
   // instantiate meta_staking on wasmd
   const initMetaStaking = {};
   const { contractAddress: wasmMetaStaking } = await wasmClient.sign.instantiate(
