@@ -24,8 +24,8 @@ mod tests {
         Box::new(contract)
     }
 
-    const USER: &str = "USER";
-    const ADMIN: &str = "ADMIN";
+    const USER: &str = "user";
+    const ADMIN: &str = "admin";
     const NATIVE_DENOM: &str = "denom";
     const CONNECTION: &str = "connection-1";
 
@@ -57,7 +57,7 @@ mod tests {
             slasher: SlasherInfo {
                 code_id: cw_slasher_id,
                 msg: to_binary(&mesh_slasher::msg::InstantiateMsg {
-                    owner: "USER".to_string(),
+                    owner: USER.to_string(),
                 })
                 .unwrap(),
             },
@@ -96,10 +96,11 @@ mod tests {
         assert_eq!(cfg.owner, USER.to_string());
         assert_eq!(cfg.slashee, provider_addr.to_string());
 
-        // check the proper admin set for both
+        // check the admin is set for provider
         let info = app.wrap().query_wasm_contract_info(&provider_addr).unwrap();
         assert_eq!(info.admin, Some(ADMIN.into()));
+        // and provider is admin of slasher
         let info = app.wrap().query_wasm_contract_info(&slasher_addr).unwrap();
-        assert_eq!(info.admin, Some(ADMIN.into()));
+        assert_eq!(info.admin, Some(provider_addr.into()));
     }
 }
