@@ -500,6 +500,7 @@ dependencies = [
 name = "mesh-ilp"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -507,6 +508,7 @@ dependencies = [
  "cw-storage-plus",
  "cw-utils",
  "cw2",
+ "derivative",
  "mesh-apis",
  "schemars",
  "serde",
