@@ -17,6 +17,7 @@ pub enum ExecuteMsg {
     Unbond { amount: Uint128 },
     /// This gives a claim on my balance to leinholder, granting it to a given validator
     GrantClaim {
+        // TODO maybe rename this to provider?
         leinholder: String,
         amount: Uint128,
         validator: String,

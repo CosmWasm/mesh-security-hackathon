@@ -294,13 +294,27 @@ test.serial("happy path", async (t) => {
   console.log("Alice locks up 100uosmo: ", lockupRes);
 
   // Relay packets to get list of validators from provider
-  const info = await link.relayAll();
-  assertPacketsFromB(info, 1, true);
+  const relay_info_1 = await link.relayAll();
+  assertPacketsFromB(relay_info_1, 1, true);
 
   // Get list of validators
   const osmoValidators = await osmoClient.sign.queryContractSmart(osmoMeshProvider, { list_validators: {} });
 
   console.log("List of validators: ", osmoValidators);
+
+  // Grant claim, cross stake to validator on wasmd
+  const grantClaimRes = await osmoClient.sign.execute(
+    osmoClient.senderAddress,
+    osmoMeshLockup,
+    { grant_claim: { leinholder: osmoMeshProvider, amount: "100", validator: osmoValidators.validators[0].address } },
+    "auto"
+  );
+
+  console.log("Grant a claim to provider contract (cross-stake): ", grantClaimRes);
+
+  // Relay packets to cross-stake
+  const relay_info_2 = await link.relayAll();
+  assertPacketsFromB(relay_info_2, 1, true);
 
   // If we made it through everything, we win
   t.assert(true);
