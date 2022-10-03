@@ -68,9 +68,9 @@ pub fn execute(
 }
 
 mod execute {
-    use cosmwasm_std::{ensure, Coin, DistributionMsg, StakingMsg, SubMsg};
+    use cosmwasm_std::{Coin, DistributionMsg, StakingMsg, SubMsg};
 
-    use crate::state::{ConsumerInfo, ValidatorInfo, CONSUMERS, VALIDATORS_BY_CONSUMER};
+    use crate::state::{ValidatorInfo, CONSUMERS, VALIDATORS_BY_CONSUMER};
 
     use super::*;
 
@@ -87,35 +87,24 @@ mod execute {
             return Err(ContractError::IncorrectDenom {});
         }
 
-        // Check this is a consumer calling this, fails if no consumer loads
-        let ConsumerInfo {
-            address: consumer_addr,
-            available_funds,
-            total_staked,
-        } = CONSUMERS.load(deps.storage, &info.sender)?;
-
         // Validate validator address
         let validator_addr = deps.api.addr_validate(&validator)?;
 
-        // HACK: We have the budget for each consumer funded by the x/gov module.
-        // A much better solution would be a generic liquid staking module.
-        // This is intended only for proof of concept
-        //
-        // Check consumer chain has available budget to delegate
-        ensure!(
-            available_funds + amount.amount > total_staked,
-            ContractError::NoFundsToDelegate {}
-        );
-
-        // HACK temporary work around for proof of concept. Real implementation
-        // would use something like a generic Superfluid module to mint or burn
-        // synthetic tokens.
+        CONSUMERS.update::<_, ContractError>(deps.storage, &info.sender, |cons| {
+            // fail if consumer was never registered
+            let mut cons = cons.ok_or(ContractError::Unauthorized {})?;
+            // HACK temporary work around for proof of concept. Real implementation
+            // would use something like a generic Superfluid module to mint or burn
+            // synthetic tokens.
+            cons.increase_stake(amount.amount)?;
+            Ok(cons)
+        })?;
 
         // Update info for the (consumer, validator) map
         // We add the amount delegated to the validator.
         VALIDATORS_BY_CONSUMER.update(
             deps.storage,
-            (&consumer_addr.clone(), &validator_addr.clone()),
+            (&info.sender, &validator_addr),
             |validator_info| -> Result<ValidatorInfo, ContractError> {
                 match validator_info {
                     Some(validator_info) => Ok(ValidatorInfo {
@@ -127,22 +116,12 @@ mod execute {
                     // Initial amount is this delegation
                     None => Ok(ValidatorInfo {
                         address: validator_addr,
-                        consumer: consumer_addr,
+                        consumer: info.sender,
                         total_delegated: amount.amount,
                     }),
                 }
             },
         )?;
-
-        // Subtract amount of available funds for that consumer
-        CONSUMERS.update(deps.storage, &info.sender, |current| match current {
-            Some(current) => Ok(ConsumerInfo {
-                address: current.address,
-                available_funds: available_funds - amount.amount,
-                total_staked: current.total_staked,
-            }),
-            None => Err(ContractError::Unauthorized {}),
-        })?;
 
         // Create message to delegate the underlying tokens
         let msg = StakingMsg::Delegate { validator, amount };
@@ -163,15 +142,19 @@ mod execute {
             return Err(ContractError::IncorrectDenom {});
         }
 
-        // Check this is a consumer calling this, fails if no consumer loads
-        let ConsumerInfo {
-            address: consumer_addr,
-            available_funds,
-            total_staked: _,
-        } = CONSUMERS.load(deps.storage, &info.sender)?;
-
         // Validate validator address
         let validator_addr = deps.api.addr_validate(&validator)?;
+
+        // Increase the amount of available funds for that consumer
+        CONSUMERS.update::<_, ContractError>(deps.storage, &info.sender, |current| {
+            // fail if consumer was never registered
+            let mut cur = current.ok_or(ContractError::Unauthorized {})?;
+            // HACK temporary work around for proof of concept. Real implementation
+            // would use something like a generic Superfluid module to mint or burn
+            // synthetic tokens.
+            cur.decrease_stake(amount.amount)?;
+            Ok(cur)
+        })?;
 
         // HACK temporary work around for proof of concept. Real implementation
         // would use something like a generic Superfluid module to mint or burn
@@ -181,7 +164,7 @@ mod execute {
         // We subtract the amount delegated to the validator.
         VALIDATORS_BY_CONSUMER.update(
             deps.storage,
-            (&consumer_addr, &validator_addr),
+            (&info.sender, &validator_addr),
             |validator_info| -> Result<ValidatorInfo, ContractError> {
                 match validator_info {
                     Some(validator_info) => Ok(ValidatorInfo {
@@ -194,15 +177,6 @@ mod execute {
                 }
             },
         )?;
-        // Increase the amount of available funds for that consumer
-        CONSUMERS.update(deps.storage, &info.sender, |current| match current {
-            Some(current) => Ok(ConsumerInfo {
-                address: current.address,
-                available_funds: available_funds + amount.amount,
-                total_staked: current.total_staked,
-            }),
-            None => Err(ContractError::Unauthorized {}),
-        })?;
 
         // Create message to delegate the underlying tokens
         let msg = StakingMsg::Undelegate { validator, amount };
@@ -296,7 +270,7 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
 }
 
 mod sudo {
-    use cosmwasm_std::{ensure, Coin, Uint128};
+    use cosmwasm_std::{ensure, Coin};
 
     use crate::state::{ConsumerInfo, CONSUMERS};
 
@@ -336,14 +310,7 @@ mod sudo {
         CONSUMERS.save(
             deps.storage,
             &address,
-            &ConsumerInfo {
-                // The address of the consumer contract
-                address: address.clone(),
-                // Consumers start with zero until they are funded
-                available_funds: funds_available_for_staking.amount,
-                // Zero until funds are delegated
-                total_staked: Uint128::zero(),
-            },
+            &ConsumerInfo::new(funds_available_for_staking.amount),
         )?;
 
         Ok(Response::default())
