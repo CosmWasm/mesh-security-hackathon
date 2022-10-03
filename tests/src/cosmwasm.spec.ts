@@ -55,6 +55,7 @@ async function demoSetup(): Promise<SetupInfo> {
   const [src, dest] = await setup(wasmd, osmosis);
   const link = await Link.createWithNewConnections(src, dest);
   const osmoClient = await setupOsmosisClient();
+  const wasmClient = await setupWasmClient();
 
   // instantiate mesh_lockup on osmosis
   const initMeshLockup = { denom: osmosis.denomStaking };
@@ -94,13 +95,24 @@ async function demoSetup(): Promise<SetupInfo> {
   // query the newly created slasher
   const { slasher: osmoMeshSlasher } = await osmoClient.sign.queryContractSmart(osmoMeshProvider, { config: {} });
 
+  // instantiate meta_staking on wasmd
+  const initMetaStaking = {};
+  const { contractAddress: wasmMetaStaking } = await wasmClient.sign.instantiate(
+    wasmClient.senderAddress,
+    wasmIds.meta_staking,
+    initMetaStaking,
+    "meta_staking contract",
+    "auto"
+  );
+
   // instantiate mesh_consumer on wasmd
-  const wasmClient = await setupWasmClient();
   const initMeshConsumer = {
     provider: {
       port_id: meshProviderPort,
       connection_id: link.endA.connectionID,
     },
+    remote_to_local_exchange_rate: "0.1",
+    meta_staking_contract_address: wasmMetaStaking,
   };
   const { contractAddress: wasmMeshConsumer } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
@@ -111,16 +123,6 @@ async function demoSetup(): Promise<SetupInfo> {
   );
   const { ibcPortId: meshConsumerPort } = await wasmClient.sign.getContract(wasmMeshConsumer);
   assert(meshConsumerPort);
-
-  // instantiate meta_staking on wasmd
-  const initMetaStaking = {};
-  const { contractAddress: wasmMetaStaking } = await wasmClient.sign.instantiate(
-    wasmClient.senderAddress,
-    wasmIds.meta_staking,
-    initMetaStaking,
-    "meta_staking contract",
-    "auto"
-  );
 
   // Create connection between mesh_consumer and mesh_provider
   await link.createChannel("A", meshConsumerPort, meshProviderPort, Order.ORDER_UNORDERED, IbcVersion);
@@ -168,9 +170,10 @@ test.serial("fail if connect from different connect or port", async (t) => {
   // create a connection and channel
   const [src, dest] = await setup(wasmd, osmosis);
   const link = await Link.createWithNewConnections(src, dest);
+  const osmoClient = await setupOsmosisClient();
+  const wasmClient = await setupWasmClient();
 
   // instantiate mesh_provider on osmosis
-  const osmoClient = await setupOsmosisClient();
   const initMeshProvider = {
     consumer: {
       connection_id: link.endB.connectionID,
@@ -194,14 +197,25 @@ test.serial("fail if connect from different connect or port", async (t) => {
   const { ibcPortId: meshProviderPort } = await osmoClient.sign.getContract(osmoMeshProvider);
   assert(meshProviderPort);
 
+  // instantiate meta_staking on wasmd
+  const initMetaStaking = {};
+  const { contractAddress: wasmMetaStaking } = await wasmClient.sign.instantiate(
+    wasmClient.senderAddress,
+    wasmIds.meta_staking,
+    initMetaStaking,
+    "meta_staking contract",
+    "auto"
+  );
+
   // instantiate mesh_consumer on wasmd
-  const wasmClient = await setupWasmClient();
   const initMeshConsumer = {
     provider: {
       // this is not the meshProviderPort, so authentication will reject it
       port_id: "connection-123456",
       connection_id: link.endA.connectionID,
     },
+    remote_to_local_exchange_rate: "0.1",
+    meta_staking_contract_address: wasmMetaStaking,
   };
   const { contractAddress: wasmMeshConsumer } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
