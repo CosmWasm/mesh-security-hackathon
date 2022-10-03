@@ -79,7 +79,7 @@ mod execute {
             address: consumer_addr,
             available_funds,
             total_staked,
-        } = CONSUMERS.load(deps.storage, info.sender.clone())?;
+        } = CONSUMERS.load(deps.storage, &info.sender)?;
 
         // Validate validator address
         let validator_addr = deps.api.addr_validate(&validator)?;
@@ -121,7 +121,7 @@ mod execute {
         )?;
 
         // Subtract amount of available funds for that consumer
-        CONSUMERS.update(deps.storage, info.sender, |current| match current {
+        CONSUMERS.update(deps.storage, &info.sender, |current| match current {
             Some(current) => Ok(ConsumerInfo {
                 address: current.address,
                 available_funds: available_funds - amount.amount,
@@ -155,7 +155,7 @@ mod execute {
             address: consumer_addr,
             available_funds,
             total_staked: _,
-        } = CONSUMERS.load(deps.storage, info.sender.clone())?;
+        } = CONSUMERS.load(deps.storage, &info.sender)?;
 
         // Validate validator address
         let validator_addr = deps.api.addr_validate(&validator)?;
@@ -182,7 +182,7 @@ mod execute {
             },
         )?;
         // Increase the amount of available funds for that consumer
-        CONSUMERS.update(deps.storage, info.sender, |current| match current {
+        CONSUMERS.update(deps.storage, &info.sender, |current| match current {
             Some(current) => Ok(ConsumerInfo {
                 address: current.address,
                 available_funds: available_funds + amount.amount,
@@ -204,7 +204,7 @@ mod execute {
         validator: String,
     ) -> Result<Response, ContractError> {
         // Check this is a consumer calling this, fails if no consumer loads
-        CONSUMERS.has(deps.storage, info.sender.clone());
+        CONSUMERS.has(deps.storage, &info.sender);
 
         // TODO make sure can't consumer can't withdraw more than its share of rewards?
 
@@ -298,7 +298,7 @@ mod sudo {
         let config = CONFIG.load(deps.storage)?;
 
         // Check this is a consumer calling this, fails if no consumer loads
-        CONSUMERS.has(deps.storage, info.sender.clone());
+        CONSUMERS.has(deps.storage, &info.sender);
 
         // TODO there has to be a better way to do this but I am tired
         let mut amount = Uint128::zero();
@@ -313,7 +313,7 @@ mod sudo {
         }
 
         // Increase the amount of available funds for that consumer
-        CONSUMERS.update(deps.storage, info.sender, |current| match current {
+        CONSUMERS.update(deps.storage, &info.sender, |current| match current {
             Some(current) => Ok(ConsumerInfo {
                 address: current.address,
                 available_funds: amount,
@@ -336,7 +336,7 @@ mod sudo {
         if let Some(to_remove) = to_remove {
             for addr in to_remove {
                 let addr = deps.api.addr_validate(&addr)?;
-                CONSUMERS.remove(deps.storage, addr);
+                CONSUMERS.remove(deps.storage, &addr);
             }
         }
 
@@ -346,10 +346,10 @@ mod sudo {
                 let address = deps.api.addr_validate(&addr)?;
                 CONSUMERS.save(
                     deps.storage,
-                    address.clone(),
+                    &address,
                     &ConsumerInfo {
                         // The address of the consumer contract
-                        address,
+                        address: address.clone(),
                         // Consumers start with zero until they are funded
                         available_funds: Uint128::zero(),
                         // Zero until funds are delegated

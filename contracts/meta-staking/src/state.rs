@@ -23,7 +23,7 @@ pub struct ConsumerInfo {
     pub total_staked: Uint128,
 }
 
-pub const CONSUMERS: Map<Addr, ConsumerInfo> = Map::new("consumers");
+pub const CONSUMERS: Map<&Addr, ConsumerInfo> = Map::new("consumers");
 
 #[cw_serde]
 pub struct ValidatorInfo {
