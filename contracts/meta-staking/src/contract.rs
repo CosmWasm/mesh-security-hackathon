@@ -68,7 +68,7 @@ pub fn execute(
 }
 
 mod execute {
-    use cosmwasm_std::{Coin, DistributionMsg, StakingMsg, SubMsg};
+    use cosmwasm_std::{Coin, DistributionMsg, StakingMsg, SubMsg, Uint128};
 
     use crate::state::{CONSUMERS, VALIDATORS_BY_CONSUMER};
 
@@ -79,14 +79,8 @@ mod execute {
         _env: Env,
         info: MessageInfo,
         validator: String,
-        amount: Coin,
+        amount: Uint128,
     ) -> Result<Response, ContractError> {
-        // Check denom
-        let denom = deps.querier.query_bonded_denom()?;
-        if amount.denom != denom {
-            return Err(ContractError::IncorrectDenom {});
-        }
-
         // Validate validator address
         let validator_addr = deps.api.addr_validate(&validator)?;
 
@@ -99,7 +93,7 @@ mod execute {
                 // HACK temporary work around for proof of concept. Real implementation
                 // would use something like a generic Superfluid module to mint or burn
                 // synthetic tokens.
-                cons.increase_stake(amount.amount)?;
+                cons.increase_stake(amount)?;
                 Ok(cons)
             },
         )?;
@@ -110,12 +104,18 @@ mod execute {
             deps.storage,
             (&info.sender, &validator_addr),
             |validator_info| -> Result<_, ContractError> {
-                Ok(validator_info.unwrap_or_default() + amount.amount)
+                Ok(validator_info.unwrap_or_default() + amount)
             },
         )?;
 
+        // Get local denom
+        let denom = deps.querier.query_bonded_denom()?;
+
         // Create message to delegate the underlying tokens
-        let msg = StakingMsg::Delegate { validator, amount };
+        let msg = StakingMsg::Delegate {
+            validator,
+            amount: Coin { denom, amount },
+        };
 
         Ok(Response::default().add_message(msg))
     }
@@ -125,14 +125,8 @@ mod execute {
         _env: Env,
         info: MessageInfo,
         validator: String,
-        amount: Coin,
+        amount: Uint128,
     ) -> Result<Response, ContractError> {
-        // Check denom
-        let denom = deps.querier.query_bonded_denom()?;
-        if amount.denom != denom {
-            return Err(ContractError::IncorrectDenom {});
-        }
-
         // Validate validator address
         let validator_addr = deps.api.addr_validate(&validator)?;
 
@@ -146,7 +140,7 @@ mod execute {
                 // HACK temporary work around for proof of concept. Real implementation
                 // would use something like a generic Superfluid module to mint or burn
                 // synthetic tokens.
-                cur.decrease_stake(amount.amount)?;
+                cur.decrease_stake(amount)?;
                 Ok(cur)
             },
         )?;
@@ -162,13 +156,19 @@ mod execute {
             (&info.sender, &validator_addr),
             |validator_info| -> Result<_, ContractError> {
                 let val = validator_info.ok_or(ContractError::NoDelegationsForValidator {})?;
-                val.checked_sub(amount.amount)
+                val.checked_sub(amount)
                     .map_err(|_| ContractError::InsufficientDelegation {})
             },
         )?;
 
+        // Get local denom
+        let denom = deps.querier.query_bonded_denom()?;
+
         // Create message to delegate the underlying tokens
-        let msg = StakingMsg::Undelegate { validator, amount };
+        let msg = StakingMsg::Undelegate {
+            validator,
+            amount: Coin { denom, amount },
+        };
 
         Ok(Response::default().add_message(msg))
     }

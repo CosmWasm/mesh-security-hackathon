@@ -1,11 +1,13 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Decimal;
+
+use crate::state::Config;
 
 #[cw_serde]
 pub struct InstantiateMsg {
     pub provider: ProviderInfo,
-    // TODO: add remote_to_local_exchange_rate (Decimal)
-    // TODO: add mesh-staking contract address
-    // (Note: we may need to start updating deploy script in integration.rs)
+    pub remote_to_local_exchange_rate: Decimal,
+    pub meta_staking_contract_address: String,
 }
 
 #[cw_serde]
@@ -20,5 +22,7 @@ pub enum ExecuteMsg {}
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    // TODO: add config info
+    // Return configuration info
+    #[returns(Config)]
+    Config {},
 }

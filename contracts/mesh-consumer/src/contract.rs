@@ -15,18 +15,18 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    let state = Config {
+    let config = Config {
+        meta_staking_contract_address: msg.meta_staking_contract_address,
         provider: msg.provider,
+        remote_to_local_exchange_rate: msg.remote_to_local_exchange_rate,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    CONFIG.save(deps.storage, &state)?;
+    CONFIG.save(deps.storage, &config)?;
 
-    Ok(Response::new()
-        .add_attribute("method", "instantiate")
-        .add_attribute("owner", info.sender))
+    Ok(Response::new().add_attribute("method", "instantiate"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -48,8 +48,8 @@ pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
 mod tests {
     use super::*;
     use crate::msg::ProviderInfo;
-    use cosmwasm_std::coins;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::{coins, Decimal};
 
     fn provider_info() -> ProviderInfo {
         ProviderInfo {
@@ -63,7 +63,9 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
+            meta_staking_contract_address: "meta_staking".to_string(),
             provider: provider_info(),
+            remote_to_local_exchange_rate: Decimal::percent(10),
         };
         let info = mock_info("creator", &coins(1000, "earth"));
 
