@@ -1,11 +1,12 @@
-use cosmwasm_std::{Addr, Decimal, Fraction, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::ContractError;
+use cosmwasm_std::{Addr, Decimal, Fraction, Uint128};
+use cw_controllers::Claims;
 use cw_storage_plus::{Item, Map};
 
 use crate::msg::ConsumerInfo;
+use crate::ContractError;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
@@ -26,7 +27,8 @@ pub const VALIDATORS: Map<&str, Validator> = Map::new("validators");
 // map from (delgator, validator) to current stake - stored as shares, previously multiplied
 pub const STAKED: Map<(&Addr, &str), Stake> = Map::new("staked");
 
-// TODO: Claims
+pub const CLAIMS: Claims = Claims::new("claims");
+
 // TODO: rewards
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]

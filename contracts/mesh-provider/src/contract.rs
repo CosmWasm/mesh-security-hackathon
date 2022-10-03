@@ -6,7 +6,8 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
-use cw_utils::parse_instantiate_response_data;
+use cw_utils::{parse_instantiate_response_data, Expiration};
+use mesh_apis::ClaimProviderMsg;
 use mesh_ibc::ProviderMsg;
 
 use crate::error::ContractError;
@@ -15,7 +16,7 @@ use crate::msg::{
     AccountResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, ListValidatorsResponse, QueryMsg,
     StakeInfo, ValidatorResponse,
 };
-use crate::state::{Config, ValStatus, Validator, CHANNEL, CONFIG, STAKED, VALIDATORS};
+use crate::state::{Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, VALIDATORS};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
@@ -186,32 +187,70 @@ pub fn execute_unstake(
     }
     let mut stake = STAKED.load(deps.storage, (&info.sender, &validator))?;
     stake.unstake_validator(&mut val, amount)?;
+    // check if we need to slash
+    let slash = stake.take_slash(&val);
     STAKED.save(deps.storage, (&info.sender, &validator), &stake)?;
     VALIDATORS.save(deps.storage, &validator, &val)?;
 
-    // TODO: create a future claim
+    // create a future claim on number of shares (so we can adjust for later slashing)
+    let cfg = CONFIG.load(deps.storage)?;
+    let ready = env.block.time.plus_seconds(cfg.unbonding_period);
+    CLAIMS.create_claim(
+        deps.storage,
+        &info.sender,
+        amount,
+        Expiration::AtTime(ready),
+    )?;
 
     // send out IBC packet for staking change
     let packet = ProviderMsg::Unstake {
         validator,
         amount,
-        key: info.sender.into_string(),
+        key: info.sender.to_string(),
     };
     let msg = IbcMsg::SendPacket {
         channel_id: CHANNEL.load(deps.storage)?,
         data: to_binary(&packet)?,
         timeout: build_timeout(&env),
     };
-    Ok(Response::new().add_message(msg))
+    let mut res = Response::new().add_message(msg);
+
+    if let Some(slash) = slash {
+        let msg = WasmMsg::Execute {
+            contract_addr: cfg.lockup.into_string(),
+            msg: to_binary(&ClaimProviderMsg::SlashClaim {
+                owner: info.sender.into_string(),
+                amount: slash,
+            })?,
+            funds: vec![],
+        };
+        res = res.add_message(msg);
+    }
+
+    Ok(res)
 }
 
 pub fn execute_unbond(
-    _deps: DepsMut,
-    _info: MessageInfo,
-    _env: Env,
+    deps: DepsMut,
+    info: MessageInfo,
+    env: Env,
 ) -> Result<Response, ContractError> {
-    // TODO
-    unimplemented!()
+    // TODO: slash tokens if we lost some during unbonding (requires larger changes to claiming)
+    let mature = CLAIMS.claim_tokens(deps.storage, &info.sender, &env.block, None)?;
+    if mature.is_zero() {
+        return Err(ContractError::NothingToClaim);
+    }
+
+    let cfg = CONFIG.load(deps.storage)?;
+    let msg = WasmMsg::Execute {
+        contract_addr: cfg.lockup.into_string(),
+        msg: to_binary(&ClaimProviderMsg::SlashClaim {
+            owner: info.sender.into_string(),
+            amount: mature,
+        })?,
+        funds: vec![],
+    };
+    Ok(Response::new().add_message(msg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
