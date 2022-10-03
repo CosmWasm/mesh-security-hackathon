@@ -32,7 +32,7 @@ pub const STAKED: Map<(&Addr, &str), Stake> = Map::new("staked");
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct Stake {
     /// how many tokens we have received here
-    locked: Uint128,
+    pub locked: Uint128,
     /// total number of shares bonded
     /// Note: if current value of these shares is less than locked, we have been slashed
     /// and act accordingly

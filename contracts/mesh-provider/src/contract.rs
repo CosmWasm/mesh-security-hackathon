@@ -1,15 +1,19 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response,
     StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
+use cw_storage_plus::Bound;
 use cw_utils::parse_instantiate_response_data;
 
 use crate::error::ContractError;
-use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, ValStatus, CONFIG, STAKED, VALIDATORS};
+use crate::msg::{
+    AccountResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, ListValidatorsResponse, QueryMsg,
+    StakeInfo, ValidatorResponse,
+};
+use crate::state::{Config, ValStatus, Validator, CONFIG, STAKED, VALIDATORS};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
@@ -85,6 +89,7 @@ pub fn execute(
             percentage,
             force_unbond,
         } => execute_slash(deps, info, validator, percentage, force_unbond),
+        _ => unimplemented!(),
     }
 }
 
@@ -149,7 +154,11 @@ pub fn execute_slash(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        _ => unimplemented!(),
+        QueryMsg::Account { address } => to_binary(&query_account(deps, address)?),
+        QueryMsg::Validator { address } => to_binary(&query_validator(deps, address)?),
+        QueryMsg::ListValidators { start_after, limit } => {
+            to_binary(&list_validators(deps, start_after, limit)?)
+        }
     }
 }
 
@@ -159,6 +168,61 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         consumer: cfg.consumer,
         slasher: cfg.slasher.map(|x| x.into_string()),
     })
+}
+
+pub fn query_account(deps: Deps, address: String) -> StdResult<AccountResponse> {
+    let account = deps.api.addr_validate(&address)?;
+    let staked = STAKED
+        .prefix(&account)
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|res| {
+            let (validator, stake) = res?;
+            let val = VALIDATORS.load(deps.storage, &validator)?;
+            let tokens = stake.current_value(&val);
+            let slashed = stake.locked - tokens;
+            Ok(StakeInfo {
+                validator,
+                tokens,
+                slashed,
+            })
+        })
+        .collect::<StdResult<Vec<_>>>()?;
+    Ok(AccountResponse { staked })
+}
+
+pub fn query_validator(deps: Deps, address: String) -> StdResult<ValidatorResponse> {
+    let val = VALIDATORS.load(deps.storage, &address)?;
+    Ok(build_response((address, val)))
+}
+
+// settings for pagination
+const MAX_LIMIT: u32 = 100;
+const DEFAULT_LIMIT: u32 = 30;
+
+pub fn list_validators(
+    deps: Deps,
+    start_after: Option<String>,
+    limit: Option<u32>,
+) -> StdResult<ListValidatorsResponse> {
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let start = start_after.as_ref().map(|x| Bound::exclusive(x.as_str()));
+
+    let validators = VALIDATORS
+        .range(deps.storage, start, None, Order::Ascending)
+        .take(limit)
+        .map(|r| Ok(build_response(r?)))
+        .collect::<StdResult<Vec<_>>>()?;
+
+    Ok(ListValidatorsResponse { validators })
+}
+
+fn build_response((address, val): (String, Validator)) -> ValidatorResponse {
+    ValidatorResponse {
+        address,
+        tokens: val.stake_value(),
+        status: val.status,
+        multiplier: val.multiplier,
+    }
 }
 
 #[cfg(test)]
