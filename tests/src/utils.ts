@@ -2,9 +2,10 @@ import { readFileSync } from "fs";
 
 import { AckWithMetadata, CosmWasmSigner, RelayInfo, testutils } from "@confio/relayer";
 import { fromBase64, fromUtf8 } from "@cosmjs/encoding";
+import { GasPrice } from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
 
-const { fundAccount, generateMnemonic, osmosis: oldOsmo, signingCosmWasmClient, wasmd } = testutils;
+const { fundAccount, generateMnemonic, osmosis: oldOsmo, signingClient, signingCosmWasmClient, wasmd } = testutils;
 
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
@@ -28,12 +29,22 @@ export async function setupContracts(
   return results;
 }
 
+export async function fundStakingAccount(opts: any, rcpt: string, amount: string): Promise<void> {
+  const client = await signingClient(opts, opts.faucet.mnemonic);
+  const feeTokens = {
+    amount,
+    denom: GasPrice.fromString(opts.denomStaking).denom,
+  };
+  await client.sendTokens(rcpt, [feeTokens]);
+}
+
 // This creates a client for the CosmWasm chain, that can interact with contracts
 export async function setupWasmClient(): Promise<CosmWasmSigner> {
   // create apps and fund an account
   const mnemonic = generateMnemonic();
   const cosmwasm = await signingCosmWasmClient(wasmd, mnemonic);
   await fundAccount(wasmd, cosmwasm.senderAddress, "4000000");
+  await fundStakingAccount(wasmd, cosmwasm.senderAddress, "4000000");
   return cosmwasm;
 }
 

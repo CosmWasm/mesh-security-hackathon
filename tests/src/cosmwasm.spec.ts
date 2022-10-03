@@ -251,7 +251,7 @@ test.serial("happy path", async (t) => {
     // ics20,
   } = await demoSetup();
 
-  const fundsAvailableForStaking = { amount: "100000", denom: "ucosm" };
+  const fundsAvailableForStaking = { amount: "100000", denom: "ustake" };
 
   // Fund meta staking module
   const funding_res = await wasmClient.sign.sendTokens(

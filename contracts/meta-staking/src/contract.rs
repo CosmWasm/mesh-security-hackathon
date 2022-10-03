@@ -82,8 +82,7 @@ mod execute {
         validator: String,
         amount: Uint128,
     ) -> Result<Response, ContractError> {
-        // Validate validator address
-        let validator_addr = deps.api.addr_validate(&validator)?;
+        // TODO Validate validator valoper address
 
         CONSUMERS.update(
             deps.storage,
@@ -103,7 +102,7 @@ mod execute {
         // We add the amount delegated to the validator.
         VALIDATORS_BY_CONSUMER.update(
             deps.storage,
-            (&info.sender, &validator_addr),
+            (&info.sender.to_string(), &validator),
             |validator_info| -> Result<_, ContractError> {
                 Ok(validator_info.unwrap_or_default() + amount)
             },
@@ -128,8 +127,7 @@ mod execute {
         validator: String,
         amount: Uint128,
     ) -> Result<Response, ContractError> {
-        // Validate validator address
-        let validator_addr = deps.api.addr_validate(&validator)?;
+        // TODO Validate validator valoper address
 
         // Increase the amount of available funds for that consumer
         CONSUMERS.update(
@@ -154,7 +152,7 @@ mod execute {
         // We subtract the amount delegated to the validator.
         VALIDATORS_BY_CONSUMER.update(
             deps.storage,
-            (&info.sender, &validator_addr),
+            (&info.sender.to_string(), &validator),
             |validator_info| -> Result<_, ContractError> {
                 let val = validator_info.ok_or(ContractError::NoDelegationsForValidator {})?;
                 val.checked_sub(amount)
