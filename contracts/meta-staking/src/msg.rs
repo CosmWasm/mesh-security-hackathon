@@ -4,14 +4,10 @@ use cosmwasm_std::{
     DelegationResponse, ValidatorResponse,
 };
 
-use crate::state::Config;
+use crate::state::ConsumerInfo;
 
 #[cw_serde]
-pub struct InstantiateMsg {
-    pub local_denom: String,
-    pub provider_denom: String,
-    pub consumer_provider_exchange_rate: Decimal,
-}
+pub struct InstantiateMsg {}
 
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -32,36 +28,24 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    /// Returns the denomination that can be bonded (if there are multiple native tokens on the chain)
-    #[returns(BondedDenomResponse)]
-    BondedDenom {},
-    /// AllDelegations will return all delegations by the delegator
+    /// AllDelegations will return all delegations by the consumer
     #[returns(AllDelegationsResponse)]
-    AllDelegations { delegator: String },
-    /// Returns meta-staking config
-    #[returns(Config)]
-    Config {},
+    AllDelegations { consumer: String },
+    /// Returns an individual consumer
+    #[returns(ConsumerInfo)]
+    Consumer { address: String },
+    /// Returns list of consumers
+    #[returns(ConsumersResponse)]
+    Consumers {},
     /// Delegation will return more detailed info on a particular
     /// delegation, defined by delegator/validator pair
     #[returns(DelegationResponse)]
-    Delegation {
-        delegator: String,
-        validator: String,
-    },
-    /// Returns all validators in the currently active validator set.
+    Delegation { consumer: String, validator: String },
+    /// Returns all validators the consumer delegates to.
     ///
     /// The query response type is `AllValidatorsResponse`.
     #[returns(AllValidatorsResponse)]
-    AllValidators {},
-    /// Returns the validator at the given address. Returns None if the validator is
-    /// not part of the currently active validator set.
-    ///
-    /// The query response type is `ValidatorResponse`.
-    #[returns(ValidatorResponse)]
-    Validator {
-        /// The validator's address (e.g. (e.g. cosmosvaloper1...))
-        address: String,
-    },
+    AllValidators { consumer: String },
 }
 
 #[cw_serde]
@@ -79,4 +63,9 @@ pub enum SudoMsg {
     RemoveConsumer {
         consumer_address: String,
     },
+}
+
+#[cw_serde]
+pub struct ConsumersResponse {
+    pub consumers: Vec<ConsumerInfo>,
 }

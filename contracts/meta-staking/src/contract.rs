@@ -25,14 +25,14 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
+    let denom = deps.querier.query_bonded_denom()?;
+
     // Save config
     CONFIG.save(
         deps.storage,
         &Config {
             admin: info.sender.to_string(),
-            local_denom: msg.local_denom,
-            provider_denom: msg.provider_denom,
-            consumer_provider_exchange_rate: msg.consumer_provider_exchange_rate,
+            denom,
         },
     )?;
 
@@ -73,10 +73,9 @@ mod execute {
         validator: String,
         amount: Coin,
     ) -> Result<Response, ContractError> {
-        //// TODO converion rate? What to do if it changes?
         // Check denom
-        let config = CONFIG.load(deps.storage)?;
-        if amount.denom != config.local_denom {
+        let denom = deps.querier.query_bonded_denom()?;
+        if amount.denom != denom {
             return Err(ContractError::IncorrectDenom {});
         }
 
@@ -150,10 +149,9 @@ mod execute {
         validator: String,
         amount: Coin,
     ) -> Result<Response, ContractError> {
-        //// TODO converion rate?
         // Check denom
-        let config = CONFIG.load(deps.storage)?;
-        if amount.denom != config.local_denom {
+        let denom = deps.querier.query_bonded_denom()?;
+        if amount.denom != denom {
             return Err(ContractError::IncorrectDenom {});
         }
 
@@ -233,51 +231,46 @@ mod execute {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::AllDelegations { delegator } => query::all_delegations(deps, delegator),
-        QueryMsg::AllValidators {} => query::all_validators(deps),
-        QueryMsg::BondedDenom {} => query::bonded_denom(deps),
-        QueryMsg::Config {} => query::config(deps),
+        QueryMsg::AllDelegations { consumer } => query::all_delegations(deps, consumer),
+        QueryMsg::AllValidators { consumer } => query::all_validators(deps, consumer),
+        QueryMsg::Consumer { address } => query::consumer(deps, address),
+        QueryMsg::Consumers {} => query::consumers(deps),
         QueryMsg::Delegation {
-            delegator,
+            consumer,
             validator,
-        } => query::delegation(deps, delegator, validator),
-        QueryMsg::Validator { address } => query::validator(deps, address),
+        } => query::delegation(deps, consumer, validator),
     }
 }
 
 mod query {
     use cosmwasm_std::to_binary;
 
+    use crate::state::CONSUMERS;
+
     use super::*;
 
-    pub fn all_delegations(deps: Deps, delegator: String) -> StdResult<Binary> {
-        let all_delegations = deps.querier.query_all_delegations(delegator)?;
-        to_binary(&all_delegations)
+    pub fn all_delegations(deps: Deps, consumer: String) -> StdResult<Binary> {
+        unimplemented!()
     }
 
-    pub fn all_validators(deps: Deps) -> StdResult<Binary> {
-        let all_validators = deps.querier.query_all_validators()?;
-        to_binary(&all_validators)
+    pub fn all_validators(deps: Deps, consumer: String) -> StdResult<Binary> {
+        unimplemented!()
     }
 
-    pub fn bonded_denom(deps: Deps) -> StdResult<Binary> {
-        let bonded_denom = deps.querier.query_bonded_denom()?;
-        to_binary(&bonded_denom)
+    pub fn delegation(deps: Deps, consumer: String, validator: String) -> StdResult<Binary> {
+        unimplemented!()
     }
 
-    pub fn delegation(deps: Deps, delegator: String, validator: String) -> StdResult<Binary> {
-        let delegation = deps.querier.query_delegation(delegator, validator)?;
-        to_binary(&delegation)
+    pub fn consumer(deps: Deps, address: String) -> StdResult<Binary> {
+        let addr = deps.api.addr_validate(&address)?;
+        let consumer = CONSUMERS.load(deps.storage, &addr)?;
+        to_binary(&consumer)
     }
 
-    pub fn validator(deps: Deps, address: String) -> StdResult<Binary> {
-        let validator = deps.querier.query_validator(address)?;
-        to_binary(&validator)
-    }
-
-    pub fn config(deps: Deps) -> StdResult<Binary> {
-        let config = CONFIG.load(deps.storage)?;
-        to_binary(&config)
+    pub fn consumers(deps: Deps) -> StdResult<Binary> {
+        // let consumers = CONSUMERS.;
+        // to_binary(&consumers)
+        unimplemented!()
     }
 }
 
@@ -318,11 +311,14 @@ mod sudo {
             ContractError::ConsumerAlreadyExists {}
         );
 
+        // Check denom
+        let denom = deps.querier.query_bonded_denom()?;
+
         // Check there are enough funds available to fund consumer
         let contract_balance = deps
             .as_ref()
             .querier
-            .query_balance(env.contract.address, config.local_denom)?;
+            .query_balance(env.contract.address, denom)?;
 
         ensure!(
             contract_balance.amount <= funds_available_for_staking.amount,
@@ -407,11 +403,7 @@ mod tests {
     fn proper_initialization() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg {
-            local_denom: "ujuno".to_string(),
-            provider_denom: "uosmo".to_string(),
-            consumer_provider_exchange_rate: Decimal::percent(10),
-        };
+        let msg = InstantiateMsg {};
         let info = mock_info("creator", &coins(1000, "earth"));
 
         // we can just call .unwrap() to assert this was a success
