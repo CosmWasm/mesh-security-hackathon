@@ -7,7 +7,7 @@ import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 const { osmosis: oldOsmo, setup, wasmd } = testutils;
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
-import { assertPacketsFromA, IbcVersion, setupContracts, setupOsmosisClient, setupWasmClient } from "./utils";
+import { assertPacketsFromB, IbcVersion, setupContracts, setupOsmosisClient, setupWasmClient } from "./utils";
 
 let wasmIds: Record<string, number> = {};
 let osmosisIds: Record<string, number> = {};
@@ -295,7 +295,7 @@ test.serial("happy path", async (t) => {
 
   // Relay packets to get list of validators from provider
   const info = await link.relayAll();
-  assertPacketsFromA(info, 1, true);
+  assertPacketsFromB(info, 1, true);
 
   // Get list of validators
   const osmoValidators = await osmoClient.sign.queryContractSmart(osmoMeshProvider, { list_validators: {} });
