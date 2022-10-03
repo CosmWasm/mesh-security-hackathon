@@ -62,8 +62,8 @@ Unstaking:
 
 Slashing:
 
-1. Someone calls a method to submit evidence of Juno misbehavior on the `slasher` contract (on Osmosis).
-2. The `slasher` contract verifies that a slashing event has indeed occured and makes a contract call to the
+1. Someone calls a method to submit evidence of Juno misbehavior on the `meta-slasher` contract (on Osmosis).
+2. The `meta-slasher` contract verifies that a slashing event has indeed occurred and makes a contract call to the
    `mesh-provider` contract with the amount to slash.
 3. The `mesh-provider` updates the `mesh-lockup` stakes of everyone delegating to the offending validator. Tokens are unbonded
    and scheduled to be burned.
