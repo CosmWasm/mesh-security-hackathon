@@ -129,3 +129,10 @@ These are unclear and need to be discussed and resolved further.
 * How to improve installation UX? Ideally, when the consumer chain votes to instantiate
   mesh security with another chain, all contracts are deployed and configured in one governance
   prop.
+* How to handle changing prices? What is a good price oracle? We need to update the voting
+  power of the consumer contract when the price changes. This may lead to issues in normalization
+  especially if the remote token price rises considerably.
+* What do we do when the consumer stake is greater than the max allowance? Do we fail that extra Stake?
+  Do we normalize the validators within that consumer? Failing is easier, but not possible in
+  response to price oracle changes. For example, if max power is 1000 and we have 500 for val A and 1000
+  for val B and 1000 for val C, we could normalize to A=200, B=400, C=400.

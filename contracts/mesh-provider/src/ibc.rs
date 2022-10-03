@@ -217,26 +217,29 @@ pub fn ack_list_validators(
 }
 
 pub fn fail_list_validators(_deps: DepsMut) -> Result<IbcBasicResponse, ContractError> {
-    // TODO
+    // TODO: send another ListValidators message
     unimplemented!();
 }
 
 pub fn fail_stake(
     _deps: DepsMut,
-    _key: String,
+    // _staker is the staker Addr, not used by consumer
+    _staker: String,
     _validator: String,
     _amount: Uint128,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // TODO
+    // TODO: release the bonded stake, adjust numer
     unimplemented!();
 }
 
 pub fn fail_unstake(
     _deps: DepsMut,
-    _key: String,
+    // _staker is the staker Addr, not used by consumer
+    _staker: String,
     _validator: String,
     _amount: Uint128,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // TODO
+    // TODO: unrelease the bonded stake, remove claim
+    // Maybe we only make Claim on ack?
     unimplemented!();
 }
