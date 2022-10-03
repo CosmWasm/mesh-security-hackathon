@@ -187,7 +187,7 @@ async function fixConsumer(
   console.log(`Add consumer to wasmd meta-staking contract: ${fundsAvailableForStaking.amount}`);
   const balance = await client.getBalance(metaStakingAddr, "ujunox");
   console.log(`Current balance: ${balance.amount}`);
-  
+
   await client.execute(
     signer,
     metaStakingAddr,
@@ -228,7 +228,7 @@ async function main() {
   // pprint(consInfo);
 
   await fixConsumer(consumer.client, consumer.address, {
-    fundsAvailableForStaking: { amount: "6500000", denom: "ujunox" },
+    fundsAvailableForStaking: { amount: "1009000000", denom: "ujunox" },
     meshConsumerAddr: junoConfig.meshConsumerAddr,
     metaStakingAddr: junoConfig.metaStakingAddr,
   });
