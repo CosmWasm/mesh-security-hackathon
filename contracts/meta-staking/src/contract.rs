@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    ensure_eq, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+    ensure_eq, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
@@ -201,7 +201,9 @@ mod execute {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::AllDelegations { consumer } => query::all_delegations(deps, consumer),
+        QueryMsg::AllDelegations { consumer } => {
+            to_binary(&query::all_delegations(deps, consumer)?)
+        }
         QueryMsg::AllValidators { consumer } => query::all_validators(deps, consumer),
         QueryMsg::Consumer { address } => query::consumer(deps, address),
         QueryMsg::Consumers {} => query::consumers(deps),
@@ -213,14 +215,27 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 mod query {
-    use cosmwasm_std::to_binary;
+    use crate::msg::{AllDelegationsResponse, Delegation};
+    use cosmwasm_std::{to_binary, Order};
 
-    use crate::state::CONSUMERS;
+    use crate::state::{CONSUMERS, VALIDATORS_BY_CONSUMER};
 
     use super::*;
 
-    pub fn all_delegations(_deps: Deps, _consumer: String) -> StdResult<Binary> {
-        unimplemented!()
+    pub fn all_delegations(deps: Deps, consumer: String) -> StdResult<AllDelegationsResponse> {
+        let consumer = deps.api.addr_validate(&consumer)?;
+        let delegations = VALIDATORS_BY_CONSUMER
+            .prefix(&consumer)
+            .range(deps.storage, None, None, Order::Ascending)
+            .map(|r| {
+                let (validator, delegation) = r?;
+                Ok(Delegation {
+                    validator,
+                    delegation,
+                })
+            })
+            .collect::<StdResult<Vec<_>>>()?;
+        Ok(AllDelegationsResponse { delegations })
     }
 
     pub fn all_validators(_deps: Deps, _consumer: String) -> StdResult<Binary> {

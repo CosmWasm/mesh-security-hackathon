@@ -1,7 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{
-    AllDelegationsResponse, AllValidatorsResponse, Coin, DelegationResponse, Uint128,
-};
+use cosmwasm_std::{AllValidatorsResponse, Coin, DelegationResponse, Uint128};
 
 use crate::state::ConsumerInfo;
 
@@ -69,4 +67,15 @@ pub enum SudoMsg {
 #[cw_serde]
 pub struct ConsumersResponse {
     pub consumers: Vec<ConsumerInfo>,
+}
+
+#[cw_serde]
+pub struct AllDelegationsResponse {
+    pub delegations: Vec<Delegation>,
+}
+
+#[cw_serde]
+pub struct Delegation {
+    pub validator: String,
+    pub delegation: Uint128,
 }
