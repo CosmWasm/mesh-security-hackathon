@@ -151,12 +151,17 @@ pub fn ibc_packet_ack(
 ) -> Result<IbcBasicResponse, ContractError> {
     let res: StdAck = from_slice(&msg.acknowledgement.data)?;
 
+    // TODO remove, but temporarily useful for debugging
+    if res.is_err() {
+        panic!("ack: {:?}", res.unwrap_err());
+    }
+
     // we need to handle the ack based on our request
     let original_packet: ProviderMsg = from_slice(&msg.original_packet.data)?;
     match (original_packet, res.is_ok()) {
         (ProviderMsg::ListValidators {}, true) => {
-            let res: ListValidatorsResponse = from_slice(&msg.acknowledgement.data)?;
-            ack_list_validators(deps, res)
+            let val: ListValidatorsResponse = from_slice(&res.unwrap())?;
+            ack_list_validators(deps, val)
         }
         (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps),
         (
