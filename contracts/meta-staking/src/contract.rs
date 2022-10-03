@@ -204,7 +204,7 @@ mod execute {
         Ok(Response::default().add_message(msg))
     }
 
-    // TODO
+    // TODO finish me
     pub fn withdraw_delegator_reward(
         deps: DepsMut,
         _env: Env,
@@ -213,6 +213,9 @@ mod execute {
     ) -> Result<Response, ContractError> {
         // Check this is a consumer calling this, fails if no consumer loads
         CONSUMERS.has(deps.storage, &info.sender);
+
+        // TODO Need to figure out how many rewards we got, so can send them
+        // to the consumer contract
 
         // Withdraw rewards as a submessage
         let withdraw_msg = SubMsg::reply_on_success(
