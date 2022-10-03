@@ -118,9 +118,13 @@ pub fn ibc_packet_receive(
 }
 
 pub fn receive_list_validators(deps: DepsMut) -> Result<IbcReceiveResponse, ContractError> {
-    let validators = deps.querier.query_all_validators()?;
-
-    let ack = to_binary(&validators)?;
+    let validators = deps
+        .querier
+        .query_all_validators()?
+        .into_iter()
+        .map(|x| x.address)
+        .collect();
+    let ack = StdAck::success(mesh_ibc::ListValidatorsResponse { validators });
 
     Ok(IbcReceiveResponse::new().set_ack(ack))
 }
@@ -136,12 +140,13 @@ pub fn receive_stake(
     let amount = amount * config.remote_to_local_exchange_rate;
 
     let msg = WasmMsg::Execute {
-        contract_addr: config.meta_staking_contract_address,
+        contract_addr: config.meta_staking_contract_address.to_string(),
         msg: to_binary(&MetaStakingExecuteMsg::Delegate { validator, amount })?,
         funds: vec![],
     };
 
-    Ok(IbcReceiveResponse::new().add_message(msg))
+    let ack = StdAck::success(mesh_ibc::StakeResponse {});
+    Ok(IbcReceiveResponse::new().add_message(msg).set_ack(ack))
 }
 
 pub fn receive_unstake(
@@ -155,12 +160,13 @@ pub fn receive_unstake(
     let amount = amount * config.remote_to_local_exchange_rate;
 
     let msg = WasmMsg::Execute {
-        contract_addr: config.meta_staking_contract_address,
+        contract_addr: config.meta_staking_contract_address.to_string(),
         msg: to_binary(&MetaStakingExecuteMsg::Undelegate { validator, amount })?,
         funds: vec![],
     };
 
-    Ok(IbcReceiveResponse::new().add_message(msg))
+    let ack = StdAck::success(mesh_ibc::UnstakeResponse {});
+    Ok(IbcReceiveResponse::new().add_message(msg).set_ack(ack))
 }
 
 /// Only handle errors in send

@@ -18,8 +18,11 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    let meta_staking_contract_address =
+        deps.api.addr_validate(&msg.meta_staking_contract_address)?;
+
     let config = Config {
-        meta_staking_contract_address: msg.meta_staking_contract_address,
+        meta_staking_contract_address,
         provider: msg.provider,
         remote_to_local_exchange_rate: msg.remote_to_local_exchange_rate,
     };
