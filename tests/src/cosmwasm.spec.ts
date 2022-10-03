@@ -324,9 +324,8 @@ test.serial("happy path", async (t) => {
   });
   console.log("Staked tokens response (now empty): ", emptyStakedTokenResponse);
 
-  await t.throws(
-    osmoClient.sign.execute(osmoClient.senderAddress, osmoMeshLockup, { unbond: { amount: "100" } }, "auto"),
-    /No tokens/
+  await t.throwsAsync(
+    osmoClient.sign.execute(osmoClient.senderAddress, osmoMeshLockup, { unbond: { amount: "100" } }, "auto")
   );
 
   // unbonding period is 2 seconds, let's wait 2.5 to ensure this works.
