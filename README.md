@@ -10,13 +10,13 @@ to be resolved before we can use this in production.
 
 * `meta-staking` - a bridge between the rest of the contracts and the x/staking module to
   provide a consistent, friendly interface for our use case
-* `ilp` - an "Illiquidity Pool" contract that locks tokens and allows lockers to issue multiple claims
+* `mesh-lockup` - a contract that locks tokens and allows lockers to issue multiple claims
   to other consumers, who can all slash that stake and eventually release their claim
 * `mesh-provider` - an IBC-enabled contract that issues claims on an ILP and speaks IBC to a consumer. It
   is responsible for submitting slashes it receives from the `slasher` to the `ilp` contract.
 * `mesh-consumer` - an IBC-enabled contract that receives messages from `ibc-provider` and
   communicates with `meta-staking` to update the local delegations / validator power
-* `slasher` - a contract that is authorized by the `mesh-provider` to submit slashes to it. There can
+* `mesh-slasher` - a contract that is authorized by the `mesh-provider` to submit slashes to it. There can
   be many types of slasher contracts (for different types of evidenses of misbehaviors)
 
 ## Overview for Users
@@ -30,7 +30,7 @@ Once the contracts have been deployed, a user can interact with this as follows.
 
 Cross-staking:
 
-1. User stakes their tokens in ILP contract on Osmosis
+1. User stakes their tokens in the `mesh-lockup` contract on Osmosis
 2. User can cross-stake those tokens to a Juno `mesh-provider` contract (on Osmosis), specifying how many of their 
    tokens to cross-stake and to which validator
 3. The Osmosis `mesh-consumer` contract (on Juno) receives a message from the counterparty `mesh-provider` contract
@@ -57,24 +57,24 @@ Unstaking:
 4. The `mesh-provider` contract (on Osmosis) gets the unbonding period for this cross stake by querying
    the `slasher` contract
 5. After the unbonding period has passed (eg. 2 weeks, 4 weeks) the `mesh-provider` contract
-   informs the `ilp` contract that it removes its claim.
-6. If the user's stake in the `ilp` contract has not more claims on it, they can withdraw their stake.
+   informs the `mesh-lockup` contract that it removes its claim.
+6. If the user's stake in the `mesh-lockup` contract has not more claims on it, they can withdraw their stake.
 
 Slashing:
 
 1. Someone calls a method to submit evidence of Juno misbehavior on the `slasher` contract (on Osmosis).
 2. The `slasher` contract verifies that a slashing event has indeed occured and makes a contract call to the
    `mesh-provider` contract with the amount to slash.
-3. The `mesh-provider` updates the `ilp` stakes of everyone delegating to the offending validator. Tokens are unbonded
+3. The `mesh-provider` updates the `mesh-lockup` stakes of everyone delegating to the offending validator. Tokens are unbonded
    and scheduled to be burned.
 4. `mesh-provider` sends IBC packet updates to the `mesh-consumer`s on all other chains about the new voting power.
 
-Claiming ILP tokens:
+Claiming tokens:
 
-A user can stake any number of tokens to the ILP, and use them in multiple provider contracts.
-The ILP ensures that the user has balance >= the max claim at all times.
+A user can stake any number of tokens to the `mesh-lockup` contract, and use them in multiple provider contracts.
+The `mesh-lockup` contract ensures that the user has balance >= the max claim at all times.
 If you put in eg 1000 OSMO, but then provide 700, 500, and 300 to various providers,
-you can pull out 300 OSMO from the ILP. Once you successfully release the claim on the
+you can pull out 300 OSMO from the `mesh-lockup` contract. Once you successfully release the claim on the
 provider with 700, then you can pull out another 200 OSMO.
 
 ## Overview for Installing
@@ -93,7 +93,7 @@ provider with 700, then you can pull out another 200 OSMO.
 
 These are well-defined but removed from the MVP for simplicity. We can add them later.
 
-* ILP must also allow local staking, and tie into the meta-staking contract to use that
+* `mesh-lockup` must also allow local staking, and tie into the meta-staking contract to use that
   same stake to provide security on the home chain.
 
 ## Open Questions
