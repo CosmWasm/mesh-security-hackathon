@@ -9,10 +9,11 @@ use cosmwasm_std::{
 
 use mesh_ibc::{
     check_order, check_version, ConsumerMsg, ListValidatorsResponse, ProviderMsg, StdAck,
+    UpdateValidatorsResponse,
 };
 
 use crate::error::ContractError;
-use crate::state::{CHANNEL, CONFIG};
+use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, VALIDATORS};
 
 // TODO: make configurable?
 /// packets live one hour
@@ -112,12 +113,23 @@ pub fn receive_rewards(_deps: DepsMut) -> Result<IbcReceiveResponse, ContractErr
 }
 
 pub fn receive_update_validators(
-    _deps: DepsMut,
-    _added: Vec<String>,
-    _removed: Vec<String>,
+    deps: DepsMut,
+    added: Vec<String>,
+    removed: Vec<String>,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    // TODO
-    unimplemented!();
+    for add in added {
+        if !VALIDATORS.has(deps.storage, &add) {
+            VALIDATORS.save(deps.storage, &add, &Validator::new())?;
+        }
+    }
+    for remove in removed {
+        if let Some(mut val) = VALIDATORS.may_load(deps.storage, &remove)? {
+            val.status = ValStatus::Removed;
+            VALIDATORS.save(deps.storage, &remove, &val)?;
+        }
+    }
+    let ack = StdAck::success(&UpdateValidatorsResponse {});
+    Ok(IbcReceiveResponse::new().set_ack(ack))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -127,9 +139,6 @@ pub fn ibc_packet_ack(
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     let res: StdAck = from_slice(&msg.acknowledgement.data)?;
-    if res.is_ok() {
-        return Ok(IbcBasicResponse::new());
-    }
 
     // we need to handle the ack based on our request
     let original_packet: ProviderMsg = from_slice(&msg.original_packet.data)?;
@@ -139,28 +148,34 @@ pub fn ibc_packet_ack(
             ack_list_validators(deps, res)
         }
         (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps),
-        (ProviderMsg::Stake { key, validators: _ }, _) => fail_stake(deps, key),
-        (ProviderMsg::Unstake { key, validators: _ }, _) => fail_stake(deps, key),
+        (ProviderMsg::Stake { key, validators: _ }, false) => fail_stake(deps, key),
+        (ProviderMsg::Unstake { key, validators: _ }, false) => fail_stake(deps, key),
+        (_, true) => Ok(IbcBasicResponse::new())
     }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-/// we just ignore these now. shall we store some info?
 pub fn ibc_packet_timeout(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
-    _msg: IbcPacketTimeoutMsg,
-) -> StdResult<IbcBasicResponse> {
-    // TODO
-    unimplemented!();
+    msg: IbcPacketTimeoutMsg,
+) -> Result<IbcBasicResponse, ContractError> {
+    let original_packet: ProviderMsg = from_slice(&msg.packet.data)?;
+    match original_packet {
+        ProviderMsg::ListValidators {} => fail_list_validators(deps),
+        ProviderMsg::Stake { key, validators: _ } => fail_stake(deps, key),
+        ProviderMsg::Unstake { key, validators: _ } => fail_stake(deps, key),
+    }
 }
 
 pub fn ack_list_validators(
-    _deps: DepsMut,
-    _res: ListValidatorsResponse,
+    deps: DepsMut,
+    res: ListValidatorsResponse,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // TODO
-    unimplemented!();
+    for val in res.validators {
+        VALIDATORS.save(deps.storage, &val, &Validator::new())?;
+    }
+    Ok(IbcBasicResponse::new())
 }
 
 pub fn fail_list_validators(_deps: DepsMut) -> Result<IbcBasicResponse, ContractError> {
