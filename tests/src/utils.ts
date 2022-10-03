@@ -121,8 +121,6 @@ export function assertPacketsFromB(relay: RelayInfo, count: number, success: boo
   }
 }
 
- 
-
 export function parseAcknowledgementSuccess(ack: AckWithMetadata): any {
   const response = parseString(ack.acknowledgement);
   assert(response.result);
