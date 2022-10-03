@@ -4,7 +4,7 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_slice, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128,
 };
 
 use mesh_ibc::{
@@ -17,7 +17,12 @@ use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, VALIDATORS};
 
 // TODO: make configurable?
 /// packets live one hour
-pub const PACKET_LIFETIME: u64 = 60 * 60;
+const PACKET_LIFETIME: u64 = 60 * 60;
+
+pub fn build_timeout(env: &Env) -> IbcTimeout {
+    let time = env.block.time.plus_seconds(PACKET_LIFETIME);
+    IbcTimeout::with_timestamp(time)
+}
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 /// enforces ordering and versioning constraints
@@ -148,8 +153,22 @@ pub fn ibc_packet_ack(
             ack_list_validators(deps, res)
         }
         (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps),
-        (ProviderMsg::Stake { key, validators: _ }, false) => fail_stake(deps, key),
-        (ProviderMsg::Unstake { key, validators: _ }, false) => fail_stake(deps, key),
+        (
+            ProviderMsg::Stake {
+                key,
+                validator,
+                amount,
+            },
+            false,
+        ) => fail_stake(deps, key, validator, amount),
+        (
+            ProviderMsg::Unstake {
+                key,
+                validator,
+                amount,
+            },
+            false,
+        ) => fail_unstake(deps, key, validator, amount),
         (_, true) => Ok(IbcBasicResponse::new()),
     }
 }
@@ -163,8 +182,16 @@ pub fn ibc_packet_timeout(
     let original_packet: ProviderMsg = from_slice(&msg.packet.data)?;
     match original_packet {
         ProviderMsg::ListValidators {} => fail_list_validators(deps),
-        ProviderMsg::Stake { key, validators: _ } => fail_stake(deps, key),
-        ProviderMsg::Unstake { key, validators: _ } => fail_stake(deps, key),
+        ProviderMsg::Stake {
+            key,
+            validator,
+            amount,
+        } => fail_stake(deps, key, validator, amount),
+        ProviderMsg::Unstake {
+            key,
+            validator,
+            amount,
+        } => fail_unstake(deps, key, validator, amount),
     }
 }
 
@@ -183,12 +210,22 @@ pub fn fail_list_validators(_deps: DepsMut) -> Result<IbcBasicResponse, Contract
     unimplemented!();
 }
 
-pub fn fail_stake(_deps: DepsMut, _key: u64) -> Result<IbcBasicResponse, ContractError> {
+pub fn fail_stake(
+    _deps: DepsMut,
+    _key: String,
+    _validator: String,
+    _amount: Uint128,
+) -> Result<IbcBasicResponse, ContractError> {
     // TODO
     unimplemented!();
 }
 
-pub fn fail_unstake(_deps: DepsMut, _key: u64) -> Result<IbcBasicResponse, ContractError> {
+pub fn fail_unstake(
+    _deps: DepsMut,
+    _key: String,
+    _validator: String,
+    _amount: Uint128,
+) -> Result<IbcBasicResponse, ContractError> {
     // TODO
     unimplemented!();
 }

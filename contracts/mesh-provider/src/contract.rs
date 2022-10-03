@@ -1,19 +1,21 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response,
-    StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo, Order, Reply,
+    Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
 use cw_utils::parse_instantiate_response_data;
+use mesh_ibc::ProviderMsg;
 
 use crate::error::ContractError;
+use crate::ibc::build_timeout;
 use crate::msg::{
     AccountResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, ListValidatorsResponse, QueryMsg,
     StakeInfo, ValidatorResponse,
 };
-use crate::state::{Config, ValStatus, Validator, CONFIG, STAKED, VALIDATORS};
+use crate::state::{Config, ValStatus, Validator, CHANNEL, CONFIG, STAKED, VALIDATORS};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
@@ -74,7 +76,7 @@ pub fn reply_init_callback(deps: DepsMut, resp: SubMsgResponse) -> Result<Respon
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
@@ -83,20 +85,23 @@ pub fn execute(
             owner,
             amount,
             validator,
-        } => execute_receive_claim(deps, info, owner, amount, validator),
+        } => execute_receive_claim(deps, info, env, owner, amount, validator),
         ExecuteMsg::Slash {
             validator,
             percentage,
             force_unbond,
-        } => execute_slash(deps, info, validator, percentage, force_unbond),
-        ExecuteMsg::Unstake { amount, validator } => execute_unstake(deps, info, validator, amount),
-        ExecuteMsg::Unbond {} => execute_unbond(deps, info),
+        } => execute_slash(deps, info, env, validator, percentage, force_unbond),
+        ExecuteMsg::Unstake { amount, validator } => {
+            execute_unstake(deps, info, env, validator, amount)
+        }
+        ExecuteMsg::Unbond {} => execute_unbond(deps, info, env),
     }
 }
 
 pub fn execute_receive_claim(
     deps: DepsMut,
     info: MessageInfo,
+    env: Env,
     owner: String,
     amount: Uint128,
     validator: String,
@@ -119,14 +124,24 @@ pub fn execute_receive_claim(
     STAKED.save(deps.storage, (&owner, &validator), &stake)?;
     VALIDATORS.save(deps.storage, &validator, &val)?;
 
-    // TODO: send out IBC packet for additional power (validator, amount)
-
-    Ok(Response::new())
+    // send out IBC packet for staking change
+    let packet = ProviderMsg::Stake {
+        validator,
+        amount,
+        key: owner.into_string(),
+    };
+    let msg = IbcMsg::SendPacket {
+        channel_id: CHANNEL.load(deps.storage)?,
+        data: to_binary(&packet)?,
+        timeout: build_timeout(&env),
+    };
+    Ok(Response::new().add_message(msg))
 }
 
 pub fn execute_slash(
     deps: DepsMut,
     info: MessageInfo,
+    _env: Env,
     validator: String,
     percentage: Decimal,
     force_unbond: bool,
@@ -154,6 +169,7 @@ pub fn execute_slash(
 pub fn execute_unstake(
     deps: DepsMut,
     info: MessageInfo,
+    env: Env,
     validator: String,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
@@ -175,12 +191,25 @@ pub fn execute_unstake(
 
     // TODO: create a future claim
 
-    // TODO: send IBC packet on change of stake
-
-    Ok(Response::new())
+    // send out IBC packet for staking change
+    let packet = ProviderMsg::Unstake {
+        validator,
+        amount,
+        key: info.sender.into_string(),
+    };
+    let msg = IbcMsg::SendPacket {
+        channel_id: CHANNEL.load(deps.storage)?,
+        data: to_binary(&packet)?,
+        timeout: build_timeout(&env),
+    };
+    Ok(Response::new().add_message(msg))
 }
 
-pub fn execute_unbond(_deps: DepsMut, _info: MessageInfo) -> Result<Response, ContractError> {
+pub fn execute_unbond(
+    _deps: DepsMut,
+    _info: MessageInfo,
+    _env: Env,
+) -> Result<Response, ContractError> {
     // TODO
     unimplemented!()
 }

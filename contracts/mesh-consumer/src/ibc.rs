@@ -4,10 +4,10 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_slice, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, Uint128,
 };
 
-use mesh_ibc::{check_order, check_version, ConsumerMsg, ProviderMsg, StdAck, ValidatorAmount};
+use mesh_ibc::{check_order, check_version, ConsumerMsg, ProviderMsg, StdAck};
 
 use crate::error::ContractError;
 use crate::state::{CHANNEL, CONFIG};
@@ -103,8 +103,16 @@ pub fn ibc_packet_receive(
     let msg: ProviderMsg = from_slice(&msg.packet.data)?;
     match msg {
         ProviderMsg::ListValidators {} => receive_list_validators(deps),
-        ProviderMsg::Stake { validators, key: _ } => receive_stake(deps, validators),
-        ProviderMsg::Unstake { validators, key: _ } => receive_unstake(deps, validators),
+        ProviderMsg::Stake {
+            validator,
+            amount,
+            key: _,
+        } => receive_stake(deps, validator, amount),
+        ProviderMsg::Unstake {
+            validator,
+            amount,
+            key: _,
+        } => receive_unstake(deps, validator, amount),
     }
 }
 
@@ -115,7 +123,8 @@ pub fn receive_list_validators(_deps: DepsMut) -> Result<IbcReceiveResponse, Con
 
 pub fn receive_stake(
     _deps: DepsMut,
-    _validators: Vec<ValidatorAmount>,
+    _validator: String,
+    _amount: Uint128,
 ) -> Result<IbcReceiveResponse, ContractError> {
     // TODO
     unimplemented!();
@@ -123,7 +132,8 @@ pub fn receive_stake(
 
 pub fn receive_unstake(
     _deps: DepsMut,
-    _validators: Vec<ValidatorAmount>,
+    _validator: String,
+    _amount: Uint128,
 ) -> Result<IbcReceiveResponse, ContractError> {
     // TODO
     unimplemented!();
