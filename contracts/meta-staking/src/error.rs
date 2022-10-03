@@ -11,6 +11,13 @@ pub enum ContractError {
 
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
-    // Add any other custom errors you like here.
-    // Look at https://docs.rs/thiserror/1.0.21/thiserror/ for details.
+
+    #[error("Incorrect coin denom")]
+    IncorrectDenom {},
+
+    #[error("Contract has run out of funds to delegate for consumer chain")]
+    NoFundsToDelegate {},
+
+    #[error("Cannot undelegate from a a validator that does not have delegations")]
+    NoDelegationsForValidator {},
 }
