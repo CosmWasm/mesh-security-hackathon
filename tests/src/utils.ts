@@ -64,7 +64,6 @@ export async function setupOsmosisClient(): Promise<CosmWasmSigner> {
   const mnemonic = generateMnemonic();
   const cosmwasm = await signingCosmWasmClient(osmosis, mnemonic);
   await fundAccount(osmosis, cosmwasm.senderAddress, "4000000");
-  await fundStakingAccount(osmosis, cosmwasm.senderAddress, "4000000");
   return cosmwasm;
 }
 

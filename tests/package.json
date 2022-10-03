@@ -19,7 +19,7 @@
     "test:unit": "nyc --silent ava --serial"
   },
   "dependencies": {
-    "@confio/relayer": "^0.5.1"
+    "@confio/relayer": "^0.6.1"
   },
   "devDependencies": {
     "@ava/typescript": "^3.0.1",
