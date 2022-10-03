@@ -117,7 +117,7 @@ pub fn ibc_packet_receive(
 }
 
 pub fn receive_list_validators(_deps: DepsMut) -> Result<IbcReceiveResponse, ContractError> {
-    // TODO
+    // TODO: return addresses for all validators (from Staking)
     unimplemented!();
 }
 
@@ -126,7 +126,7 @@ pub fn receive_stake(
     _validator: String,
     _amount: Uint128,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    // TODO
+    // TODO: stake on staking contract
     unimplemented!();
 }
 
@@ -135,7 +135,7 @@ pub fn receive_unstake(
     _validator: String,
     _amount: Uint128,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    // TODO
+    // TODO: unstake on staking contract
     unimplemented!();
 }
 
