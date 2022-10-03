@@ -29,13 +29,23 @@ export async function setupContracts(
   return results;
 }
 
-export async function fundStakingAccount(opts: any, rcpt: string, amount: string): Promise<void> {
-  const client = await signingClient(opts, opts.faucet.mnemonic);
-  const feeTokens = {
-    amount,
-    denom: GasPrice.fromString(opts.denomStaking).denom,
+export interface FundingOpts {
+  readonly tendermintUrlHttp: string;
+  readonly prefix: string;
+  readonly denomFee: string;
+  readonly denomStaking: string;
+  readonly minFee: string;
+  readonly estimatedBlockTime: number;
+  readonly estimatedIndexerTime: number;
+  readonly faucet: {
+    readonly mnemonic: string;
   };
-  await client.sendTokens(rcpt, [feeTokens]);
+}
+
+export async function fundStakingAccount(opts: FundingOpts, rcpt: string, amount: string): Promise<void> {
+  const client = await signingClient(opts, opts.faucet.mnemonic);
+  const stakeTokens = { amount, denom: opts.denomStaking };
+  await client.sendTokens(rcpt, [stakeTokens]);
 }
 
 // This creates a client for the CosmWasm chain, that can interact with contracts
@@ -54,6 +64,7 @@ export async function setupOsmosisClient(): Promise<CosmWasmSigner> {
   const mnemonic = generateMnemonic();
   const cosmwasm = await signingCosmWasmClient(osmosis, mnemonic);
   await fundAccount(osmosis, cosmwasm.senderAddress, "4000000");
+  await fundStakingAccount(osmosis, cosmwasm.senderAddress, "4000000");
   return cosmwasm;
 }
 
