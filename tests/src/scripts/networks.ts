@@ -1,5 +1,5 @@
 // data from https://github.com/cosmos/chain-registry/tree/master/testnets
-import { GasPrice } from "cosmwasm";
+import { GasPrice } from "@cosmjs/stargate";
 
 export interface Network {
   chainId: string;

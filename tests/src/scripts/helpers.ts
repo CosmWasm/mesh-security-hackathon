@@ -1,7 +1,9 @@
 import { readFileSync } from "fs";
 import { env } from "process";
 
-import { DirectSecp256k1HdWallet, makeCosmoshubPath, SigningCosmWasmClient } from "cosmwasm";
+import { makeCosmoshubPath } from "@cosmjs/amino";
+import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
 
 import { Network } from "./networks";
 
