@@ -11,7 +11,7 @@ export interface Network {
 
 export const junoTestConfig: Network = {
   chainId: "uni-5",
-  rpcEndpoint: "https://rpc.uni.junomint.com",
+  rpcEndpoint: "https://rpc.uni.junonetwork.io",
   prefix: "juno",
   gasPrice: GasPrice.fromString("0.05ujunox"),
   feeToken: "ujunox",
