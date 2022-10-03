@@ -108,6 +108,12 @@ pub enum ValStatus {
     Tombstoned,
 }
 
+impl Default for Validator {
+    fn default() -> Self {
+        Validator::new()
+    }
+}
+
 impl Validator {
     pub fn new() -> Self {
         Validator {
@@ -125,7 +131,7 @@ impl Validator {
     // reduce stake by percentage
     pub fn slash(&mut self, percent: Decimal) {
         let mult = Decimal::one() - percent;
-        self.multiplier = self.multiplier * mult;
+        self.multiplier *= mult;
     }
 
     /// Returns value staked in tokens

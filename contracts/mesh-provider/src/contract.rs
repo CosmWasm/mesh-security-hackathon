@@ -153,7 +153,7 @@ pub fn execute_slash(
     }
 
     VALIDATORS.update::<_, ContractError>(deps.storage, &validator, |val| {
-        let mut val = val.ok_or(ContractError::UnknownValidator(validator.clone()))?;
+        let mut val = val.ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
         val.slash(percentage);
         if force_unbond {
             val.status = ValStatus::Tombstoned;
