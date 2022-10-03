@@ -7,6 +7,7 @@ import { MeshProviderClient } from "../bindings/MeshProvider.client";
 import { InstantiateMsg as ProviderInitMsg } from "../bindings/MeshProvider.types";
 import { Coin, InstantiateMsg as StakingInitMsg } from "../bindings/MetaStaking.types";
 
+import { junoConfig } from "./config";
 import { connect, getMnemonic, pprint, setupContracts } from "./helpers";
 import { connections, junoTestConfig, osmoTestConfig } from "./networks";
 
@@ -156,6 +157,49 @@ async function installConsumer(
   return { metaStakingAddr, meshConsumerAddr, meshConsumerPort };
 }
 
+async function fixConsumer(
+  client: SigningCosmWasmClient,
+  signer: string,
+  {
+    fundsAvailableForStaking,
+    meshConsumerAddr,
+    metaStakingAddr,
+  }: {
+    metaStakingAddr: string;
+    meshConsumerAddr: string;
+    fundsAvailableForStaking: Coin;
+  }
+): Promise<void> {
+  console.log("Remove consumer to wasmd meta-staking contract");
+  await client.execute(
+    signer,
+    metaStakingAddr,
+    {
+      sudo: {
+        remove_consumer: {
+          consumer_address: meshConsumerAddr,
+        },
+      },
+    },
+    "auto"
+  );
+
+  console.log("Add consumer to wasmd meta-staking contract");
+  await client.execute(
+    signer,
+    metaStakingAddr,
+    {
+      sudo: {
+        add_consumer: {
+          consumer_address: meshConsumerAddr,
+          funds_available_for_staking: fundsAvailableForStaking,
+        },
+      },
+    },
+    "auto"
+  );
+}
+
 async function main() {
   const mnemonic = getMnemonic();
   const [providerConfig, consumerConfig] = [osmoTestConfig, junoTestConfig];
@@ -168,23 +212,27 @@ async function main() {
     throw Error("Connection not found");
   }
 
-  const provInfo = await installProvider(provider.client, provider.address, {
-    connectionId: connectProvToCons,
-    denom: providerConfig.feeToken,
+  // const provInfo = await installProvider(provider.client, provider.address, {
+  //   connectionId: connectProvToCons,
+  //   denom: providerConfig.feeToken,
+  // });
+  // pprint(provInfo);
+  // const consInfo = await installConsumer(consumer.client, consumer.address, {
+  //   connectionId: connectConsToProv,
+  //   providerPortId: provInfo.meshProviderPort,
+  //   fundsAvailableForStaking: { denom: consumerConfig.feeToken, amount: "1000000" },
+  // });
+  // pprint(consInfo);
+
+  await fixConsumer(consumer.client, consumer.address, {
+    fundsAvailableForStaking: { amount: "7500000", denom: "ujunox" },
+    meshConsumerAddr: junoConfig.meshConsumerAddr,
+    metaStakingAddr: junoConfig.metaStakingAddr,
   });
-  pprint(provInfo);
-  const consInfo = await installConsumer(consumer.client, consumer.address, {
-    connectionId: connectConsToProv,
-    providerPortId: provInfo.meshProviderPort,
-    fundsAvailableForStaking: { denom: consumerConfig.feeToken, amount: "1000000" },
-  });
-  pprint(consInfo);
 
   // TODO: ibc connection
-
   // // Create connection between mesh_consumer and mesh_provider
   // await link.createChannel("A", meshConsumerPort, meshProviderPort, Order.ORDER_UNORDERED, IbcVersion);
-
   // // also create a ics20 channel on this connection
   // const ics20Info = await link.createChannel("A", wasmd.ics20Port, osmosis.ics20Port, Order.ORDER_UNORDERED, "ics20-1");
 }
