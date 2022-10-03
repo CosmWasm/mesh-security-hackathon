@@ -1,8 +1,10 @@
 import { assert, SigningCosmWasmClient, toBinary } from "cosmwasm";
 
+import { InstantiateMsg as ConsumerInitMsg } from "../bindings/MeshConsumer.types";
 import { InstantiateMsg as LockupInitMsg } from "../bindings/MeshLockup.types";
 import { MeshProviderClient } from "../bindings/MeshProvider.client";
 import { InstantiateMsg as ProviderInitMsg } from "../bindings/MeshProvider.types";
+import { InstantiateMsg as StakingInitMsg } from "../bindings/MetaStaking.types";
 
 import { connect, getMnemonic, pprint, setupContracts } from "./helpers";
 import { connections, junoTestConfig, osmoTestConfig } from "./networks";
@@ -14,7 +16,9 @@ interface ProviderInfo {
   meshSlasherAddr: string;
 }
 interface ConsumerInfo {
-  foo: string;
+  metaStakingAddr: string;
+  meshConsumerAddr: string;
+  meshConsumerPort: string;
 }
 
 async function installProvider(
@@ -79,32 +83,53 @@ async function installProvider(
 
 async function installConsumer(
   client: SigningCosmWasmClient,
-  address: string,
-  connectionId: string,
-  info: ProviderInfo
+  signer: string,
+  {
+    connectionId,
+    providerPortId,
+  }: {
+    connectionId: string;
+    providerPortId: string;
+  }
 ): Promise<ConsumerInfo> {
   console.debug("Upload contracts to consumer...");
   const consumerContracts = {
     mesh_consumer: "./internal/mesh_consumer.wasm",
     meta_staking: "./internal/meta_staking.wasm",
   };
-  const wasmIds = await setupContracts(client, address, consumerContracts);
+  const wasmIds = await setupContracts(client, signer, consumerContracts);
 
-  return { foo: "bar" };
+  // instantiate meta_staking on wasmd
+  const initMetaStaking: StakingInitMsg = {};
+  const { contractAddress: metaStakingAddr } = await client.instantiate(
+    signer,
+    wasmIds.meta_staking,
+    initMetaStaking,
+    "meta_staking contract",
+    "auto"
+  );
+
+  // instantiate mesh_consumer on wasmd
+  const initMeshConsumer: ConsumerInitMsg = {
+    provider: {
+      port_id: providerPortId,
+      connection_id: connectionId,
+    },
+    remote_to_local_exchange_rate: "0.3",
+    meta_staking_contract_address: metaStakingAddr,
+  };
+  const { contractAddress: meshConsumerAddr } = await client.instantiate(
+    signer,
+    wasmIds.mesh_consumer,
+    initMeshConsumer,
+    "mesh_consumer contract",
+    "auto"
+  );
+  const { ibcPortId: meshConsumerPort } = await client.getContract(meshConsumerAddr);
+  assert(meshConsumerPort);
+
+  return { metaStakingAddr, meshConsumerAddr, meshConsumerPort };
 }
-
-// // sees if it is time to call
-// async function checkTrigger(client: SigningCosmWasmClient) {
-//     const { config } = await client.queryContractSmart(distroAddr, {config:{}});
-//     pprint(config);
-//     const elapsed = Date.now() / 1000 - config.last_payment;
-//     if (elapsed < config.epoch) {
-//         console.log(`Next epoch comes in ${config.epoch - elapsed} seconds`);
-//         return false;
-//     } else {
-//         return true;
-//     }
-// }
 
 async function main() {
   const mnemonic = getMnemonic();
@@ -117,9 +142,15 @@ async function main() {
     throw Error("Connection not found");
   }
 
-  const provInfo = await installProvider(provider.client, provider.address, { connectionId: connectProvToCons, denom: osmoTestConfig.feeToken});
+  const provInfo = await installProvider(provider.client, provider.address, {
+    connectionId: connectProvToCons,
+    denom: osmoTestConfig.feeToken,
+  });
   pprint(provInfo);
-  const consInfo = await installConsumer(consumer.client, consumer.address, connectConsToProv, provInfo);
+  const consInfo = await installConsumer(consumer.client, consumer.address, {
+    connectionId: connectConsToProv,
+    providerPortId: provInfo.meshProviderPort,
+  });
   pprint(consInfo);
 }
 
