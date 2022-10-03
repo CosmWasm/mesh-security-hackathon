@@ -102,7 +102,7 @@ mod execute {
         // We add the amount delegated to the validator.
         VALIDATORS_BY_CONSUMER.update(
             deps.storage,
-            (&info.sender.to_string(), &validator),
+            (&info.sender, &validator),
             |validator_info| -> Result<_, ContractError> {
                 Ok(validator_info.unwrap_or_default() + amount)
             },
@@ -152,7 +152,7 @@ mod execute {
         // We subtract the amount delegated to the validator.
         VALIDATORS_BY_CONSUMER.update(
             deps.storage,
-            (&info.sender.to_string(), &validator),
+            (&info.sender, &validator),
             |validator_info| -> Result<_, ContractError> {
                 let val = validator_info.ok_or(ContractError::NoDelegationsForValidator {})?;
                 val.checked_sub(amount)

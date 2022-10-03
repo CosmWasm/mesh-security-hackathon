@@ -51,4 +51,4 @@ impl ConsumerInfo {
 }
 
 /// Map<(consumer address, validator address), Validator>
-pub const VALIDATORS_BY_CONSUMER: Map<(&str, &str), Uint128> = Map::new("validators_by_consumer");
+pub const VALIDATORS_BY_CONSUMER: Map<(&Addr, &str), Uint128> = Map::new("validators_by_consumer");
