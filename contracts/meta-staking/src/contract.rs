@@ -306,7 +306,7 @@ mod sudo {
             .query_balance(env.contract.address, denom)?;
 
         ensure!(
-            contract_balance.amount <= funds_available_for_staking.amount,
+            contract_balance.amount >= funds_available_for_staking.amount,
             ContractError::NotEnoughFunds {}
         );
 
