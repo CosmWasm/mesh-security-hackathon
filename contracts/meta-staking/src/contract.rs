@@ -1,7 +1,10 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{
+    Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+};
 use cw2::set_contract_version;
+use cw_utils::parse_reply_execute_data;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg};
@@ -11,11 +14,13 @@ use crate::state::{Config, CONFIG};
 const CONTRACT_NAME: &str = "crates.io:meta-staking";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+const WITHDRAW_REWARDS_REPLY_ID: u64 = 0;
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -24,6 +29,7 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
+            admin: info.sender.to_string(),
             local_denom: msg.local_denom,
             provider_denom: msg.provider_denom,
             consumer_provider_exchange_rate: msg.consumer_provider_exchange_rate,
@@ -54,7 +60,7 @@ pub fn execute(
 }
 
 mod execute {
-    use cosmwasm_std::{Coin, DistributionMsg, StakingMsg, SubMsg};
+    use cosmwasm_std::{ensure, Coin, DistributionMsg, StakingMsg, SubMsg};
 
     use crate::state::{ConsumerInfo, ValidatorInfo, CONSUMERS, VALIDATORS_BY_CONSUMER};
 
@@ -89,9 +95,10 @@ mod execute {
         // This is intended only for proof of concept
         //
         // Check consumer chain has available budget to delegate
-        if available_funds + amount.amount > total_staked {
-            return Err(ContractError::NoFundsToDelegate {});
-        }
+        ensure!(
+            available_funds + amount.amount > total_staked,
+            ContractError::NoFundsToDelegate {}
+        );
 
         // HACK temporary work around for proof of concept. Real implementation
         // would use something like a generic Superfluid module to mint or burn
@@ -131,7 +138,7 @@ mod execute {
         })?;
 
         // Create message to delegate the underlying tokens
-        let msg = StakingMsg::Delegate { validator, amount };
+        let msg = CosmosMsg::Staking(StakingMsg::Delegate { validator, amount });
 
         Ok(Response::default().add_message(msg))
     }
@@ -192,11 +199,12 @@ mod execute {
         })?;
 
         // Create message to delegate the underlying tokens
-        let msg = StakingMsg::Undelegate { validator, amount };
+        let msg = CosmosMsg::Staking(StakingMsg::Undelegate { validator, amount });
 
         Ok(Response::default().add_message(msg))
     }
 
+    // TODO
     pub fn withdraw_delegator_reward(
         deps: DepsMut,
         _env: Env,
@@ -206,14 +214,15 @@ mod execute {
         // Check this is a consumer calling this, fails if no consumer loads
         CONSUMERS.has(deps.storage, &info.sender);
 
-        // TODO make sure can't consumer can't withdraw more than its share of rewards?
-
         // Withdraw rewards as a submessage
-        let sub_msg = SubMsg::new(DistributionMsg::WithdrawDelegatorReward { validator });
+        let withdraw_msg = SubMsg::reply_on_success(
+            DistributionMsg::WithdrawDelegatorReward { validator },
+            WITHDRAW_REWARDS_REPLY_ID,
+        );
 
-        // TODO send funds to the consumer contract? Perhaps send directly to provider contract
+        // TODO On reply, send funds to consumer contract
 
-        Ok(Response::default().add_submessage(sub_msg))
+        Ok(Response::default().add_submessage(withdraw_msg))
     }
 }
 
@@ -223,6 +232,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::AllDelegations { delegator } => query::all_delegations(deps, delegator),
         QueryMsg::AllValidators {} => query::all_validators(deps),
         QueryMsg::BondedDenom {} => query::bonded_denom(deps),
+        QueryMsg::Config {} => query::config(deps),
         QueryMsg::Delegation {
             delegator,
             validator,
@@ -268,67 +278,29 @@ mod query {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn sudo(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    msg: SudoMsg,
-) -> Result<Response, ContractError> {
+pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     match msg {
-        SudoMsg::Fund { consumer } => sudo::fund(deps, env, info, consumer),
-        SudoMsg::UpdateConsumers { to_add, to_remove } => {
-            sudo::update_consumers(deps, env, info, to_add, to_remove)
+        SudoMsg::AddConsumer {
+            consumer_address,
+            funds_available_for_staking,
+        } => sudo::add_consumer(deps, env, consumer_address, funds_available_for_staking),
+        SudoMsg::RemoveConsumer { consumer_address } => {
+            sudo::remove_consumer(deps, env, consumer_address)
         }
     }
 }
 
 mod sudo {
-    use cosmwasm_std::Uint128;
+    use cosmwasm_std::{ensure, Coin, Uint128};
 
     use crate::state::{ConsumerInfo, CONSUMERS};
 
     use super::*;
 
-    pub fn fund(
-        deps: DepsMut,
-        _env: Env,
-        info: MessageInfo,
-        _consumer: String,
-    ) -> Result<Response, ContractError> {
-        let config = CONFIG.load(deps.storage)?;
-
-        // Check this is a consumer calling this, fails if no consumer loads
-        CONSUMERS.has(deps.storage, &info.sender);
-
-        // TODO there has to be a better way to do this but I am tired
-        let mut amount = Uint128::zero();
-        for coin in info.funds {
-            // Check denom matches bonded denom
-            if coin.denom == config.local_denom {
-                amount = coin.amount;
-            }
-        }
-        if amount == Uint128::zero() {
-            return Err(ContractError::IncorrectDenom {});
-        }
-
-        // Increase the amount of available funds for that consumer
-        CONSUMERS.update(deps.storage, &info.sender, |current| match current {
-            Some(current) => Ok(ConsumerInfo {
-                address: current.address,
-                available_funds: amount,
-                total_staked: current.total_staked,
-            }),
-            None => Err(ContractError::Unauthorized {}),
-        })?;
-
-        Ok(Response::default())
-    }
-
+    // TODO extend to say what the available funds are
     pub fn update_consumers(
         deps: DepsMut,
         _env: Env,
-        _info: MessageInfo,
         to_add: Option<Vec<String>>,
         to_remove: Option<Vec<String>>,
     ) -> Result<Response, ContractError> {
@@ -358,6 +330,101 @@ mod sudo {
                 )?;
             }
         }
+
+        Ok(Response::default())
+    }
+
+    pub fn add_consumer(
+        deps: DepsMut,
+        env: Env,
+        consumer_address: String,
+        funds_available_for_staking: Coin,
+    ) -> Result<Response, ContractError> {
+        let config = CONFIG.load(deps.storage)?;
+
+        // Validate consumer address
+        let address = deps.api.addr_validate(&consumer_address)?;
+
+        // Check consumer doesn't already exist
+        ensure!(
+            !CONSUMERS.has(deps.storage, &address),
+            ContractError::ConsumerAlreadyExists {}
+        );
+
+        // Check there are enough funds available to fund consumer
+        let contract_balance = deps
+            .as_ref()
+            .querier
+            .query_balance(env.contract.address, config.local_denom)?;
+
+        ensure!(
+            contract_balance.amount <= funds_available_for_staking.amount,
+            ContractError::NotEnoughFunds {}
+        );
+
+        CONSUMERS.save(
+            deps.storage,
+            &address,
+            &ConsumerInfo {
+                // The address of the consumer contract
+                address: address.clone(),
+                // Consumers start with zero until they are funded
+                available_funds: funds_available_for_staking.amount,
+                // Zero until funds are delegated
+                total_staked: Uint128::zero(),
+            },
+        )?;
+
+        Ok(Response::default())
+    }
+
+    pub fn remove_consumer(
+        deps: DepsMut,
+        _env: Env,
+        consumer_address: String,
+    ) -> Result<Response, ContractError> {
+        let config = CONFIG.load(deps.storage)?;
+
+        // Validate consumer address
+        let address = deps.api.addr_validate(&consumer_address)?;
+
+        // Check consumer exists
+        ensure!(
+            CONSUMERS.has(deps.storage, &address),
+            ContractError::NoConsumer {}
+        );
+
+        // Remove consumer
+        CONSUMERS.remove(deps.storage, &address);
+
+        // TODO revisit what other cleanup do we need here?
+        // Unbond all assets for all validators?
+
+        Ok(Response::default())
+    }
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
+    match msg.id {
+        WITHDRAW_REWARDS_REPLY_ID => reply::forward_rewards_to_consumer(deps, env, msg),
+        _ => Err(ContractError::UnknownReplyID {}),
+    }
+}
+
+mod reply {
+    use super::*;
+
+    pub fn forward_rewards_to_consumer(
+        deps: DepsMut,
+        env: Env,
+        msg: Reply,
+    ) -> Result<Response, ContractError> {
+        // Send funds to consumer
+        // TODO add explicit method to mesh consumer that will fire off
+        // IbcMsg to provider
+        let res = parse_reply_execute_data(msg)?;
+        println!("{:?}", res);
 
         Ok(Response::default())
     }

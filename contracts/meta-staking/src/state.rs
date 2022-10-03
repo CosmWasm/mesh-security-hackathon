@@ -4,6 +4,7 @@ use cw_storage_plus::{Item, Map};
 
 #[cw_serde]
 pub struct Config {
+    pub admin: String,
     pub local_denom: String,
     pub provider_denom: String,
     pub consumer_provider_exchange_rate: Decimal,

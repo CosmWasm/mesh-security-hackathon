@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use crate::msg::InstantiateMsg;
+    use crate::msg::{ExecuteMsg, InstantiateMsg};
     use crate::{helpers::MetaStakingContract, msg::SudoMsg as MetaStakingSudoMsg};
     use cosmwasm_std::{to_binary, Addr, Coin, Decimal, Empty, Uint128};
-    use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor, SudoMsg, WasmSudo};
+    use cw_multi_test::{
+        App, AppBuilder, BankSudo, Contract, ContractWrapper, Executor, SudoMsg, WasmSudo,
+    };
 
     pub fn meta_staking_contract() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -17,7 +19,7 @@ mod tests {
 
     const USER: &str = "USER";
     const ADMIN: &str = "ADMIN";
-    const NATIVE_DENOM: &str = "denom";
+    const NATIVE_DENOM: &str = "ujuno";
 
     fn mock_app() -> App {
         AppBuilder::new().build(|router, _, storage| {
@@ -40,7 +42,7 @@ mod tests {
         let cw_template_id = app.store_code(meta_staking_contract());
 
         let msg = InstantiateMsg {
-            local_denom: "ujuno".to_string(),
+            local_denom: NATIVE_DENOM.to_string(),
             provider_denom: "uosmo".to_string(),
             consumer_provider_exchange_rate: Decimal::percent(10),
         };
@@ -60,67 +62,107 @@ mod tests {
         (app, meta_staking_addr)
     }
 
+    fn add_and_fund_consumer() -> (App, MetaStakingContract, Addr) {
+        let (mut app, meta_staking_addr) = proper_instantiate();
+
+        let consumer = Addr::unchecked("consumer_contract");
+
+        // Gov funds meta-staking contract
+        // This is a workaround until we have superfluid staking
+        app.sudo(SudoMsg::Bank(BankSudo::Mint {
+            to_address: meta_staking_addr.addr().to_string(),
+            amount: vec![Coin {
+                amount: Uint128::new(100000000),
+                denom: "ujuno".to_string(),
+            }],
+        }))
+        .unwrap();
+
+        // Gov adds consumer
+        app.sudo(SudoMsg::Wasm(WasmSudo {
+            contract_addr: meta_staking_addr.addr(),
+            msg: to_binary(&MetaStakingSudoMsg::AddConsumer {
+                consumer_address: consumer.to_string(),
+                funds_available_for_staking: Coin {
+                    denom: NATIVE_DENOM.to_string(),
+                    amount: Uint128::new(100000000),
+                },
+            })
+            .unwrap(),
+        }))
+        .unwrap();
+
+        (app, meta_staking_addr, consumer)
+    }
+
     #[test]
     fn happy_path() {
-        let (mut app, meta_staking_addr) = proper_instantiate();
+        let (mut app, meta_staking_addr, consumer) = add_and_fund_consumer();
 
-        let consumer = Addr::unchecked("consumer_contract");
+        let validator_addr = Addr::unchecked("validator");
 
-        // Add consumer
-        app.sudo(SudoMsg::Wasm(WasmSudo {
-            contract_addr: consumer,
-            msg: to_binary(&MetaStakingSudoMsg::UpdateConsumers {
-                to_add: Some(vec![consumer.to_string()]),
-                to_remove: None,
-            })
-            .unwrap(),
-        }))
+        // Consumer delegates funds
+        app.execute_contract(
+            consumer.clone(),
+            meta_staking_addr.addr(),
+            &ExecuteMsg::Delegate {
+                validator: validator_addr.to_string(),
+                amount: Coin {
+                    denom: NATIVE_DENOM.to_string(),
+                    amount: Uint128::new(100000),
+                },
+            },
+            &[],
+        )
         .unwrap();
 
-        // Fund contract successfully
-        app.sudo(SudoMsg::Wasm(WasmSudo {
-            contract_addr: meta_staking_addr.addr(),
-            msg: to_binary(&MetaStakingSudoMsg::Fund {
-                consumer: consumer.to_string(),
-            })
-            .unwrap(),
-        }))
+        // Consumer claims rewards
+        app.execute_contract(
+            consumer.clone(),
+            meta_staking_addr.addr(),
+            &ExecuteMsg::WithdrawDelegatorReward {
+                validator: validator_addr.to_string(),
+            },
+            &[],
+        )
         .unwrap();
-    }
 
-    #[test]
-    fn fail_fund_non_existent_consumer() {
-        let (mut app, meta_staking_addr) = proper_instantiate();
-
-        let consumer = Addr::unchecked("consumer_contract");
-
-        // Funding wrong contract successfully
-        app.sudo(SudoMsg::Wasm(WasmSudo {
-            contract_addr: meta_staking_addr.addr(),
-            msg: to_binary(&MetaStakingSudoMsg::Fund {
-                consumer: consumer.to_string(),
-            })
-            .unwrap(),
-        }))
-        .unwrap_err();
-    }
-
-    #[test]
-    fn only_gov_module_can_add_or_remove_consumers() {
-        let (app, meta_staking_addr) = proper_instantiate();
-
-        // Fund contract fails on non_existent consumer
+        // Consumer unbonds funds
+        app.execute_contract(
+            consumer,
+            meta_staking_addr.addr(),
+            &ExecuteMsg::Undelegate {
+                validator: validator_addr.to_string(),
+                amount: Coin {
+                    denom: NATIVE_DENOM.to_string(),
+                    amount: Uint128::new(100000),
+                },
+            },
+            &[],
+        )
+        .unwrap();
     }
 
     #[test]
     fn only_consumer_can_preform_actions() {
-        let (app, meta_staking_addr) = proper_instantiate();
+        let (mut app, meta_staking_addr, _) = add_and_fund_consumer();
 
-        // Fund contract fails on non_existent consumer
-    }
+        let validator_addr = Addr::unchecked("validator");
+        let random = Addr::unchecked("random");
 
-    #[test]
-    fn cannot_delegate_more_than_consumer_has_allocated() {
-        let (app, meta_staking_addr) = proper_instantiate();
+        // Random address fails to delegates funds
+        app.execute_contract(
+            random,
+            meta_staking_addr.addr(),
+            &ExecuteMsg::Delegate {
+                validator: validator_addr.to_string(),
+                amount: Coin {
+                    denom: NATIVE_DENOM.to_string(),
+                    amount: Uint128::new(100000),
+                },
+            },
+            &[],
+        )
+        .unwrap_err();
     }
 }

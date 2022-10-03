@@ -4,6 +4,8 @@ use cosmwasm_std::{
     DelegationResponse, ValidatorResponse,
 };
 
+use crate::state::Config;
+
 #[cw_serde]
 pub struct InstantiateMsg {
     pub local_denom: String,
@@ -36,6 +38,9 @@ pub enum QueryMsg {
     /// AllDelegations will return all delegations by the delegator
     #[returns(AllDelegationsResponse)]
     AllDelegations { delegator: String },
+    /// Returns meta-staking config
+    #[returns(Config)]
+    Config {},
     /// Delegation will return more detailed info on a particular
     /// delegation, defined by delegator/validator pair
     #[returns(DelegationResponse)]
@@ -66,14 +71,12 @@ pub enum SudoMsg {
     /// In production, this would be accomplished by something like
     /// a generic version of the Superfluid staking module which would
     /// be in charge of minting and burning synthetic tokens.
-    Fund {
-        // Address of the consumer to fund
-        // Checks to make sure the consumer is whitelisted
-        consumer: String,
-    },
     /// Update list of consumers
-    UpdateConsumers {
-        to_add: Option<Vec<String>>,
-        to_remove: Option<Vec<String>>,
+    AddConsumer {
+        consumer_address: String,
+        funds_available_for_staking: Coin,
+    },
+    RemoveConsumer {
+        consumer_address: String,
     },
 }
