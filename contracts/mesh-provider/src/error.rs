@@ -37,6 +37,9 @@ pub enum ContractError {
     #[error("Cannot send zero tokens to any methods")]
     ZeroAmount,
 
+    #[error("No tokens are ready to be unbonded")]
+    NothingToClaim,
+
     #[error("Validator was never registered: {0}")]
     UnknownValidator(String),
 
