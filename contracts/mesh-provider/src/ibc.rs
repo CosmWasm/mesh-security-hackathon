@@ -2,9 +2,9 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_slice, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128,
+    from_slice, to_binary, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128,
 };
 
 use mesh_ibc::{
@@ -55,7 +55,7 @@ pub fn ibc_channel_open(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_channel_connect(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcChannelConnectMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     let channel = msg.channel();
@@ -67,7 +67,13 @@ pub fn ibc_channel_connect(
         None => CHANNEL.save(deps.storage, channel_id)?,
     };
 
-    Ok(IbcBasicResponse::new())
+    let packet = ProviderMsg::ListValidators {};
+    let msg = IbcMsg::SendPacket {
+        channel_id: channel_id.to_string(),
+        data: to_binary(&packet)?,
+        timeout: build_timeout(&env),
+    };
+    Ok(IbcBasicResponse::new().add_message(msg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
