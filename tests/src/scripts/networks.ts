@@ -36,10 +36,14 @@ export const starTestConfig: Network = {
 // map from (chainId, chainId) to live existing connection
 export const connections = {
   [junoTestConfig.chainId]: {
-    // TODO: create this connection
-    [osmoTestConfig.chainId]: "channel-1110",
+    [osmoTestConfig.chainId]: "connection-24",
   },
   [osmoTestConfig.chainId]: {
-    [junoTestConfig.chainId]: "channel-28",
+    [junoTestConfig.chainId]: "connection-2211",
   },
 };
+
+// These are ics20 channels
+// // TODO: create this connection
+// [osmoTestConfig.chainId]: "channel-1110",
+// [junoTestConfig.chainId]: "channel-28",
