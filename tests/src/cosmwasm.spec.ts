@@ -7,7 +7,7 @@ import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 const { osmosis: oldOsmo, setup, wasmd } = testutils;
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
-import { IbcVersion, setupContracts, setupOsmosisClient, setupWasmClient } from "./utils";
+import { assertPacketsFromA, IbcVersion, setupContracts, setupOsmosisClient, setupWasmClient } from "./utils";
 
 let wasmIds: Record<string, number> = {};
 let osmosisIds: Record<string, number> = {};
@@ -149,89 +149,159 @@ async function demoSetup(): Promise<SetupInfo> {
   };
 }
 
-test.serial("Properly registerd", async (t) => {
-  // Setup should complete without error
-  await demoSetup();
-  t.assert(true);
-});
+// test.serial("Properly registerd", async (t) => {
+//   // Setup should complete without error
+//   await demoSetup();
+//   t.assert(true);
+// });
 
-test.serial("Fails to connect a second time", async (t) => {
-  const { link, meshConsumerPort, meshProviderPort } = await demoSetup();
-  // Create second connection between mesh_consumer and mesh_provider
-  try {
-    await link.createChannel("A", meshConsumerPort, meshProviderPort, Order.ORDER_UNORDERED, IbcVersion);
-  } catch (e) {
-    return t.assert((e as Error).message.includes("Contract already has a bound channel"));
-  }
-  throw Error("Should fail to connect a second time");
-});
+// test.serial("Fails to connect a second time", async (t) => {
+//   const { link, meshConsumerPort, meshProviderPort } = await demoSetup();
+//   // Create second connection between mesh_consumer and mesh_provider
+//   try {
+//     await link.createChannel("A", meshConsumerPort, meshProviderPort, Order.ORDER_UNORDERED, IbcVersion);
+//   } catch (e) {
+//     return t.assert((e as Error).message.includes("Contract already has a bound channel"));
+//   }
+//   throw Error("Should fail to connect a second time");
+// });
 
-test.serial("fail if connect from different connect or port", async (t) => {
-  // create a connection and channel
-  const [src, dest] = await setup(wasmd, osmosis);
-  const link = await Link.createWithNewConnections(src, dest);
-  const osmoClient = await setupOsmosisClient();
-  const wasmClient = await setupWasmClient();
+// test.serial("fail if connect from different connect or port", async (t) => {
+//   // create a connection and channel
+//   const [src, dest] = await setup(wasmd, osmosis);
+//   const link = await Link.createWithNewConnections(src, dest);
+//   const osmoClient = await setupOsmosisClient();
+//   const wasmClient = await setupWasmClient();
 
-  // instantiate mesh_provider on osmosis
-  const initMeshProvider = {
-    consumer: {
-      connection_id: link.endB.connectionID,
+//   // instantiate mesh_provider on osmosis
+//   const initMeshProvider = {
+//     consumer: {
+//       connection_id: link.endB.connectionID,
+//     },
+//     slasher: {
+//       code_id: osmosisIds.mesh_slasher,
+//       msg: toBinary({
+//         owner: osmoClient.senderAddress,
+//       }),
+//     },
+//     lockup: osmoClient.senderAddress,
+//     unbonding_period: 86400 * 7,
+//   };
+//   const { contractAddress: osmoMeshProvider } = await osmoClient.sign.instantiate(
+//     osmoClient.senderAddress,
+//     osmosisIds.mesh_provider,
+//     initMeshProvider,
+//     "mesh_provider contract",
+//     "auto"
+//   );
+//   const { ibcPortId: meshProviderPort } = await osmoClient.sign.getContract(osmoMeshProvider);
+//   assert(meshProviderPort);
+
+//   // instantiate meta_staking on wasmd
+//   const initMetaStaking = {};
+//   const { contractAddress: wasmMetaStaking } = await wasmClient.sign.instantiate(
+//     wasmClient.senderAddress,
+//     wasmIds.meta_staking,
+//     initMetaStaking,
+//     "meta_staking contract",
+//     "auto"
+//   );
+
+//   // instantiate mesh_consumer on wasmd
+//   const initMeshConsumer = {
+//     provider: {
+//       // this is not the meshProviderPort, so authentication will reject it
+//       port_id: "connection-123456",
+//       connection_id: link.endA.connectionID,
+//     },
+//     remote_to_local_exchange_rate: "0.1",
+//     meta_staking_contract_address: wasmMetaStaking,
+//   };
+//   const { contractAddress: wasmMeshConsumer } = await wasmClient.sign.instantiate(
+//     wasmClient.senderAddress,
+//     wasmIds.mesh_consumer,
+//     initMeshConsumer,
+//     "mesh_consumer contract",
+//     "auto"
+//   );
+//   const { ibcPortId: meshConsumerPort } = await wasmClient.sign.getContract(wasmMeshConsumer);
+//   assert(meshConsumerPort);
+
+//   // Create connection with a different port
+//   try {
+//     await link.createChannel("A", meshConsumerPort, meshProviderPort, Order.ORDER_UNORDERED, IbcVersion);
+//   } catch (e) {
+//     return t.assert((e as Error).message.includes("Unauthorized"));
+//   }
+//   throw Error("Should fail to when connecting with wrong port");
+// });
+
+test.serial("happy path", async (t) => {
+  const {
+    wasmClient,
+    osmoClient,
+    wasmMeshConsumer,
+    osmoMeshProvider,
+    osmoMeshLockup,
+    // osmoMeshSlasher,
+    wasmMetaStaking,
+    // meshConsumerPort,
+    // meshProviderPort,
+    link,
+    // ics20,
+  } = await demoSetup();
+
+  const fundsAvailableForStaking = { amount: "100000", denom: "ucosm" };
+
+  // Fund meta staking module
+  const funding_res = await wasmClient.sign.sendTokens(
+    wasmClient.senderAddress,
+    wasmMetaStaking,
+    [fundsAvailableForStaking],
+    "auto"
+  );
+
+  console.log("Funding the meta-staking contract: ", funding_res);
+
+  // Add consumer to meta-staking contract
+  const add_consumer_res = await wasmClient.sign.execute(
+    wasmClient.senderAddress,
+    wasmMetaStaking,
+    {
+      sudo: {
+        add_consumer: {
+          consumer_address: wasmMeshConsumer,
+          funds_available_for_staking: fundsAvailableForStaking,
+        },
+      },
     },
-    slasher: {
-      code_id: osmosisIds.mesh_slasher,
-      msg: toBinary({
-        owner: osmoClient.senderAddress,
-      }),
-    },
-    lockup: osmoClient.senderAddress,
-    unbonding_period: 86400 * 7,
-  };
-  const { contractAddress: osmoMeshProvider } = await osmoClient.sign.instantiate(
+    "auto"
+  );
+
+  console.log("Add consumer to wasmd meta-staking contract: ", add_consumer_res);
+
+  // Lockup 100 tokens on Osmosis
+  const lockedTokens = { amount: "100", denom: "uosmo" };
+  const lockupRes = await osmoClient.sign.execute(
     osmoClient.senderAddress,
-    osmosisIds.mesh_provider,
-    initMeshProvider,
-    "mesh_provider contract",
-    "auto"
-  );
-  const { ibcPortId: meshProviderPort } = await osmoClient.sign.getContract(osmoMeshProvider);
-  assert(meshProviderPort);
-
-  // instantiate meta_staking on wasmd
-  const initMetaStaking = {};
-  const { contractAddress: wasmMetaStaking } = await wasmClient.sign.instantiate(
-    wasmClient.senderAddress,
-    wasmIds.meta_staking,
-    initMetaStaking,
-    "meta_staking contract",
-    "auto"
+    osmoMeshLockup,
+    { bond: {} },
+    "auto",
+    "memo",
+    [lockedTokens]
   );
 
-  // instantiate mesh_consumer on wasmd
-  const initMeshConsumer = {
-    provider: {
-      // this is not the meshProviderPort, so authentication will reject it
-      port_id: "connection-123456",
-      connection_id: link.endA.connectionID,
-    },
-    remote_to_local_exchange_rate: "0.1",
-    meta_staking_contract_address: wasmMetaStaking,
-  };
-  const { contractAddress: wasmMeshConsumer } = await wasmClient.sign.instantiate(
-    wasmClient.senderAddress,
-    wasmIds.mesh_consumer,
-    initMeshConsumer,
-    "mesh_consumer contract",
-    "auto"
-  );
-  const { ibcPortId: meshConsumerPort } = await wasmClient.sign.getContract(wasmMeshConsumer);
-  assert(meshConsumerPort);
+  console.log("Alice locks up 100uosmo: ", lockupRes);
 
-  // Create connection with a different port
-  try {
-    await link.createChannel("A", meshConsumerPort, meshProviderPort, Order.ORDER_UNORDERED, IbcVersion);
-  } catch (e) {
-    return t.assert((e as Error).message.includes("Unauthorized"));
-  }
-  throw Error("Should fail to when connecting with wrong port");
+  // Relay packets to get list of validators from provider
+  const info = await link.relayAll();
+  assertPacketsFromA(info, 1, true);
+
+  // Get list of validators
+  const osmoValidators = await osmoClient.sign.queryContractSmart(osmoMeshProvider, { list_validators: {} });
+
+  console.log("List of validators: ", osmoValidators);
+
+  // If we made it through everything, we win
+  t.assert(true);
 });

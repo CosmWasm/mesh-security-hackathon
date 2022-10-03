@@ -13,7 +13,7 @@ cd "${SCRIPT_DIR}/.."
 for C in ./contracts/*/
 do
   echo "Compiling $(basename "$C")..."
-  (cd "$C" && RUSTFLAGS='-C link-arg=-s' cargo build --release --target wasm32-unknown-unknown --locked)
+  (cd "$C" && RUSTFLAGS='-C link-arg=-s' cargo build --lib --release --target wasm32-unknown-unknown --locked)
 done
 
 # move them to the internal dir inside tests

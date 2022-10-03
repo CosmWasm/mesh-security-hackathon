@@ -31,6 +31,7 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
+            // HACK for demo...
             admin: info.sender.to_string(),
             denom,
         },
