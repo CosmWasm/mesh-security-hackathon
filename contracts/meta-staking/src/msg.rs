@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{
-    AllDelegationsResponse, AllValidatorsResponse, BondedDenomResponse, Coin, Decimal,
-    DelegationResponse, ValidatorResponse,
+    AllDelegationsResponse, AllValidatorsResponse, Coin,
+    DelegationResponse,
 };
 
 use crate::state::ConsumerInfo;

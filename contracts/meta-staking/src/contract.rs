@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+    Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
@@ -21,7 +21,7 @@ pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    msg: InstantiateMsg,
+    _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
@@ -249,15 +249,15 @@ mod query {
 
     use super::*;
 
-    pub fn all_delegations(deps: Deps, consumer: String) -> StdResult<Binary> {
+    pub fn all_delegations(_deps: Deps, _consumer: String) -> StdResult<Binary> {
         unimplemented!()
     }
 
-    pub fn all_validators(deps: Deps, consumer: String) -> StdResult<Binary> {
+    pub fn all_validators(_deps: Deps, _consumer: String) -> StdResult<Binary> {
         unimplemented!()
     }
 
-    pub fn delegation(deps: Deps, consumer: String, validator: String) -> StdResult<Binary> {
+    pub fn delegation(_deps: Deps, _consumer: String, _validator: String) -> StdResult<Binary> {
         unimplemented!()
     }
 
@@ -267,7 +267,7 @@ mod query {
         to_binary(&consumer)
     }
 
-    pub fn consumers(deps: Deps) -> StdResult<Binary> {
+    pub fn consumers(_deps: Deps) -> StdResult<Binary> {
         // let consumers = CONSUMERS.;
         // to_binary(&consumers)
         unimplemented!()
@@ -300,7 +300,7 @@ mod sudo {
         consumer_address: String,
         funds_available_for_staking: Coin,
     ) -> Result<Response, ContractError> {
-        let config = CONFIG.load(deps.storage)?;
+        let _config = CONFIG.load(deps.storage)?;
 
         // Validate consumer address
         let address = deps.api.addr_validate(&consumer_address)?;
@@ -397,7 +397,7 @@ mod reply {
 mod tests {
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{coins, Decimal};
+    use cosmwasm_std::{coins};
 
     #[test]
     fn proper_initialization() {
