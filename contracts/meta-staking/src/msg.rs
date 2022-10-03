@@ -1,8 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{
-    AllDelegationsResponse, AllValidatorsResponse, Coin,
-    DelegationResponse,
-};
+use cosmwasm_std::{AllDelegationsResponse, AllValidatorsResponse, Coin, DelegationResponse};
 
 use crate::state::ConsumerInfo;
 
@@ -23,6 +20,8 @@ pub enum ExecuteMsg {
         /// The `validator_address`
         validator: String,
     },
+    /// Use for now, only admin can call - later we can remove if x/gov calls SudoMsg directly
+    Sudo(SudoMsg),
 }
 
 #[cw_serde]

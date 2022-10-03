@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::msg::{InstantiateMsg};
+    use crate::msg::InstantiateMsg;
     use crate::{helpers::MetaStakingContract, msg::SudoMsg as MetaStakingSudoMsg};
     use cosmwasm_std::{to_binary, Addr, Coin, Empty, Uint128};
     use cw_multi_test::{

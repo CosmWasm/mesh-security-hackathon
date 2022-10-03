@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+    ensure_eq, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
@@ -55,6 +55,14 @@ pub fn execute(
         }
         ExecuteMsg::WithdrawDelegatorReward { validator } => {
             execute::withdraw_delegator_reward(deps, env, info, validator)
+        }
+        ExecuteMsg::Sudo(sudo_msg) => {
+            ensure_eq!(
+                CONFIG.load(deps.storage)?.admin,
+                info.sender,
+                ContractError::Unauthorized {}
+            );
+            sudo(deps, env, sudo_msg)
         }
     }
 }
@@ -396,8 +404,8 @@ mod reply {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cosmwasm_std::coins;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{coins};
 
     #[test]
     fn proper_initialization() {
