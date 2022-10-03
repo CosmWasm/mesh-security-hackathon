@@ -1,7 +1,7 @@
 {
-  "name": "ibc-tests-simple-ica",
+  "name": "mesh-security-tests",
   "version": "0.2.0",
-  "description": "Simple repo showing how to use ts-relayer as a library to test cw20-ics20 contract",
+  "description": "Integration tests and deploy scripts for mesh-security",
   "browserslist": [
     "maintained node versions"
   ],
@@ -16,14 +16,18 @@
     "test": "run-s build test:*",
     "test:lint": "eslint src --ext .ts",
     "test:prettier": "prettier \"**/*.{ts,md}\" --list-different",
-    "test:unit": "nyc --silent ava --serial"
+    "test:unit": "nyc --silent ava --serial",
+    "deploy": "run-s build deploy:*",
+    "deploy:contracts": "node build/scripts/deploy-contracts.js"
   },
   "dependencies": {
-    "@confio/relayer": "^0.6.1"
+    "@confio/relayer": "^0.6.1",
+    "@ledgerhq/hw-transport": "^5.51.1"
   },
   "devDependencies": {
     "@ava/typescript": "^3.0.1",
     "@istanbuljs/nyc-config-typescript": "^1.0.2",
+    "@types/ledgerhq__hw-transport": "^4.21.4",
     "@types/node": "^18.0.6",
     "@types/sinon": "^10.0.13",
     "@typescript-eslint/eslint-plugin": "^5.30.7",

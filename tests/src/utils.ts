@@ -121,8 +121,6 @@ export function assertPacketsFromB(relay: RelayInfo, count: number, success: boo
   }
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 export function parseAcknowledgementSuccess(ack: AckWithMetadata): any {
   const response = parseString(ack.acknowledgement);
   assert(response.result);
@@ -136,5 +134,3 @@ export function parseString(str: Uint8Array): any {
 export function parseBinary(bin: string): any {
   return JSON.parse(fromUtf8(fromBase64(bin)));
 }
-
-/* eslint-enable @typescript-eslint/no-explicit-any */
