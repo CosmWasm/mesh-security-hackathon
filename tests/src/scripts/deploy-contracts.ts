@@ -184,7 +184,7 @@ async function fixConsumer(
   //   "auto"
   // );
 
-  console.log("Add consumer to wasmd meta-staking contract");
+  console.log(`Add consumer to wasmd meta-staking contract: ${fundsAvailableForStaking}`);
   await client.execute(
     signer,
     metaStakingAddr,
