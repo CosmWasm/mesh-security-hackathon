@@ -4,8 +4,7 @@
  * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface InstantiateMsg {}
+export type InstantiateMsg = Record<string, never>;
 export type ExecuteMsg =
   | {
       delegate: {
@@ -70,16 +69,12 @@ export type QueryMsg =
         consumer: string;
       };
     };
-export type Addr = string;
 export interface AllDelegationsResponse {
   delegations: Delegation[];
-  [k: string]: unknown;
 }
 export interface Delegation {
-  amount: Coin;
-  delegator: Addr;
+  delegation: Uint128;
   validator: string;
-  [k: string]: unknown;
 }
 export type Decimal = string;
 export interface AllValidatorsResponse {
@@ -100,6 +95,7 @@ export interface ConsumerInfo {
 export interface ConsumersResponse {
   consumers: ConsumerInfo[];
 }
+export type Addr = string;
 export interface DelegationResponse {
   delegation?: FullDelegation | null;
   [k: string]: unknown;

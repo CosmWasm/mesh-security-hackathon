@@ -4,9 +4,13 @@ import { assert } from "@cosmjs/utils";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
+
+const pprint = (x: unknown) => console.log(JSON.stringify(x, undefined, 2));
+
 const { osmosis: oldOsmo, setup, wasmd } = testutils;
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
+import { MetaStakingClient } from "./bindings/MetaStaking.client";
 import { assertPacketsFromB, IbcVersion, setupContracts, setupOsmosisClient, setupWasmClient } from "./utils";
 
 let wasmIds: Record<string, number> = {};
@@ -316,6 +320,12 @@ test.serial("happy path", async (t) => {
     account: { address: osmoClient.senderAddress },
   });
   console.log("Staked tokens response: ", stakedTokenResponse);
+
+  // Query Staked tokens remote
+  const metaStakingClient = new MetaStakingClient(wasmClient.sign, wasmClient.senderAddress, wasmMetaStaking);
+  const remoteStakedTokens = await metaStakingClient.allDelegations({ consumer: wasmMeshConsumer });
+  console.log("Remote staked tokens: ");
+  pprint(remoteStakedTokens.delegations);
 
   // Unstake 100 tokens on wasmd
   const unstakeRes = await osmoClient.sign.execute(
