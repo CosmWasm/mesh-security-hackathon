@@ -21,7 +21,7 @@ export const osmoTestConfig: Network = {
   chainId: "osmo-test-4",
   rpcEndpoint: "https://osmosistest-rpc.quickapi.com/",
   prefix: "osmo",
-  gasPrice: GasPrice.fromString("0.025ujunox"),
+  gasPrice: GasPrice.fromString("0.025uosmo"),
   feeToken: "uosmo",
 };
 
