@@ -4,7 +4,6 @@ import { assert } from "@cosmjs/utils";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
-
 const pprint = (x: unknown) => console.log(JSON.stringify(x, undefined, 2));
 
 const { osmosis: oldOsmo, setup, wasmd } = testutils;
