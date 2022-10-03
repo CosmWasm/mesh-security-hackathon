@@ -175,7 +175,7 @@ mod execute {
         // We subtract the amount delegated to the validator.
         VALIDATORS_BY_CONSUMER.update(
             deps.storage,
-            (consumer_addr.clone(), validator_addr.clone()),
+            (consumer_addr, validator_addr),
             |validator_info| -> Result<ValidatorInfo, ContractError> {
                 match validator_info {
                     Some(validator_info) => Ok(ValidatorInfo {
@@ -300,43 +300,6 @@ mod sudo {
 
     use super::*;
 
-    // TODO extend to say what the available funds are
-    pub fn update_consumers(
-        deps: DepsMut,
-        _env: Env,
-        to_add: Option<Vec<String>>,
-        to_remove: Option<Vec<String>>,
-    ) -> Result<Response, ContractError> {
-        // Remove consumers
-        if let Some(to_remove) = to_remove {
-            for addr in to_remove {
-                let addr = deps.api.addr_validate(&addr)?;
-                CONSUMERS.remove(deps.storage, &addr);
-            }
-        }
-
-        if let Some(to_add) = to_add {
-            // Add consumers
-            for addr in to_add {
-                let address = deps.api.addr_validate(&addr)?;
-                CONSUMERS.save(
-                    deps.storage,
-                    &address,
-                    &ConsumerInfo {
-                        // The address of the consumer contract
-                        address: address.clone(),
-                        // Consumers start with zero until they are funded
-                        available_funds: Uint128::zero(),
-                        // Zero until funds are delegated
-                        total_staked: Uint128::zero(),
-                    },
-                )?;
-            }
-        }
-
-        Ok(Response::default())
-    }
-
     pub fn add_consumer(
         deps: DepsMut,
         env: Env,
@@ -386,7 +349,7 @@ mod sudo {
         _env: Env,
         consumer_address: String,
     ) -> Result<Response, ContractError> {
-        let config = CONFIG.load(deps.storage)?;
+        let _config = CONFIG.load(deps.storage)?;
 
         // Validate consumer address
         let address = deps.api.addr_validate(&consumer_address)?;
@@ -419,8 +382,8 @@ mod reply {
     use super::*;
 
     pub fn forward_rewards_to_consumer(
-        deps: DepsMut,
-        env: Env,
+        _deps: DepsMut,
+        _env: Env,
         msg: Reply,
     ) -> Result<Response, ContractError> {
         // Send funds to consumer
