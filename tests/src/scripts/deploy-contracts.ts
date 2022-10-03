@@ -170,19 +170,19 @@ async function fixConsumer(
     fundsAvailableForStaking: Coin;
   }
 ): Promise<void> {
-  console.log("Remove consumer to wasmd meta-staking contract");
-  await client.execute(
-    signer,
-    metaStakingAddr,
-    {
-      sudo: {
-        remove_consumer: {
-          consumer_address: meshConsumerAddr,
-        },
-      },
-    },
-    "auto"
-  );
+  // console.log("Remove consumer to wasmd meta-staking contract");
+  // await client.execute(
+  //   signer,
+  //   metaStakingAddr,
+  //   {
+  //     sudo: {
+  //       remove_consumer: {
+  //         consumer_address: meshConsumerAddr,
+  //       },
+  //     },
+  //   },
+  //   "auto"
+  // );
 
   console.log("Add consumer to wasmd meta-staking contract");
   await client.execute(
@@ -225,7 +225,7 @@ async function main() {
   // pprint(consInfo);
 
   await fixConsumer(consumer.client, consumer.address, {
-    fundsAvailableForStaking: { amount: "7500000", denom: "ujunox" },
+    fundsAvailableForStaking: { amount: "6500000", denom: "ujunox" },
     meshConsumerAddr: junoConfig.meshConsumerAddr,
     metaStakingAddr: junoConfig.metaStakingAddr,
   });
