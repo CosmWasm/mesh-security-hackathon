@@ -23,6 +23,7 @@ pub enum ExecuteMsg {
         validator: String,
     },
     /// This releases a previously received claim without slashing it
+    /// TODO this is also confusing naming. Who / what is the owner here?
     ReleaseClaim { owner: String, amount: Uint128 },
     /// This slashes a previously provided claim
     SlashClaim { owner: String, amount: Uint128 },

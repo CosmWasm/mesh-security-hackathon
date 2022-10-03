@@ -80,7 +80,7 @@ async function demoSetup(): Promise<SetupInfo> {
     },
     lockup: osmoMeshLockup,
     // TODO: get real number somehow... look at tendermint client queries
-    unbonding_period: 86400 * 7,
+    unbonding_period: 0,
   };
   const { contractAddress: osmoMeshProvider } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -260,7 +260,6 @@ test.serial("happy path", async (t) => {
     [fundsAvailableForStaking],
     "auto"
   );
-
   console.log("Funding the meta-staking contract: ", funding_res);
 
   // Add consumer to meta-staking contract
@@ -277,7 +276,6 @@ test.serial("happy path", async (t) => {
     },
     "auto"
   );
-
   console.log("Add consumer to wasmd meta-staking contract: ", add_consumer_res);
 
   // Lockup 100 tokens on Osmosis
@@ -290,7 +288,6 @@ test.serial("happy path", async (t) => {
     "memo",
     [lockedTokens]
   );
-
   console.log("Alice locks up 100uosmo: ", lockupRes);
 
   // Relay packets to get list of validators from provider
@@ -299,7 +296,6 @@ test.serial("happy path", async (t) => {
 
   // Get list of validators
   const osmoValidators = await osmoClient.sign.queryContractSmart(osmoMeshProvider, { list_validators: {} });
-
   console.log("List of validators: ", osmoValidators);
 
   // Grant claim, cross stake 100 tokens to validator on wasmd
@@ -309,7 +305,6 @@ test.serial("happy path", async (t) => {
     { grant_claim: { leinholder: osmoMeshProvider, amount: "100", validator: osmoValidators.validators[0].address } },
     "auto"
   );
-
   console.log("Grant a claim to provider contract (cross-stake): ", grantClaimRes);
 
   // Relay packets to cross-stake
@@ -320,8 +315,41 @@ test.serial("happy path", async (t) => {
   const stakedTokenResponse = await osmoClient.sign.queryContractSmart(osmoMeshProvider, {
     account: { address: osmoClient.senderAddress },
   });
-
   console.log("Staked tokens response: ", stakedTokenResponse);
+
+  // Unstake 100 tokens on wasmd
+  const unstakeRes = await osmoClient.sign.execute(
+    osmoClient.senderAddress,
+    osmoMeshProvider,
+    { unstake: { amount: "100", validator: osmoValidators.validators[0].address } },
+    "auto"
+  );
+  console.log("Unstake remote tokens: ", unstakeRes);
+
+  // Relay packets to cross-stake
+  const relay_info_3 = await link.relayAll();
+  assertPacketsFromB(relay_info_3, 1, true);
+
+  const emptyStakedTokenResponse = await osmoClient.sign.queryContractSmart(osmoMeshProvider, {
+    account: { address: osmoClient.senderAddress },
+  });
+  console.log("Staked tokens response (now empty): ", emptyStakedTokenResponse);
+
+  // Lockup more tokens to kill time...
+  await osmoClient.sign.execute(osmoClient.senderAddress, osmoMeshLockup, { bond: {} }, "auto", "memo", [lockedTokens]);
+
+  // Unbond 100 tokens from wasmd now that a block has passed
+  const unbondRes = await osmoClient.sign.execute(
+    osmoClient.senderAddress,
+    osmoMeshLockup,
+    { unbond: { amount: "100" } },
+    "auto"
+  );
+  console.log("Unbond tokens response: ", unbondRes);
+
+  // Check balance
+  const balance = await osmoClient.sign.getBalance(osmoClient.senderAddress, "uosmo");
+  console.log("Alice balance: ", balance);
 
   // If we made it through everything, we win
   t.assert(true);
