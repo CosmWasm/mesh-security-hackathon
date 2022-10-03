@@ -1,6 +1,6 @@
-# mesh-security
+# mesh-security (Hackathon / Prototype status)
 
-Implementation of Sunny's [Mesh Security](https://youtu.be/Z2ZBKo9-iRs?t=4937) talk from Cosmoverse 2022 (Hackathon / Prototype status)
+Implementation of Sunny's [Mesh Security](https://youtu.be/Z2ZBKo9-iRs?t=4937) talk from Cosmoverse 2022
 
 This should run on any CosmWasm enabled chain. This is MVP design and gives people
 hands on use, that should work on a testnet. We will list open questions below that need
