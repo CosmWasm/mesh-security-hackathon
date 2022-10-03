@@ -11,7 +11,7 @@ export interface Network {
 
 export const junoTestConfig: Network = {
   chainId: "uni-5",
-  rpcEndpoint: "https://rpc.uni.junonetwork.io",
+  rpcEndpoint: "https://juno-testnet-rpc.polkachu.com:443",
   prefix: "juno",
   gasPrice: GasPrice.fromString("0.05ujunox"),
   feeToken: "ujunox",
@@ -19,7 +19,7 @@ export const junoTestConfig: Network = {
 
 export const osmoTestConfig: Network = {
   chainId: "osmo-test-4",
-  rpcEndpoint: "https://osmosistest-rpc.quickapi.com/",
+  rpcEndpoint: "https://osmosis-testnet-rpc.allthatnode.com:26657",
   prefix: "osmo",
   gasPrice: GasPrice.fromString("0.025uosmo"),
   feeToken: "uosmo",
@@ -37,9 +37,9 @@ export const starTestConfig: Network = {
 export const connections = {
   [junoTestConfig.chainId]: {
     // TODO: create this connection
-    [osmoTestConfig.chainId]: "",
+    [osmoTestConfig.chainId]: "channel-1110",
   },
   [osmoTestConfig.chainId]: {
-    [junoTestConfig.chainId]: "",
+    [junoTestConfig.chainId]: "channel-28",
   },
 };
