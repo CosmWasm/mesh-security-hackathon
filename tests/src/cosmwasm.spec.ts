@@ -1,6 +1,6 @@
 import { CosmWasmSigner, Link, testutils } from "@confio/relayer";
 import { toBinary } from "@cosmjs/cosmwasm-stargate";
-import { assert } from "@cosmjs/utils";
+import { assert, sleep } from "@cosmjs/utils";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
@@ -79,8 +79,8 @@ async function demoSetup(): Promise<SetupInfo> {
       }),
     },
     lockup: osmoMeshLockup,
-    // TODO: get real number somehow... look at tendermint client queries
-    unbonding_period: 0,
+    // 2 second unbonding here so we can test it
+    unbonding_period: 2,
   };
   const { contractAddress: osmoMeshProvider } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -237,19 +237,8 @@ async function demoSetup(): Promise<SetupInfo> {
 // });
 
 test.serial("happy path", async (t) => {
-  const {
-    wasmClient,
-    osmoClient,
-    wasmMeshConsumer,
-    osmoMeshProvider,
-    osmoMeshLockup,
-    // osmoMeshSlasher,
-    wasmMetaStaking,
-    // meshConsumerPort,
-    // meshProviderPort,
-    link,
-    // ics20,
-  } = await demoSetup();
+  const { wasmClient, osmoClient, wasmMeshConsumer, osmoMeshProvider, osmoMeshLockup, wasmMetaStaking, link } =
+    await demoSetup();
 
   const fundsAvailableForStaking = { amount: "100000", denom: "ustake" };
 
@@ -335,8 +324,13 @@ test.serial("happy path", async (t) => {
   });
   console.log("Staked tokens response (now empty): ", emptyStakedTokenResponse);
 
-  // Lockup more tokens to kill time...
-  await osmoClient.sign.execute(osmoClient.senderAddress, osmoMeshLockup, { bond: {} }, "auto", "memo", [lockedTokens]);
+  await t.throws(
+    osmoClient.sign.execute(osmoClient.senderAddress, osmoMeshLockup, { unbond: { amount: "100" } }, "auto"),
+    /No tokens/
+  );
+
+  // unbonding period is 2 seconds, let's wait 2.5 to ensure this works.
+  await sleep(2500);
 
   // Unbond 100 tokens from wasmd now that a block has passed
   const unbondRes = await osmoClient.sign.execute(
