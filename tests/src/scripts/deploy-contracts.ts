@@ -184,7 +184,10 @@ async function fixConsumer(
   //   "auto"
   // );
 
-  console.log(`Add consumer to wasmd meta-staking contract: ${fundsAvailableForStaking}`);
+  console.log(`Add consumer to wasmd meta-staking contract: ${fundsAvailableForStaking.amount}`);
+  const balance = await client.getBalance(metaStakingAddr, "ujunox");
+  console.log(`Current balance: ${balance.amount}`);
+  
   await client.execute(
     signer,
     metaStakingAddr,
