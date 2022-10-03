@@ -1,6 +1,8 @@
 import { env } from "process";
 
-import { DirectSecp256k1HdWallet, GasPrice, makeCosmoshubPath, SigningCosmWasmClient } from "cosmwasm";
+import { DirectSecp256k1HdWallet, makeCosmoshubPath, SigningCosmWasmClient } from "cosmwasm";
+
+import { junoTestConfig, Network, osmoTestConfig } from "./networks";
 
 const pprint = (x: unknown) => console.log(JSON.stringify(x, undefined, 2));
 
@@ -13,22 +15,6 @@ function getMnemonic(): string {
     return mnemonic;
 }
 
-interface Network {
-    chainId: string;
-    rpcEndpoint: string;
-    prefix: string;
-    gasPrice: GasPrice;
-    feeToken: string;
-}
-
-const junoTestConfig = {
-    chainId: "uni-5",
-    rpcEndpoint: "https://rpc.juno-1.deuslabs.fi:443",
-    prefix: "juno",
-    gasPrice: GasPrice.fromString("0.005ujuno"),
-    feeToken: "ujunox",
-};
-  
 async function connect(mnemonic: string, network: Network) {
     const { prefix, gasPrice, feeToken, rpcEndpoint } = network;
     const hdPath = makeCosmoshubPath(0);
@@ -70,7 +56,8 @@ async function connect(mnemonic: string, network: Network) {
 
 async function main() {
     const mnemonic = getMnemonic();
-    const { client, address} = await connect(mnemonic, junoTestConfig);
+    const provider = await connect(mnemonic, osmoTestConfig);
+    const consumer = await connect(mnemonic, junoTestConfig);
     // if (await checkTrigger(client)) {
     //     await pingTrigger(client, address);
     // }
