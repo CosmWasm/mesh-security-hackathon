@@ -19,6 +19,9 @@ pub enum ContractError {
     #[error("Incorrect coin denom")]
     IncorrectDenom {},
 
+    #[error("Cannot undelegate more than you previously delegated")]
+    InsufficientDelegation {},
+
     #[error("Contract has run out of funds to delegate for consumer chain")]
     NoFundsToDelegate {},
 
