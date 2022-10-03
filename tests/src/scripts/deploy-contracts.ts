@@ -35,9 +35,9 @@ async function installProvider(
 ): Promise<ProviderInfo> {
   console.debug("Upload contracts to provider...");
   const providerContracts = {
-    mesh_lockup: "./internal/mesh_lockup.wasm",
-    mesh_provider: "./internal/mesh_provider.wasm",
-    mesh_slasher: "./internal/mesh_slasher.wasm",
+    mesh_lockup: "../contracts/mesh_lockup.wasm",
+    mesh_provider: "../contracts/mesh_provider.wasm",
+    mesh_slasher: "../contracts/mesh_slasher.wasm",
   };
   const wasmIds = await setupContracts(client, signer, providerContracts);
 
@@ -99,8 +99,8 @@ async function installConsumer(
 ): Promise<ConsumerInfo> {
   console.debug("Upload contracts to consumer...");
   const consumerContracts = {
-    mesh_consumer: "./internal/mesh_consumer.wasm",
-    meta_staking: "./internal/meta_staking.wasm",
+    mesh_consumer: "../contracts/mesh_consumer.wasm",
+    meta_staking: "../contracts/meta_staking.wasm",
   };
   const wasmIds = await setupContracts(client, signer, consumerContracts);
 
