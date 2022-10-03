@@ -1,5 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{AllDelegationsResponse, AllValidatorsResponse, Coin, DelegationResponse};
+use cosmwasm_std::{
+    AllDelegationsResponse, AllValidatorsResponse, Coin, DelegationResponse, Uint128,
+};
 
 use crate::state::ConsumerInfo;
 
@@ -10,10 +12,10 @@ pub struct InstantiateMsg {}
 pub enum ExecuteMsg {
     /// This is translated to a [MsgDelegate](https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/tx.proto#L81-L90).
     /// `delegator_address` is automatically filled with the current contract's address.
-    Delegate { validator: String, amount: Coin },
+    Delegate { validator: String, amount: Uint128 },
     /// This is translated to a [MsgUndelegate](https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/tx.proto#L112-L121).
     /// `delegator_address` is automatically filled with the current contract's address.
-    Undelegate { validator: String, amount: Coin },
+    Undelegate { validator: String, amount: Uint128 },
     /// This is translated to a [[MsgWithdrawDelegatorReward](https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto#L42-L50).
     /// `delegator_address` is automatically filled with the current contract's address.
     WithdrawDelegatorReward {

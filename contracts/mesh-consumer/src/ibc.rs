@@ -2,12 +2,13 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_slice, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, Uint128,
+    from_slice, to_binary, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Uint128, WasmMsg,
 };
 
 use mesh_ibc::{check_order, check_version, ConsumerMsg, ProviderMsg, StdAck};
+use meta_staking::msg::ExecuteMsg as MetaStakingExecuteMsg;
 
 use crate::error::ContractError;
 use crate::state::{CHANNEL, CONFIG};
@@ -116,27 +117,56 @@ pub fn ibc_packet_receive(
     }
 }
 
-pub fn receive_list_validators(_deps: DepsMut) -> Result<IbcReceiveResponse, ContractError> {
-    // TODO
-    unimplemented!();
+pub fn receive_list_validators(deps: DepsMut) -> Result<IbcReceiveResponse, ContractError> {
+    let validators = deps
+        .querier
+        .query_all_validators()?
+        .into_iter()
+        .map(|x| x.address)
+        .collect();
+    let ack = StdAck::success(mesh_ibc::ListValidatorsResponse { validators });
+
+    Ok(IbcReceiveResponse::new().set_ack(ack))
 }
 
 pub fn receive_stake(
-    _deps: DepsMut,
-    _validator: String,
-    _amount: Uint128,
+    deps: DepsMut,
+    validator: String,
+    amount: Uint128,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    // TODO
-    unimplemented!();
+    let config = CONFIG.load(deps.storage)?;
+
+    // Convert remote token to local token
+    let amount = amount * config.remote_to_local_exchange_rate;
+
+    let msg = WasmMsg::Execute {
+        contract_addr: config.meta_staking_contract_address.to_string(),
+        msg: to_binary(&MetaStakingExecuteMsg::Delegate { validator, amount })?,
+        funds: vec![],
+    };
+
+    let ack = StdAck::success(mesh_ibc::StakeResponse {});
+    Ok(IbcReceiveResponse::new().add_message(msg).set_ack(ack))
 }
 
 pub fn receive_unstake(
-    _deps: DepsMut,
-    _validator: String,
-    _amount: Uint128,
+    deps: DepsMut,
+    validator: String,
+    amount: Uint128,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    // TODO
-    unimplemented!();
+    let config = CONFIG.load(deps.storage)?;
+
+    // Convert remote token to local token
+    let amount = amount * config.remote_to_local_exchange_rate;
+
+    let msg = WasmMsg::Execute {
+        contract_addr: config.meta_staking_contract_address.to_string(),
+        msg: to_binary(&MetaStakingExecuteMsg::Undelegate { validator, amount })?,
+        funds: vec![],
+    };
+
+    let ack = StdAck::success(mesh_ibc::UnstakeResponse {});
+    Ok(IbcReceiveResponse::new().add_message(msg).set_ack(ack))
 }
 
 /// Only handle errors in send
