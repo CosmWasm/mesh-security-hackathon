@@ -11,7 +11,7 @@ export interface Network {
 
 export const junoTestConfig: Network = {
   chainId: "uni-5",
-  rpcEndpoint: "https://rpc.uni.junonetwork.io",
+  rpcEndpoint: "https://juno-testnet-rpc.polkachu.com:443",
   prefix: "juno",
   gasPrice: GasPrice.fromString("0.05ujunox"),
   feeToken: "ujunox",
@@ -19,7 +19,7 @@ export const junoTestConfig: Network = {
 
 export const osmoTestConfig: Network = {
   chainId: "osmo-test-4",
-  rpcEndpoint: "https://osmosistest-rpc.quickapi.com/",
+  rpcEndpoint: "https://osmosis-testnet-rpc.allthatnode.com:26657",
   prefix: "osmo",
   gasPrice: GasPrice.fromString("0.025uosmo"),
   feeToken: "uosmo",
@@ -36,10 +36,18 @@ export const starTestConfig: Network = {
 // map from (chainId, chainId) to live existing connection
 export const connections = {
   [junoTestConfig.chainId]: {
-    // TODO: create this connection
-    [osmoTestConfig.chainId]: "",
+    [osmoTestConfig.chainId]: "connection-24",
   },
   [osmoTestConfig.chainId]: {
-    [junoTestConfig.chainId]: "",
+    [junoTestConfig.chainId]: "connection-2211",
   },
 };
+
+// These are ics20 channels
+// // TODO: create this connection
+// [osmoTestConfig.chainId]: "channel-1110",
+// [junoTestConfig.chainId]: "channel-28",
+
+// These are our real mesh-security channels
+// Juno: channel-31 (port: wasm.juno12e2p5rgcmcgu2t63mwystxzlfwf50kpgn9gjlnz2sf6q76pnkcjqrna22u)
+// Osmo: channel-1112 (port: wasm.osmo19kx57u0nrhqas34qvyhu2ydt4a9rlj6n37l88jqwfc2eesuk9tuq6c6ywj)
