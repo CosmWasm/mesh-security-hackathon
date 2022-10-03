@@ -50,16 +50,5 @@ impl ConsumerInfo {
     }
 }
 
-#[cw_serde]
-pub struct ValidatorInfo {
-    // The validator address
-    pub address: Addr,
-    // The consumer
-    pub consumer: Addr,
-    // Total delegated by the consumer
-    pub total_delegated: Uint128,
-}
-
 /// Map<(consumer address, validator address), Validator>
-pub const VALIDATORS_BY_CONSUMER: Map<(&Addr, &Addr), ValidatorInfo> =
-    Map::new("validators_by_consumer");
+pub const VALIDATORS_BY_CONSUMER: Map<(&Addr, &Addr), Uint128> = Map::new("validators_by_consumer");

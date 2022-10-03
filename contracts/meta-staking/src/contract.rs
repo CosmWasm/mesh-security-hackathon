@@ -70,7 +70,7 @@ pub fn execute(
 mod execute {
     use cosmwasm_std::{Coin, DistributionMsg, StakingMsg, SubMsg};
 
-    use crate::state::{ValidatorInfo, CONSUMERS, VALIDATORS_BY_CONSUMER};
+    use crate::state::{CONSUMERS, VALIDATORS_BY_CONSUMER};
 
     use super::*;
 
@@ -90,36 +90,27 @@ mod execute {
         // Validate validator address
         let validator_addr = deps.api.addr_validate(&validator)?;
 
-        CONSUMERS.update::<_, ContractError>(deps.storage, &info.sender, |cons| {
-            // fail if consumer was never registered
-            let mut cons = cons.ok_or(ContractError::Unauthorized {})?;
-            // HACK temporary work around for proof of concept. Real implementation
-            // would use something like a generic Superfluid module to mint or burn
-            // synthetic tokens.
-            cons.increase_stake(amount.amount)?;
-            Ok(cons)
-        })?;
+        CONSUMERS.update(
+            deps.storage,
+            &info.sender,
+            |cons| -> Result<_, ContractError> {
+                // fail if consumer was never registered
+                let mut cons = cons.ok_or(ContractError::Unauthorized {})?;
+                // HACK temporary work around for proof of concept. Real implementation
+                // would use something like a generic Superfluid module to mint or burn
+                // synthetic tokens.
+                cons.increase_stake(amount.amount)?;
+                Ok(cons)
+            },
+        )?;
 
         // Update info for the (consumer, validator) map
         // We add the amount delegated to the validator.
         VALIDATORS_BY_CONSUMER.update(
             deps.storage,
             (&info.sender, &validator_addr),
-            |validator_info| -> Result<ValidatorInfo, ContractError> {
-                match validator_info {
-                    Some(validator_info) => Ok(ValidatorInfo {
-                        address: validator_info.address,
-                        consumer: validator_info.consumer,
-                        total_delegated: validator_info.total_delegated + amount.amount,
-                    }),
-                    // No one has delegated to this validator, we save the info
-                    // Initial amount is this delegation
-                    None => Ok(ValidatorInfo {
-                        address: validator_addr,
-                        consumer: info.sender,
-                        total_delegated: amount.amount,
-                    }),
-                }
+            |validator_info| -> Result<_, ContractError> {
+                Ok(validator_info.unwrap_or_default() + amount.amount)
             },
         )?;
 
@@ -146,15 +137,19 @@ mod execute {
         let validator_addr = deps.api.addr_validate(&validator)?;
 
         // Increase the amount of available funds for that consumer
-        CONSUMERS.update::<_, ContractError>(deps.storage, &info.sender, |current| {
-            // fail if consumer was never registered
-            let mut cur = current.ok_or(ContractError::Unauthorized {})?;
-            // HACK temporary work around for proof of concept. Real implementation
-            // would use something like a generic Superfluid module to mint or burn
-            // synthetic tokens.
-            cur.decrease_stake(amount.amount)?;
-            Ok(cur)
-        })?;
+        CONSUMERS.update(
+            deps.storage,
+            &info.sender,
+            |current| -> Result<_, ContractError> {
+                // fail if consumer was never registered
+                let mut cur = current.ok_or(ContractError::Unauthorized {})?;
+                // HACK temporary work around for proof of concept. Real implementation
+                // would use something like a generic Superfluid module to mint or burn
+                // synthetic tokens.
+                cur.decrease_stake(amount.amount)?;
+                Ok(cur)
+            },
+        )?;
 
         // HACK temporary work around for proof of concept. Real implementation
         // would use something like a generic Superfluid module to mint or burn
@@ -165,16 +160,10 @@ mod execute {
         VALIDATORS_BY_CONSUMER.update(
             deps.storage,
             (&info.sender, &validator_addr),
-            |validator_info| -> Result<ValidatorInfo, ContractError> {
-                match validator_info {
-                    Some(validator_info) => Ok(ValidatorInfo {
-                        address: validator_info.address,
-                        consumer: validator_info.consumer,
-                        total_delegated: validator_info.total_delegated - amount.amount,
-                    }),
-                    // No one has delegated to this validator, throw error
-                    None => Err(ContractError::NoDelegationsForValidator {}),
-                }
+            |validator_info| -> Result<_, ContractError> {
+                let val = validator_info.ok_or(ContractError::NoDelegationsForValidator {})?;
+                val.checked_sub(amount.amount)
+                    .map_err(|_| ContractError::InsufficientDelegation {})
             },
         )?;
 
