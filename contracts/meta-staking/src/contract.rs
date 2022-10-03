@@ -108,7 +108,7 @@ mod execute {
         // We add the amount delegated to the validator.
         VALIDATORS_BY_CONSUMER.update(
             deps.storage,
-            (consumer_addr.clone(), validator_addr.clone()),
+            (&consumer_addr.clone(), &validator_addr.clone()),
             |validator_info| -> Result<ValidatorInfo, ContractError> {
                 match validator_info {
                     Some(validator_info) => Ok(ValidatorInfo {
@@ -138,7 +138,7 @@ mod execute {
         })?;
 
         // Create message to delegate the underlying tokens
-        let msg = CosmosMsg::Staking(StakingMsg::Delegate { validator, amount });
+        let msg = StakingMsg::Delegate { validator, amount };
 
         Ok(Response::default().add_message(msg))
     }
@@ -175,7 +175,7 @@ mod execute {
         // We subtract the amount delegated to the validator.
         VALIDATORS_BY_CONSUMER.update(
             deps.storage,
-            (consumer_addr, validator_addr),
+            (&consumer_addr, &validator_addr),
             |validator_info| -> Result<ValidatorInfo, ContractError> {
                 match validator_info {
                     Some(validator_info) => Ok(ValidatorInfo {
@@ -199,7 +199,7 @@ mod execute {
         })?;
 
         // Create message to delegate the underlying tokens
-        let msg = CosmosMsg::Staking(StakingMsg::Undelegate { validator, amount });
+        let msg = StakingMsg::Undelegate { validator, amount };
 
         Ok(Response::default().add_message(msg))
     }
@@ -229,6 +229,7 @@ mod execute {
     }
 }
 
+// TODO query this info by consumer...
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {

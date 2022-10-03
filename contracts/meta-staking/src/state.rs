@@ -37,5 +37,5 @@ pub struct ValidatorInfo {
 }
 
 /// Map<(consumer address, validator address), Validator>
-pub const VALIDATORS_BY_CONSUMER: Map<(Addr, Addr), ValidatorInfo> =
+pub const VALIDATORS_BY_CONSUMER: Map<(&Addr, &Addr), ValidatorInfo> =
     Map::new("validators_by_consumer");
