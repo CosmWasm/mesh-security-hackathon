@@ -155,8 +155,8 @@ pub fn ibc_packet_ack(
     let original_packet: ProviderMsg = from_slice(&msg.original_packet.data)?;
     match (original_packet, res.is_ok()) {
         (ProviderMsg::ListValidators {}, true) => {
-            let res: ListValidatorsResponse = from_slice(&msg.acknowledgement.data)?;
-            ack_list_validators(deps, res)
+            let val: ListValidatorsResponse = from_slice(&res.unwrap())?;
+            ack_list_validators(deps, val)
         }
         (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps),
         (
