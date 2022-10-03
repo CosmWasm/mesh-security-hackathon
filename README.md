@@ -1,10 +1,12 @@
 # mesh-security (Hackathon / Prototype status)
 
-Implementation of Sunny's [Mesh Security](https://youtu.be/Z2ZBKo9-iRs?t=4937) talk from Cosmoverse 2022
+An implementation of Sunny's [Mesh Security](https://youtu.be/Z2ZBKo9-iRs?t=4937) talk from Cosmoverse 2022.
 
 This should run on any CosmWasm enabled chain. This is MVP design and gives people
-hands on use, that should work on a testnet. We will list open questions below that need
-to be resolved before we can use this in production.
+hands on use, that should work on a testnet. Open questions that need
+to be resolved before we can use this in production are listed below.
+
+[This flipboard](https://docs.google.com/presentation/d/13JrSdzodhAGRj59-P5e9sxyoDPvVm7ZVvw1GzR8OilQ/edit#slide=id.g15d37737ae2_0_885) gives a nice visual overview of the various flows and components involved.
 
 ## Contracts
 
@@ -28,7 +30,7 @@ You can also connect each chain as a provider to N chains and a consumer from N 
 Let's analyze the Osmosis side of this. Osmosis is the provider of security to Juno.
 Once the contracts have been deployed, a user can interact with this as follows.
 
-Cross-staking:
+#### Cross-staking:
 
 1. User stakes their tokens in the `mesh-lockup` contract on Osmosis
 2. User can cross-stake those tokens to a Juno `mesh-provider` contract (on Osmosis), specifying how many of their 
@@ -39,7 +41,7 @@ Cross-staking:
    meta-staking contract is assumed to have enough JUNO tokens to do the delegations. How it gets that JUNO is
    out of scope.)
 
-Claiming Rewards:
+#### Claiming Rewards:
 
 1. Anyone can trigger the Osmosis consumer contract to claim rewards from the `meta-staking` contract
 2. The `mesh-consumer` contract (on JUNO) sends tokens to the `mesh-provider` contract (on Osmosis) via ics20
@@ -48,7 +50,7 @@ Claiming Rewards:
 4. The `mesh-provider` (on Osmosis) contract updates distribution info to all stakers, allowing them to claim
    their share of the $JUNO rewards on Osmosis.
 
-Unstaking:
+#### Unstaking:
 
 1. A user submits a request to unstake their tokens from the `mesh-provider` contract (on Osmosis)
 2. We update the local distribution info to reflect the new amount of tokens staked
@@ -60,7 +62,7 @@ Unstaking:
    informs the `mesh-lockup` contract that it removes its claim.
 6. If the user's stake in the `mesh-lockup` contract has not more claims on it, they can withdraw their stake.
 
-Slashing:
+#### Slashing:
 
 1. Someone calls a method to submit evidence of Juno misbehavior on the `meta-slasher` contract (on Osmosis).
 2. The `meta-slasher` contract verifies that a slashing event has indeed occurred and makes a contract call to the
@@ -69,7 +71,7 @@ Slashing:
    and scheduled to be burned.
 4. `mesh-provider` sends IBC packet updates to the `mesh-consumer`s on all other chains about the new voting power.
 
-Claiming tokens:
+#### Claiming tokens:
 
 A user can stake any number of tokens to the `mesh-lockup` contract, and use them in multiple provider contracts.
 The `mesh-lockup` contract ensures that the user has balance >= the max claim at all times.
