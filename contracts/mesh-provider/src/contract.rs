@@ -1,15 +1,22 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo, Order, Reply,
+    Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
-use cw_utils::parse_instantiate_response_data;
+use cw_storage_plus::Bound;
+use cw_utils::{parse_instantiate_response_data, Expiration};
+use mesh_apis::ClaimProviderMsg;
+use mesh_ibc::ProviderMsg;
 
 use crate::error::ContractError;
-use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, CONFIG};
+use crate::ibc::build_timeout;
+use crate::msg::{
+    AccountResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, ListValidatorsResponse, QueryMsg,
+    StakeInfo, ValidatorResponse,
+};
+use crate::state::{Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, VALIDATORS};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
@@ -70,7 +77,7 @@ pub fn reply_init_callback(deps: DepsMut, resp: SubMsgResponse) -> Result<Respon
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
@@ -79,48 +86,182 @@ pub fn execute(
             owner,
             amount,
             validator,
-        } => execute_receive_claim(deps, info, owner, amount, validator),
+        } => execute_receive_claim(deps, info, env, owner, amount, validator),
         ExecuteMsg::Slash {
             validator,
             percentage,
             force_unbond,
-        } => execute_slash(deps, info, validator, percentage, force_unbond),
+        } => execute_slash(deps, info, env, validator, percentage, force_unbond),
+        ExecuteMsg::Unstake { amount, validator } => {
+            execute_unstake(deps, info, env, validator, amount)
+        }
+        ExecuteMsg::Unbond {} => execute_unbond(deps, info, env),
     }
 }
 
 pub fn execute_receive_claim(
     deps: DepsMut,
     info: MessageInfo,
-    _owner: String,
-    _amount: Uint128,
-    _validator: String,
+    env: Env,
+    owner: String,
+    amount: Uint128,
+    validator: String,
 ) -> Result<Response, ContractError> {
     let cfg = CONFIG.load(deps.storage)?;
     ensure_eq!(cfg.lockup, info.sender, ContractError::Unauthorized);
+    let owner = deps.api.addr_validate(&owner)?;
 
-    // TODO: implement receipt
-    unimplemented!()
+    if amount.is_zero() {
+        return Err(ContractError::ZeroAmount);
+    }
+
+    let mut val = VALIDATORS
+        .may_load(deps.storage, &validator)?
+        .ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
+    let mut stake = STAKED
+        .may_load(deps.storage, (&owner, &validator))?
+        .unwrap_or_default();
+    stake.stake_validator(&mut val, amount);
+    STAKED.save(deps.storage, (&owner, &validator), &stake)?;
+    VALIDATORS.save(deps.storage, &validator, &val)?;
+
+    // send out IBC packet for staking change
+    let packet = ProviderMsg::Stake {
+        validator,
+        amount,
+        key: owner.into_string(),
+    };
+    let msg = IbcMsg::SendPacket {
+        channel_id: CHANNEL.load(deps.storage)?,
+        data: to_binary(&packet)?,
+        timeout: build_timeout(&env),
+    };
+    Ok(Response::new().add_message(msg))
 }
 
 pub fn execute_slash(
     deps: DepsMut,
     info: MessageInfo,
-    _validator: String,
-    _percentage: Decimal,
-    _force_unbond: bool,
+    _env: Env,
+    validator: String,
+    percentage: Decimal,
+    force_unbond: bool,
 ) -> Result<Response, ContractError> {
     let cfg = CONFIG.load(deps.storage)?;
     ensure_eq!(cfg.slasher, Some(info.sender), ContractError::Unauthorized);
+    if percentage.is_zero() {
+        return Err(ContractError::ZeroAmount);
+    }
 
-    // TODO: implement slashing
-    unimplemented!()
+    VALIDATORS.update::<_, ContractError>(deps.storage, &validator, |val| {
+        let mut val = val.ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
+        val.slash(percentage);
+        if force_unbond {
+            val.status = ValStatus::Tombstoned;
+        }
+        Ok(val)
+    })?;
+
+    Ok(Response::new()
+        .add_attribute("action", "slash")
+        .add_attribute("validator", validator))
+}
+
+pub fn execute_unstake(
+    deps: DepsMut,
+    info: MessageInfo,
+    env: Env,
+    validator: String,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    if amount.is_zero() {
+        return Err(ContractError::ZeroAmount);
+    }
+
+    // updates the stake
+    let mut val = VALIDATORS
+        .may_load(deps.storage, &validator)?
+        .ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
+    if val.status != ValStatus::Active {
+        return Err(ContractError::RemovedValidator(validator));
+    }
+    let mut stake = STAKED.load(deps.storage, (&info.sender, &validator))?;
+    stake.unstake_validator(&mut val, amount)?;
+    // check if we need to slash
+    let slash = stake.take_slash(&val);
+    STAKED.save(deps.storage, (&info.sender, &validator), &stake)?;
+    VALIDATORS.save(deps.storage, &validator, &val)?;
+
+    // create a future claim on number of shares (so we can adjust for later slashing)
+    let cfg = CONFIG.load(deps.storage)?;
+    let ready = env.block.time.plus_seconds(cfg.unbonding_period);
+    CLAIMS.create_claim(
+        deps.storage,
+        &info.sender,
+        amount,
+        Expiration::AtTime(ready),
+    )?;
+
+    // send out IBC packet for staking change
+    let packet = ProviderMsg::Unstake {
+        validator,
+        amount,
+        key: info.sender.to_string(),
+    };
+    let msg = IbcMsg::SendPacket {
+        channel_id: CHANNEL.load(deps.storage)?,
+        data: to_binary(&packet)?,
+        timeout: build_timeout(&env),
+    };
+    let mut res = Response::new().add_message(msg);
+
+    if let Some(slash) = slash {
+        let msg = WasmMsg::Execute {
+            contract_addr: cfg.lockup.into_string(),
+            msg: to_binary(&ClaimProviderMsg::SlashClaim {
+                owner: info.sender.into_string(),
+                amount: slash,
+            })?,
+            funds: vec![],
+        };
+        res = res.add_message(msg);
+    }
+
+    Ok(res)
+}
+
+pub fn execute_unbond(
+    deps: DepsMut,
+    info: MessageInfo,
+    env: Env,
+) -> Result<Response, ContractError> {
+    // TODO: slash tokens if we lost some during unbonding (requires larger changes to claiming)
+    let mature = CLAIMS.claim_tokens(deps.storage, &info.sender, &env.block, None)?;
+    if mature.is_zero() {
+        return Err(ContractError::NothingToClaim);
+    }
+
+    let cfg = CONFIG.load(deps.storage)?;
+    let msg = WasmMsg::Execute {
+        contract_addr: cfg.lockup.into_string(),
+        msg: to_binary(&ClaimProviderMsg::SlashClaim {
+            owner: info.sender.into_string(),
+            amount: mature,
+        })?,
+        funds: vec![],
+    };
+    Ok(Response::new().add_message(msg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        _ => unimplemented!(),
+        QueryMsg::Account { address } => to_binary(&query_account(deps, address)?),
+        QueryMsg::Validator { address } => to_binary(&query_validator(deps, address)?),
+        QueryMsg::ListValidators { start_after, limit } => {
+            to_binary(&list_validators(deps, start_after, limit)?)
+        }
     }
 }
 
@@ -130,6 +271,61 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         consumer: cfg.consumer,
         slasher: cfg.slasher.map(|x| x.into_string()),
     })
+}
+
+pub fn query_account(deps: Deps, address: String) -> StdResult<AccountResponse> {
+    let account = deps.api.addr_validate(&address)?;
+    let staked = STAKED
+        .prefix(&account)
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|res| {
+            let (validator, stake) = res?;
+            let val = VALIDATORS.load(deps.storage, &validator)?;
+            let tokens = stake.current_value(&val);
+            let slashed = stake.locked - tokens;
+            Ok(StakeInfo {
+                validator,
+                tokens,
+                slashed,
+            })
+        })
+        .collect::<StdResult<Vec<_>>>()?;
+    Ok(AccountResponse { staked })
+}
+
+pub fn query_validator(deps: Deps, address: String) -> StdResult<ValidatorResponse> {
+    let val = VALIDATORS.load(deps.storage, &address)?;
+    Ok(build_response((address, val)))
+}
+
+// settings for pagination
+const MAX_LIMIT: u32 = 100;
+const DEFAULT_LIMIT: u32 = 30;
+
+pub fn list_validators(
+    deps: Deps,
+    start_after: Option<String>,
+    limit: Option<u32>,
+) -> StdResult<ListValidatorsResponse> {
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let start = start_after.as_ref().map(|x| Bound::exclusive(x.as_str()));
+
+    let validators = VALIDATORS
+        .range(deps.storage, start, None, Order::Ascending)
+        .take(limit)
+        .map(|r| Ok(build_response(r?)))
+        .collect::<StdResult<Vec<_>>>()?;
+
+    Ok(ListValidatorsResponse { validators })
+}
+
+fn build_response((address, val): (String, Validator)) -> ValidatorResponse {
+    ValidatorResponse {
+        address,
+        tokens: val.stake_value(),
+        status: val.status,
+        multiplier: val.multiplier,
+    }
 }
 
 #[cfg(test)]

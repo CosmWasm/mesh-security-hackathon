@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::state::ValStatus;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{to_binary, Binary, Decimal, StdResult, Uint128};
 
@@ -52,7 +53,11 @@ pub enum ExecuteMsg {
         amount: Uint128,
         validator: String,
     },
-    // TODO: add some way to slash a claim if a lein was slashed somewhere else?
+    /// Triggers the unbonding period for your staked tokens
+    Unstake { amount: Uint128, validator: String },
+    /// Called after unbonding_period has passed from Unstake. Releases claim on lockup contract
+    Unbond {/* ??? */},
+    // TODO: claim rewards
 }
 
 #[cw_serde]
@@ -63,9 +68,15 @@ pub enum QueryMsg {
     /// how much this account has staked where
     #[returns(AccountResponse)]
     Account { address: String },
-    /// how much power each validator has received
-    #[returns(ValidatorPowerResponse)]
-    ValidatorPower {},
+    /// Details of one validator
+    #[returns(ValidatorResponse)]
+    Validator { address: String },
+    /// Details of one validator
+    #[returns(ListValidatorsResponse)]
+    ListValidators {
+        start_after: Option<String>,
+        limit: Option<u32>,
+    },
 }
 
 #[cw_serde]
@@ -76,10 +87,25 @@ pub struct ConfigResponse {
 
 #[cw_serde]
 pub struct AccountResponse {
-    // TODO
+    pub staked: Vec<StakeInfo>,
 }
 
 #[cw_serde]
-pub struct ValidatorPowerResponse {
-    // TODO
+pub struct StakeInfo {
+    pub validator: String,
+    pub tokens: Uint128,
+    pub slashed: Uint128,
+}
+
+#[cw_serde]
+pub struct ValidatorResponse {
+    pub address: String,
+    pub tokens: Uint128,
+    pub status: ValStatus,
+    pub multiplier: Decimal,
+}
+
+#[cw_serde]
+pub struct ListValidatorsResponse {
+    pub validators: Vec<ValidatorResponse>,
 }

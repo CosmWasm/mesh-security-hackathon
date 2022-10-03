@@ -9,18 +9,22 @@ pub enum ProviderMsg {
     /// initiate a stream of `UpdateValidator` messages to be sent through the channel.
     ListValidators {},
     Stake {
-        /// How much to stake to which validator
-        validators: Vec<ValidatorAmount>,
+        /// Which validator to stake to
+        validator: String,
+        /// How much to stake with this validator
+        amount: Uint128,
         /// A unique key for this request set by the caller, to be used to
-        /// properly handle ack and timeout messages
-        key: u64,
+        /// properly handle ack and timeout messages (not used by consumer)
+        key: String,
     },
     Unstake {
-        /// How much to unstake from which validator
-        validators: Vec<ValidatorAmount>,
+        /// Which validator to unstake from
+        validator: String,
+        /// How much to unstake from this validator
+        amount: Uint128,
         /// A unique key for this request set by the caller, to be used to
-        /// properly handle ack and timeout messages
-        key: u64,
+        /// properly handle ack and timeout messages (not used by consumer)
+        key: String,
     },
 }
 
@@ -37,14 +41,6 @@ pub enum ConsumerMsg {
     Rewards {
         // TODO: what info do we sent??
     },
-}
-
-/// Simple struct with a validator and an amount used a few places.
-/// denom is defined in the channel, doesn't need to be every message.
-#[cw_serde]
-pub struct ValidatorAmount {
-    pub validator: String,
-    pub amount: Uint128,
 }
 
 /// List the current validator set.
