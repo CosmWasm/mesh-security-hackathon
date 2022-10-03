@@ -4,7 +4,7 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_slice, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, StdResult,
+    IbcPacketTimeoutMsg, IbcReceiveResponse,
 };
 
 use mesh_ibc::{
@@ -150,7 +150,7 @@ pub fn ibc_packet_ack(
         (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps),
         (ProviderMsg::Stake { key, validators: _ }, false) => fail_stake(deps, key),
         (ProviderMsg::Unstake { key, validators: _ }, false) => fail_stake(deps, key),
-        (_, true) => Ok(IbcBasicResponse::new())
+        (_, true) => Ok(IbcBasicResponse::new()),
     }
 }
 

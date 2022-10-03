@@ -37,8 +37,11 @@ pub enum ContractError {
     #[error("Cannot send zero tokens to any methods")]
     ZeroAmount,
 
-    #[error("Validator is not registered: {0}")]
+    #[error("Validator was never registered: {0}")]
     UnknownValidator(String),
+
+    #[error("Validator was removed from valset: {0}")]
+    RemovedValidator(String),
 
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },

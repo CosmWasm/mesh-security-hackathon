@@ -89,7 +89,8 @@ pub fn execute(
             percentage,
             force_unbond,
         } => execute_slash(deps, info, validator, percentage, force_unbond),
-        _ => unimplemented!(),
+        ExecuteMsg::Unstake { amount, validator } => execute_unstake(deps, info, validator, amount),
+        ExecuteMsg::Unbond {} => execute_unbond(deps, info),
     }
 }
 
@@ -148,6 +149,40 @@ pub fn execute_slash(
     Ok(Response::new()
         .add_attribute("action", "slash")
         .add_attribute("validator", validator))
+}
+
+pub fn execute_unstake(
+    deps: DepsMut,
+    info: MessageInfo,
+    validator: String,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    if amount.is_zero() {
+        return Err(ContractError::ZeroAmount);
+    }
+
+    // updates the stake
+    let mut val = VALIDATORS
+        .may_load(deps.storage, &validator)?
+        .ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
+    if val.status != ValStatus::Active {
+        return Err(ContractError::RemovedValidator(validator));
+    }
+    let mut stake = STAKED.load(deps.storage, (&info.sender, &validator))?;
+    stake.unstake_validator(&mut val, amount)?;
+    STAKED.save(deps.storage, (&info.sender, &validator), &stake)?;
+    VALIDATORS.save(deps.storage, &validator, &val)?;
+
+    // TODO: create a future claim
+
+    // TODO: send IBC packet on change of stake
+
+    Ok(Response::new())
+}
+
+pub fn execute_unbond(_deps: DepsMut, _info: MessageInfo) -> Result<Response, ContractError> {
+    // TODO
+    unimplemented!()
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
