@@ -1,0 +1,8 @@
+namespace: default
+
+resources:
+  - ../../base/osmosis
+
+patchesStrategicMerge:
+  - genesis.yaml
+  - validator.yaml

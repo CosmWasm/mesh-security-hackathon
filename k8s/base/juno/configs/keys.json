@@ -1,0 +1,44 @@
+{
+  "keys": [
+    {
+      "name": "test1",
+      "type": "local",
+      "address": "juno1pss7nxeh3f9md2vuxku8q99femnwdjtce8q7da",
+      "pubkey": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "Aw57xBfOrMyTep3ULDevI1R9/RpoNu3VvKM/w+D0hp7z"
+      },
+      "mnemonic": "opinion knife other balcony surge more bamboo canoe romance ask argue teach anxiety adjust spike mystery wolf alone torch tail six decide wash alley"
+    },
+    {
+      "name": "test2",
+      "type": "local",
+      "address": "juno16e0p4vwufmsn0lucwsnfmjfx67ry84y4x8gp8c",
+      "pubkey": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "AvRaiAePcKIgKibm9d7LO/2DLd1p7FaDeua+ilvf4p+A"
+      },
+      "mnemonic": "logic help only text door wealth hurt always remove glory viable income agent olive trial female couch old offer crash menu zero pencil thrive"
+    },
+    {
+      "name": "test3",
+      "type": "local",
+      "address": "juno1pn45c2jdwfwrwva0cknfdlnfst28ucpum4u3fn",
+      "pubkey": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "A2eBCH+BVDXjVkJDZQE5RhKL3jN3apLqCTIjzXzWbMxJ"
+      },
+      "mnemonic": "middle weather hip ghost quick oxygen awful library broken chicken tackle animal crunch appear fee indoor fitness enough orphan trend tackle faint eyebrow all"
+    },
+    {
+      "name": "test4",
+      "type": "local",
+      "address": "juno1y3x3uaqnnlhulway8g5dvm4erpd5r4f045ql6v",
+      "pubkey": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "Agn5q1U2vLjdAhg4dcKuUKm3ZwdmrrFmVnlnqsqkXoIA"
+      },
+      "mnemonic": "tag apart multiply food bleak isolate describe stand guide field session design cable combine excess shrug abuse pause course ketchup umbrella program labor ripple"
+    }
+  ]
+}

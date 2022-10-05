@@ -1,0 +1,46 @@
+{
+  "genesis": [
+    {
+      "name": "val1",
+      "type": "local",
+      "address": "juno1qjtcxl86z0zua2egcsz4ncff2gzlcndz5mfnnc",
+      "pubkey": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "AmPsa3aqarITEk9NM7T9guOi9VdyrHkqEdqVABLIcDew"
+      },
+      "mnemonic": "razor dog gown public private couple ecology paper flee connect local robot diamond stay rude join sound win ribbon soup kidney glass robot vehicle"
+    }
+  ],
+  "validators": [
+    {
+      "name": "val2",
+      "type": "local",
+      "address": "juno14fzpjrknygf9gadnwc2t4w8p7nlwzz2gqq934a",
+      "pubkey": {
+        "@type":"/cosmos.crypto.secp256k1.PubKey",
+        "key":"Aiz04cAFkteJD+aHsLXmvzP9AiqtPHCKYxGlEoZO/2bs"
+      },
+      "mnemonic":"broccoli robot upon blush rabbit squeeze fruit still lady antique detect can spice clay magic monster zebra solution dry salute stay wet arena matrix"
+    },
+    {
+      "name": "val3",
+      "type": "local",
+      "address": "juno1gyfx8uazy87a958sws3fuf7dd7k9r4qf3266ra",
+      "pubkey": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "Au78YLEIsE6+vVozHPxv9rrmWgjJMgEDeenLJR8AqTaK"
+      },
+      "mnemonic": "tornado modify spring arm title double bulk other recall decide table fun caught buyer bring once knife sphere arctic text zoo swim visual patient"
+    },
+    {
+      "name": "val4",
+      "type": "local",
+      "address": "juno137zrtwhzx44k2y8s9xrtxayl58y8c43e9xxm2x",
+      "pubkey": {
+        "@type": "/cosmos.crypto.secp256k1.PubKey",
+        "key": "ApQDfGidbhvkSiZvHPd2OKYHmtatWI76zPaRJNUM/Cnl"
+      },
+      "mnemonic": "warm marine rent lift siege tool artwork home curious film blade trophy flush angry exact athlete edge combine weasel hour marriage grocery lake famous"
+    }
+  ]
+}

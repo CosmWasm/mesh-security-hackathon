@@ -1,0 +1,230 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: osmosis-validator
+  labels:
+    app.kubernetes.io/name: osmosis-validator
+spec:
+  clusterIP: None
+  ports:
+    - name: p2p
+      port: 26656
+      protocol: TCP
+      targetPort: 26656
+    - name: rpc
+      port: 26657
+      protocol: TCP
+      targetPort: 26657
+    - name: http
+      port: 8081
+      protocol: TCP
+      targetPort: 8081
+  selector:
+    app.kubernetes.io/name: osmosis-validator
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: osmosis-validator
+spec:
+  serviceName: osmosis-validator
+  replicas: 3
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: osmosis
+      app.kubernetes.io/name: osmosis-validator
+  template:
+    metadata:
+      annotations:
+        quality: release
+        role: api-gateway
+        sla: high
+        tier: gateway
+      labels:
+        app.kubernetes.io/instance: osmosis
+        app.kubernetes.io/type: osmosis-validator
+        app.kubernetes.io/name: osmosis-validator
+        app.kubernetes.io/version: '0.1'
+    spec:
+      initContainers:
+        - name: wait-for-genesis
+          image: persistenceone/osmosis:latest
+          imagePullPolicy: Always
+          env:
+            - name: GENESIS_HOST
+              value: osmosis-genesis
+            - name: GENESIS_PORT
+              value: "8081"
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          command:
+            - bash
+            - "-c"
+            - |
+              while [ $(curl -sw '%{http_code}' http://$GENESIS_HOST.$NAMESPACE.svc.cluster.local:$GENESIS_PORT/node_id -o /dev/null) -ne 200 ]; do
+                echo "Genesis validator does not seem to be ready. Waiting for it to start..."
+                sleep 10;
+              done
+              echo "Ready to start"
+              exit 0
+        - name: init-validator
+          image: persistenceone/osmosis:latest
+          imagePullPolicy: Always
+          env:
+            - name: CHAIN_ID
+              valueFrom:
+                configMapKeyRef:
+                  key: chain.id
+                  name: osmosis
+            - name: HOME_DIR
+              value: /osmosis
+            - name: GENESIS_HOST
+              value: osmosis-genesis
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: GENESIS_PORT
+              value: "8081"
+          # TODO: move these to scripts and use telescope and javascript
+          # similar to testing setup in tests/ dir
+          command:
+            - bash
+            - "-c"
+            - |
+              VAL_INDEX=${HOSTNAME##*-}
+              echo "Validator Index: $VAL_INDEX"
+
+              rm -rf $HOME_DIR
+
+              VAL_NAME=$(jq -r ".validators[$VAL_INDEX].name" /configs/validators.json)
+              echo "Validator Index: $VAL_INDEX, Key name: $VAL_NAME"
+
+              echo "Printing genesis file before init"
+              ls -lrht $HOME_DIR/config
+
+              jq -r ".validators[$VAL_INDEX].mnemonic" /configs/validators.json | osmosisd init $VAL_NAME --chain-id $CHAIN_ID --home $HOME_DIR --recover
+              jq -r ".validators[$VAL_INDEX].mnemonic" /configs/validators.json | osmosisd keys add $VAL_NAME --recover --keyring-backend="test" --home $HOME_DIR
+
+              curl http://$GENESIS_HOST.$NAMESPACE.svc.cluster.local:$GENESIS_PORT/genesis -o $HOME_DIR/config/genesis.json
+              echo "Genesis file that we got....."
+              cat $HOME_DIR/config/genesis.json
+
+              echo "All exports"
+              export
+
+              echo "Fetching genesis file"
+
+              GENESIS_NODE_P2P=$(curl -s http://$GENESIS_HOST.$NAMESPACE.svc.cluster.local:$GENESIS_PORT/node_id)@$GENESIS_HOST.$NAMESPACE.svc.cluster.local:26656
+              echo "Node P2P: $GENESIS_NODE_P2P"
+              sed -i "s/persistent_peers = \"\"/persistent_peers = \"$GENESIS_NODE_P2P\"/g" $HOME_DIR/config/config.toml
+              sed -i 's#"tcp://127.0.0.1:26657"#"tcp://0.0.0.0:26657"#g' $HOME_DIR/config/config.toml
+              sed -i 's/timeout_commit = "5s"/timeout_commit = "1s"/g' $HOME_DIR/config/config.toml
+              sed -i 's/timeout_propose = "3s"/timeout_propose = "1s"/g' $HOME_DIR/config/config.toml
+              sed -i 's/index_all_keys = false/index_all_keys = true/g' $HOME_DIR/config/config.toml
+
+              echo "Printing the whole config.toml file"
+              cat $HOME_DIR/config/config.toml
+
+              curl -s http://$GENESIS_HOST.$NAMESPACE.svc.cluster.local:$GENESIS_PORT/pub_key
+          resources:
+            limits:
+              cpu: "0.2"
+              memory: "200M"
+            requests:
+              cpu: "0.1"
+              memory: "200M"
+          volumeMounts:
+            - mountPath: /osmosis
+              name: osmosis
+            - mountPath: /configs
+              name: addresses
+      containers:
+        - name: validator
+          image: persistenceone/osmosis
+          imagePullPolicy: Always
+          env:
+            - name: CHAIN_ID
+              valueFrom:
+                configMapKeyRef:
+                  key: chain.id
+                  name: osmosis
+            - name: HOME_DIR
+              value: /osmosis
+          command:
+            - bash
+            - "-c"
+            - |
+              # Starting the chain
+              osmosisd start --home $HOME_DIR
+          lifecycle:
+            postStart:
+              exec:
+                # TOOD: create scripts for this setup and validator registration
+                command:
+                  - bash
+                  - "-c"
+                  - |
+                    VAL_INDEX=${HOSTNAME##*-}
+                    VAL_NAME=$(jq -r ".validators[$VAL_INDEX].name" /configs/validators.json)
+                    echo "Validator Index: $VAL_INDEX, Key name: $VAL_NAME"
+
+                    # Wait for the node to be synced
+                    max_tries=10
+                    while [[ $(osmosisd status --home $HOME_DIR 2>&1 | jq ".SyncInfo.catching_up") == true ]]
+                    do
+                      if [[ max_tries -lt 0 ]]; then echo "Not able to sync with genesis node"; exit 1; fi
+                      echo "Still syncing... Sleeping for 15 secs. Tries left $max_tries"
+                      ((max_tries--))
+                      sleep 30
+                    done
+
+                    # Run create validator tx command
+                    echo "Running txn for create-validator"
+                    osmosisd tx staking create-validator --home $HOME_DIR --pubkey=$(osmosisd tendermint show-validator --home $HOME_DIR) --moniker $VAL_NAME --amount 5000000000uosmo --keyring-backend="test" --chain-id $CHAIN_ID --from $VAL_NAME --commission-rate="0.10" --commission-max-rate="0.20" --commission-max-change-rate="0.01" --min-self-delegation="1000000" --gas="auto" --gas-adjustment 1.5 --yes > /validator.log
+          resources:
+            limits:
+              cpu: "1"
+              memory: "1G"
+            requests:
+              cpu: "0.5"
+              memory: "500M"
+          volumeMounts:
+            - mountPath: /osmosis
+              name: osmosis
+            - mountPath: /configs
+              name: addresses
+        - name: exposer-app
+          image: persistenceone/exposer:latest
+          imagePullPolicy: Always
+          env:
+            - name: HOME_DIR
+              value: /osmosis
+            - name: GENESIS_FILE
+              value: /osmosis/config/genesis.json
+            - name: PORT
+              value: "8081"
+            - name: CLIENT_NAME
+              value: "osmosis"
+          command: [ "exposer" ]
+          resources:
+            limits:
+              cpu: "0.1"
+              memory: "100M"
+            requests:
+              cpu: "0.1"
+              memory: "100M"
+          volumeMounts:
+            - mountPath: /osmosis
+              name: osmosis
+      volumes:
+        - name: osmosis
+          emptyDir: { }
+        - name: addresses
+          configMap:
+            name: test-addresses-osmosis
+---

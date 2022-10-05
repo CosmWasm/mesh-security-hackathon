@@ -1,0 +1,13 @@
+resources:
+  - configmap.yaml
+  - genesis.yaml
+  - validator.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: test-addresses-juno
+    files:
+      - configs/keys.json
+      - configs/validators.json

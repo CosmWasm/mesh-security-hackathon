@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: osmosis-validator
+spec:
+  serviceName: osmosis-validator
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: osmosis
+      app.kubernetes.io/name: osmosis-validator
+  template:
+    metadata:
+      annotations:
+        quality: local
+    spec:
+      initContainers:
+        - name: wait-for-genesis
+          image: persistenceone/osmosis:latest
+        - name: init-validator
+          image: persistenceone/osmosis:latest
+          resources:
+            limits:
+              cpu: "0.2"
+              memory: "200M"
+            requests:
+              cpu: "0.1"
+              memory: "200M"
+      containers:
+        - name: validator
+          image: persistenceone/osmosis
+          resources:
+            limits:
+              cpu: "0.5"
+              memory: "0.5G"
+            requests:
+              cpu: "0.5"
+              memory: "500M"
+        - name: exposer-app
+          image: persistenceone/exposer:latest
+          resources:
+            limits:
+              cpu: "0.1"
+              memory: "100M"
+            requests:
+              cpu: "0.1"
+              memory: "100M"

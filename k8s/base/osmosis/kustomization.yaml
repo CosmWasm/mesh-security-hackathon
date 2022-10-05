@@ -1,0 +1,15 @@
+resources:
+  - configmap.yaml
+  - genesis.yaml
+  - validator.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  # TODO: Auto generate keys from docker and save as config,
+  # can even look into auto generating deterministic mnenomics
+  - name: test-addresses-osmosis
+    files:
+      - configs/keys.json
+      - configs/validators.json

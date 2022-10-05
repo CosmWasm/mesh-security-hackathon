@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ts-relayer
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: ts-relayer
+      app.kubernetes.io/name: ts-relayer
+  template:
+    metadata:
+      annotations:
+        quality: local
+    spec:
+      initContainers:
+        - name: wait-for-juno
+          image: persistenceone/exposer
+        - name: wait-for-osmosis
+          image: persistenceone/exposer
+        - name: init-relayer
+          image: persistenceone/ts-relayer:latest
+      containers:
+        - name: relayer
+          image: persistenceone/ts-relayer:latest
+          resources:
+            limits:
+              cpu: "0.5"
+              memory: 0.5Gi
+            requests:
+              cpu: "0.5"
+              memory: 0.5Gi

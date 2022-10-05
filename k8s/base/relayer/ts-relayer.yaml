@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ts-relayer
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: ts-relayer
+      app.kubernetes.io/name: ts-relayer
+  template:
+    metadata:
+      annotations:
+        quality: release
+        role: api-gateway
+        sla: high
+        tier: gateway
+      labels:
+        app.kubernetes.io/instance: ts-relayer
+        app.kubernetes.io/type: ts-relayer
+        app.kubernetes.io/name: ts-relayer
+        app.kubernetes.io/version: '0.1'
+    spec:
+      initContainers:
+        - name: wait-for-juno
+          image: persistenceone/exposer
+          imagePullPolicy: Always
+          env:
+            - name: GENESIS_HOST
+              value: juno-genesis
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: GENESIS_PORT
+              value: "8081"
+          command:
+            - bash
+            - "-c"
+            - |
+              while [ $(curl -sw '%{http_code}' http://$GENESIS_HOST.$NAMESPACE.svc.cluster.local:$GENESIS_PORT/node_id -o /dev/null) -ne 200 ]; do
+                echo "Genesis validator does not seem to be ready. Waiting for it to start..."
+                sleep 10;
+              done
+              echo "Ready to start"
+              exit 0
+        - name: wait-for-osmosis
+          image: persistenceone/exposer
+          imagePullPolicy: Always
+          env:
+            - name: GENESIS_HOST
+              value: osmosis-genesis
+            - name: GENESIS_PORT
+              value: "8081"
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          command:
+            - bash
+            - "-c"
+            - |
+              while [ $(curl -sw '%{http_code}' http://$GENESIS_HOST.$NAMESPACE.svc.cluster.local:8081/node_id -o /dev/null) -ne 200 ]; do
+                echo "Genesis validator does not seem to be ready. Waiting for it to start..."
+                sleep 10;
+              done
+              echo "Ready to start"
+              exit 0
+        - name: init-relayer
+          image: persistenceone/ts-relayer:latest
+          imagePullPolicy: Always
+          env:
+            - name: RELAYER_DIR
+              value: /root/.ibc-setup
+            - name: CONFIG_FILE
+              value: "ts-config.yaml"
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          command:
+            - bash
+            - "-c"
+            - |
+              mkdir -p $RELAYER_DIR
+              cp /configs/$CONFIG_FILE $RELAYER_DIR/registry.yaml
+              cp /configs/ts-app.yaml $RELAYER_DIR/app.yaml
+              sed -i "s,NAMESPACE,$NAMESPACE,g" $RELAYER_DIR/registry.yaml
+          volumeMounts:
+            - mountPath: /root
+              name: relayer
+            - mountPath: /configs
+              name: relayer-config
+      containers:
+        - name: relayer
+          image: persistenceone/ts-relayer:latest
+          imagePullPolicy: Always
+          env:
+            - name: CONFIG
+              value: "/configs/config.toml"
+          command:
+            - bash
+            - "-c"
+            - |
+              ibc-setup balances
+              ibc-setup ics20
+              ibc-relayer start
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: "0.5"
+              memory: 0.5Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsUser: 0
+          volumeMounts:
+            - mountPath: /root
+              name: relayer
+            - mountPath: /configs
+              name: relayer-config
+      volumes:
+        - name: relayer
+          emptyDir: { }
+        - name: relayer-config
+          configMap:
+            name: test-ts-relayer-config

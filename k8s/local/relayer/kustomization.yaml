@@ -1,0 +1,7 @@
+namespace: default
+
+resources:
+  - ../../base/relayer
+
+patchesStrategicMerge:
+  - ts-relayer.yaml

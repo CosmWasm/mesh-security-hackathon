@@ -1,0 +1,4 @@
+namespace: dev-hackwasm
+
+resources:
+  - ../../base/juno

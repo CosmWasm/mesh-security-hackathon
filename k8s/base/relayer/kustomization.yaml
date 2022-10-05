@@ -1,0 +1,13 @@
+namespace: dev-native
+
+resources:
+  - ts-relayer.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: test-ts-relayer-config
+    files:
+      - configs/ts-config.yaml
+      - configs/ts-app.yaml

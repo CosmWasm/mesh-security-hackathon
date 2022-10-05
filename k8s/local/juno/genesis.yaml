@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: juno-genesis
+spec:
+  serviceName: juno-genesis
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: juno
+      app.kubernetes.io/name: juno-genesis
+  template:
+    metadata:
+      annotations:
+        quality: local
+    spec:
+      initContainers:
+        - name: init-genesis
+          image: persistenceone/juno:latest
+          resources:
+            limits:
+              cpu: "0.2"
+              memory: "200M"
+            requests:
+              cpu: "0.1"
+              memory: "100M"
+      containers:
+        - name: validator
+          image: persistenceone/juno:latest
+          resources:
+            limits:
+              cpu: "0.5"
+              memory: "500M"
+            requests:
+              cpu: "0.5"
+              memory: "500M"
+        - name: exposer-app
+          image: persistenceone/exposer:latest
+          resources:
+            limits:
+              cpu: "0.1"
+              memory: "100M"
+            requests:
+              cpu: "0.1"
+              memory: "100M"

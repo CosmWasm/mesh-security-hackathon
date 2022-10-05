@@ -1,0 +1,8 @@
+namespace: default
+
+resources:
+  - ../../base/juno
+
+patchesStrategicMerge:
+  - genesis.yaml
+  - validator.yaml
