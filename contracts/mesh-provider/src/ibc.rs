@@ -7,13 +7,15 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128,
 };
 
+use cw_utils::Expiration;
 use mesh_ibc::{
     check_order, check_version, ConsumerMsg, ListValidatorsResponse, ProviderMsg, RewardsResponse,
     StdAck, UpdateValidatorsResponse,
 };
 
 use crate::error::ContractError;
-use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PACKET_LIFETIME, PORT, VALIDATORS};
+use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PACKET_LIFETIME, PORT, VALIDATORS, STAKED, CLAIMS};
+use crate::contract::LIST_VALIDATORS_RETRIES;
 
 pub fn build_timeout(deps: Deps, env: &Env) -> Result<IbcTimeout, ContractError> {
     let packet_time = PACKET_LIFETIME.load(deps.storage)?;
@@ -187,7 +189,7 @@ pub fn ibc_packet_ack(
             let val: ListValidatorsResponse = from_slice(&res.unwrap())?;
             ack_list_validators(deps, env, val)
         }
-        (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps),
+        (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps, env),
         (
             ProviderMsg::Stake {
                 key,
@@ -196,6 +198,14 @@ pub fn ibc_packet_ack(
             },
             false,
         ) => fail_stake(deps, key, validator, amount),
+        (
+            ProviderMsg::Unstake {
+                key,
+                validator,
+                amount,
+            },
+            true,
+        ) => ack_unstake(deps, env, key, validator, amount),
         (
             ProviderMsg::Unstake {
                 key,
@@ -211,12 +221,12 @@ pub fn ibc_packet_ack(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_timeout(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcPacketTimeoutMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     let original_packet: ProviderMsg = from_slice(&msg.packet.data)?;
     match original_packet {
-        ProviderMsg::ListValidators {} => fail_list_validators(deps),
+        ProviderMsg::ListValidators {} => fail_list_validators(deps, env),
         ProviderMsg::Stake {
             key,
             validator,
@@ -238,33 +248,110 @@ pub fn ack_list_validators(
     for val in res.validators {
         VALIDATORS.save(deps.storage, &val, &Validator::new())?;
     }
+
+    // reset retry counter
+    let mut config = CONFIG.load(deps.storage)?;
+    config.list_validators_retries_remaining = LIST_VALIDATORS_RETRIES;
+    CONFIG.save(deps.storage, &config)?;
+
     Ok(IbcBasicResponse::new())
 }
 
-pub fn fail_list_validators(_deps: DepsMut) -> Result<IbcBasicResponse, ContractError> {
-    // TODO: send another ListValidators message
-    unimplemented!();
+pub fn fail_list_validators(deps: DepsMut, env: Env) -> Result<IbcBasicResponse, ContractError> {
+    // check if we should retry
+    let cfg = CONFIG.load(deps.storage)?;
+    let channel_id = CHANNEL.load(deps.storage)?;
+    if cfg.list_validators_retries_remaining <= 0 {
+        return Err(ContractError::NoResponse("list_validators".to_string(), channel_id))
+    }
+    let mut cfg_after = cfg.clone();
+    cfg_after.list_validators_retries_remaining -= 1;
+    CONFIG.save(deps.storage, &cfg_after)?;
+
+    // retry
+    let packet = ProviderMsg::ListValidators {};
+    let msg = IbcMsg::SendPacket {
+        channel_id: channel_id,
+        data: to_binary(&packet)?,
+        timeout: build_timeout(deps.as_ref(), &env)?,
+    };
+    Ok(IbcBasicResponse::new().add_message(msg))
 }
 
 pub fn fail_stake(
-    _deps: DepsMut,
+    deps: DepsMut,
     // _staker is the staker Addr, not used by consumer
-    _staker: String,
-    _validator: String,
-    _amount: Uint128,
+    staker: String,
+    validator: String,
+    amount: Uint128,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // TODO: release the bonded stake, adjust numer
-    unimplemented!();
+    let staker = deps.api.addr_validate(&staker)?;
+
+    if amount.is_zero() {
+        return Err(ContractError::ZeroAmount);
+    }
+
+    let mut val = VALIDATORS
+        .may_load(deps.storage, &validator)?
+        .ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
+    let mut stake = STAKED
+        .may_load(deps.storage, (&staker, &validator))?
+        .unwrap_or_default();
+    stake.unstake_validator(&mut val, amount)?;
+    STAKED.save(deps.storage, (&staker, &validator), &stake)?;
+    VALIDATORS.save(deps.storage, &validator, &val)?;
+    Ok(IbcBasicResponse::new())
+}
+
+pub fn ack_unstake(
+    deps: DepsMut,
+    env: Env,
+    staker: String,
+    _validator: String,
+    amount: Uint128
+) -> Result<IbcBasicResponse , ContractError> {
+    let staker = deps.api.addr_validate(&staker)?;
+
+    if amount.is_zero() {
+        return Err(ContractError::ZeroAmount);
+    }
+
+    // create a future claim on number of shares (so we can adjust for later slashing)
+    let cfg = CONFIG.load(deps.storage)?;
+    let ready = env.block.time.plus_seconds(cfg.unbonding_period);
+    CLAIMS.create_claim(
+        deps.storage,
+        &staker,
+        amount,
+        Expiration::AtTime(ready),
+    )?;
+
+    // TODO: How should the user be notified of the failure?
+    Ok(IbcBasicResponse::new())
 }
 
 pub fn fail_unstake(
-    _deps: DepsMut,
+    deps: DepsMut,
     // _staker is the staker Addr, not used by consumer
-    _staker: String,
-    _validator: String,
-    _amount: Uint128,
+    staker: String,
+    validator: String,
+    amount: Uint128,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // TODO: unrelease the bonded stake, remove claim
-    // Maybe we only make Claim on ack?
-    unimplemented!();
+    let staker = deps.api.addr_validate(&staker)?;
+
+    if amount.is_zero() {
+        return Err(ContractError::ZeroAmount);
+    }
+
+    // revert state changes associated with stake
+    let mut val = VALIDATORS
+        .may_load(deps.storage, &validator)?
+        .ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
+    let mut stake = STAKED.load(deps.storage, (&staker, &validator))?;
+    stake.stake_validator(&mut val, amount);
+    STAKED.save(deps.storage, (&staker, &validator), &stake)?;
+    VALIDATORS.save(deps.storage, &validator, &val)?;
+
+    // TODO: How should the user be notified of the failure?
+    Ok(IbcBasicResponse::new())
 }

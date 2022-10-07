@@ -18,6 +18,8 @@ pub struct Config {
     pub unbonding_period: u64,
     /// IBC denom string - "port_id/channel_id/denom"
     pub rewards_ibc_denom: String,
+    /// The number of retries remaining to query mesh-consumer
+    pub list_validators_retries_remaining: u32,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

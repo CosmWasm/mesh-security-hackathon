@@ -72,6 +72,9 @@ pub enum ContractError {
     #[error("Rewards amount is 0")]
     ZeroRewardsToSend {},
 
+    #[error("Unable to communicate for message: {0} on channel: {1}")]
+    NoResponse(String, String),
+
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
     // Add any other custom errors you like here.

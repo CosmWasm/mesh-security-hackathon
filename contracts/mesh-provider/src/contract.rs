@@ -6,7 +6,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
-use cw_utils::{parse_instantiate_response_data, Expiration};
+use cw_utils::{parse_instantiate_response_data};
 use mesh_apis::ClaimProviderMsg;
 use mesh_ibc::ProviderMsg;
 
@@ -23,6 +23,7 @@ use crate::state::{
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const LIST_VALIDATORS_RETRIES: u32 = 5;
 
 // for reply callbacks
 const INIT_CALLBACK_ID: u64 = 1;
@@ -43,6 +44,7 @@ pub fn instantiate(
         lockup: deps.api.addr_validate(&msg.lockup)?,
         unbonding_period: msg.unbonding_period,
         rewards_ibc_denom: msg.rewards_ibc_denom,
+        list_validators_retries_remaining: LIST_VALIDATORS_RETRIES,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &state)?;
@@ -219,16 +221,6 @@ pub fn execute_unstake(
     STAKED.save(deps.storage, (&info.sender, &validator), &stake)?;
     VALIDATORS.save(deps.storage, &validator, &val)?;
 
-    // create a future claim on number of shares (so we can adjust for later slashing)
-    let cfg = CONFIG.load(deps.storage)?;
-    let ready = env.block.time.plus_seconds(cfg.unbonding_period);
-    CLAIMS.create_claim(
-        deps.storage,
-        &info.sender,
-        amount,
-        Expiration::AtTime(ready),
-    )?;
-
     // send out IBC packet for staking change
     let packet = ProviderMsg::Unstake {
         validator,
@@ -242,6 +234,7 @@ pub fn execute_unstake(
     };
     let mut res = Response::new().add_message(msg);
 
+    let cfg = CONFIG.load(deps.storage)?;
     if let Some(slash) = slash {
         let msg = WasmMsg::Execute {
             contract_addr: cfg.lockup.into_string(),
@@ -366,7 +359,7 @@ pub fn query_account(deps: Deps, address: String) -> StdResult<AccountResponse> 
                 slashed,
             })
         })
-        .collect::<StdResult<Vec<_>>>()?;
+    .collect::<StdResult<Vec<_>>>()?;
 
     Ok(AccountResponse { staked })
 }
