@@ -254,8 +254,7 @@ mod query {
     ) -> StdResult<Binary> {
         let limit = limit.unwrap_or(DEFAULT_LIMIT) as usize;
         let consumer = deps.api.addr_validate(&consumer)?;
-        let temp_start = start.unwrap();
-        let start_bound = Some(Bound::exclusive(temp_start.as_ref()));
+        let start_bound = start.as_deref().map(Bound::exclusive);
 
         let validators = VALIDATORS_BY_CONSUMER
             .prefix(&consumer)
