@@ -222,7 +222,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 mod query {
     use crate::msg::{AllDelegationsResponse, Delegation};
-    use cosmwasm_std::{to_binary, Addr, Order, Validator};
+    use cosmwasm_std::{to_binary, Addr, Order};
     use cw_storage_plus::Bound;
     use cw_utils::maybe_addr;
 

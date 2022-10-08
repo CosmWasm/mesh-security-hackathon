@@ -35,7 +35,10 @@ pub enum QueryMsg {
     Consumer { address: String },
     /// Returns list of consumers
     #[returns(ConsumersResponse)]
-    Consumers { start: Option<String>, limit: Option<u32>},
+    Consumers {
+        start: Option<String>,
+        limit: Option<u32>,
+    },
     /// Delegation will return more detailed info on a particular
     /// delegation, defined by delegator/validator pair
     #[returns(DelegationResponse)]
@@ -44,7 +47,11 @@ pub enum QueryMsg {
     ///
     /// The query response type is `AllValidatorsResponse`.
     #[returns(AllValidatorsResponse)]
-    AllValidators { consumer: String, start: Option<String>, limit: Option<u32> },
+    AllValidators {
+        consumer: String,
+        start: Option<String>,
+        limit: Option<u32>,
+    },
 }
 
 #[cw_serde]
