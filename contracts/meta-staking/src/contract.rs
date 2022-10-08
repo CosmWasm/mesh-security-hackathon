@@ -16,6 +16,8 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const WITHDRAW_REWARDS_REPLY_ID: u64 = 0;
 
+const DEFAULT_LIMIT: u32 = 100;
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
@@ -204,9 +206,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::AllDelegations { consumer } => {
             to_binary(&query::all_delegations(deps, consumer)?)
         }
-        QueryMsg::AllValidators { consumer } => query::all_validators(deps, consumer),
+        QueryMsg::AllValidators {
+            consumer,
+            start,
+            limit,
+        } => query::all_validators(deps, consumer, start, limit),
         QueryMsg::Consumer { address } => query::consumer(deps, address),
-        QueryMsg::Consumers {} => query::consumers(deps),
+        QueryMsg::Consumers { start, limit } => query::consumers(deps, start, limit),
         QueryMsg::Delegation {
             consumer,
             validator,
@@ -216,7 +222,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 mod query {
     use crate::msg::{AllDelegationsResponse, Delegation};
-    use cosmwasm_std::{to_binary, Order};
+    use cosmwasm_std::{to_binary, Addr, Order};
+    use cw_storage_plus::Bound;
+    use cw_utils::maybe_addr;
 
     use crate::state::{CONSUMERS, VALIDATORS_BY_CONSUMER};
 
@@ -238,12 +246,30 @@ mod query {
         Ok(AllDelegationsResponse { delegations })
     }
 
-    pub fn all_validators(_deps: Deps, _consumer: String) -> StdResult<Binary> {
-        unimplemented!()
+    pub fn all_validators(
+        deps: Deps,
+        consumer: String,
+        start: Option<String>,
+        limit: Option<u32>,
+    ) -> StdResult<Binary> {
+        let limit = limit.unwrap_or(DEFAULT_LIMIT) as usize;
+        let consumer = deps.api.addr_validate(&consumer)?;
+        let start_bound = start.as_deref().map(Bound::exclusive);
+
+        let validators = VALIDATORS_BY_CONSUMER
+            .prefix(&consumer)
+            .keys(deps.storage, start_bound, None, Order::Ascending)
+            .take(limit)
+            .collect::<StdResult<Vec<_>>>()?;
+        to_binary(&validators)
     }
 
-    pub fn delegation(_deps: Deps, _consumer: String, _validator: String) -> StdResult<Binary> {
-        unimplemented!()
+    pub fn delegation(deps: Deps, consumer: String, validator: String) -> StdResult<Binary> {
+        let consumer_addr = deps.api.addr_validate(&consumer)?;
+        let delegation = VALIDATORS_BY_CONSUMER
+            .may_load(deps.storage, (&consumer_addr, &validator))?
+            .unwrap_or_default();
+        to_binary(&delegation)
     }
 
     pub fn consumer(deps: Deps, address: String) -> StdResult<Binary> {
@@ -252,10 +278,17 @@ mod query {
         to_binary(&consumer)
     }
 
-    pub fn consumers(_deps: Deps) -> StdResult<Binary> {
-        // let consumers = CONSUMERS.;
-        // to_binary(&consumers)
-        unimplemented!()
+    pub fn consumers(deps: Deps, start: Option<String>, limit: Option<u32>) -> StdResult<Binary> {
+        let limit = limit.unwrap_or(DEFAULT_LIMIT) as usize;
+        let start_addr = maybe_addr(deps.api, start)?;
+        let start = start_addr.as_ref().map(Bound::exclusive);
+
+        let consumers = CONSUMERS
+            .keys(deps.storage, start, None, Order::Ascending)
+            .take(limit)
+            .collect::<StdResult<Vec<Addr>>>()?;
+
+        to_binary(&consumers)
     }
 }
 
