@@ -206,7 +206,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::AllDelegations { consumer } => {
             to_binary(&query::all_delegations(deps, consumer)?)
         }
-        QueryMsg::AllValidators { consumer } => query::all_validators(deps, consumer),
+        QueryMsg::AllValidators {
+            consumer,
+            start,
+            limit,
+        } => query::all_validators(deps, consumer, start, limit),
         QueryMsg::Consumer { address } => query::consumer(deps, address),
         QueryMsg::Consumers { start, limit } => query::consumers(deps, start, limit),
         QueryMsg::Delegation {
@@ -218,7 +222,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 mod query {
     use crate::msg::{AllDelegationsResponse, Delegation};
-    use cosmwasm_std::{to_binary, Order, Addr, Validator};
+    use cosmwasm_std::{to_binary, Addr, Order, Validator};
     use cw_storage_plus::Bound;
     use cw_utils::maybe_addr;
 
@@ -242,13 +246,30 @@ mod query {
         Ok(AllDelegationsResponse { delegations })
     }
 
-    pub fn all_validators(_deps: Deps, _consumer: String) -> StdResult<Binary> {
-        unimplemented!()
+    pub fn all_validators(
+        deps: Deps,
+        consumer: String,
+        start: Option<String>,
+        limit: Option<u32>,
+    ) -> StdResult<Binary> {
+        let limit = limit.unwrap_or(DEFAULT_LIMIT) as usize;
+        let consumer = deps.api.addr_validate(&consumer)?;
+        let temp_start = start.unwrap();
+        let start_bound = Some(Bound::exclusive(temp_start.as_ref()));
+
+        let validators = VALIDATORS_BY_CONSUMER
+            .prefix(&consumer)
+            .keys(deps.storage, start_bound, None, Order::Ascending)
+            .take(limit)
+            .collect::<StdResult<Vec<_>>>()?;
+        to_binary(&validators)
     }
 
     pub fn delegation(deps: Deps, consumer: String, validator: String) -> StdResult<Binary> {
         let consumer_addr = deps.api.addr_validate(&consumer)?;
-        let delegation = VALIDATORS_BY_CONSUMER.may_load(deps.storage, (&consumer_addr, &validator))?.unwrap_or_default();
+        let delegation = VALIDATORS_BY_CONSUMER
+            .may_load(deps.storage, (&consumer_addr, &validator))?
+            .unwrap_or_default();
         to_binary(&delegation)
     }
 

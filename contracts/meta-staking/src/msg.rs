@@ -44,7 +44,7 @@ pub enum QueryMsg {
     ///
     /// The query response type is `AllValidatorsResponse`.
     #[returns(AllValidatorsResponse)]
-    AllValidators { consumer: String },
+    AllValidators { consumer: String, start: Option<String>, limit: Option<u32> },
 }
 
 #[cw_serde]
