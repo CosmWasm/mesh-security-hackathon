@@ -35,7 +35,7 @@ pub enum QueryMsg {
     Consumer { address: String },
     /// Returns list of consumers
     #[returns(ConsumersResponse)]
-    Consumers {},
+    Consumers { start: Option<String>, limit: Option<u32>},
     /// Delegation will return more detailed info on a particular
     /// delegation, defined by delegator/validator pair
     #[returns(DelegationResponse)]
