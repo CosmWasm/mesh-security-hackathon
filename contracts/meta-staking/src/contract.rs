@@ -190,11 +190,9 @@ mod execute {
         consumer: Option<String>,
     ) -> Result<Response, ContractError> {
         // checks if consumer exists
-        let consumer_addr;
-
-        match consumer {
-            Some(consumer) => consumer_addr = deps.api.addr_validate(&consumer)?,
-            None => consumer_addr = deps.api.addr_validate(&info.sender.as_str())?,
+        let consumer_addr = match consumer {
+            Some(consumer) => deps.api.addr_validate(&consumer)?,
+            None => deps.api.addr_validate(&info.sender.as_str())?,
         };
 
         if CONSUMERS.has(deps.storage, &consumer_addr) {
