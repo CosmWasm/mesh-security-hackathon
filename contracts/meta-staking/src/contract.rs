@@ -56,9 +56,10 @@ pub fn execute(
         ExecuteMsg::Undelegate { validator, amount } => {
             execute::undelegate(deps, env, info, validator, amount)
         }
-        ExecuteMsg::WithdrawDelegatorReward { validator } => {
-            execute::withdraw_delegator_reward(deps, env, info, validator)
-        }
+        ExecuteMsg::WithdrawDelegatorReward {
+            validator,
+            consumer,
+        } => execute::withdraw_delegator_reward(deps, env, info, validator, consumer),
         ExecuteMsg::Sudo(sudo_msg) => {
             ensure_eq!(
                 CONFIG.load(deps.storage)?.admin,
@@ -71,7 +72,8 @@ pub fn execute(
 }
 
 mod execute {
-    use cosmwasm_std::{Coin, DistributionMsg, StakingMsg, SubMsg, Uint128};
+    use cosmwasm_schema::cw_serde;
+    use cosmwasm_std::{Coin, CosmosMsg, DistributionMsg, StakingMsg, SubMsg, Uint128, WasmMsg};
 
     use crate::state::{CONSUMERS, VALIDATORS_BY_CONSUMER};
 
@@ -174,18 +176,49 @@ mod execute {
         Ok(Response::default().add_message(msg))
     }
 
+    #[cw_serde]
+    struct MeshConsumerRecieveRewards {
+        amount: Vec<Coin>,
+    }
+
     // TODO finish me
     pub fn withdraw_delegator_reward(
         deps: DepsMut,
         _env: Env,
         info: MessageInfo,
         validator: String,
+        consumer: Option<String>,
     ) -> Result<Response, ContractError> {
-        // Check this is a consumer calling this, fails if no consumer loads
-        CONSUMERS.has(deps.storage, &info.sender);
+        // checks if consumer exists
+        let consumer_addr;
+
+        match consumer {
+            Some(consumer) => {
+                consumer_addr = deps.api.addr_validate(&consumer)?;
+
+                if CONSUMERS.has(deps.storage, &consumer_addr) {
+                    return Err(ContractError::NoConsumer {});
+                };
+            }
+            None => {
+                consumer_addr = deps.api.addr_validate(&info.sender.as_str())?;
+
+                if CONSUMERS.has(deps.storage, &info.sender) {
+                    return Err(ContractError::NoConsumer {});
+                }
+            }
+        };
 
         // TODO Need to figure out how many rewards we got, so can send them
         // to the consumer contract
+        let delegation_query = deps
+            .querier
+            .query_delegation(consumer_addr, validator.clone())?;
+
+        let rewards_amount = match delegation_query {
+            Some(delegation) => delegation.accumulated_rewards,
+            None => return Err(ContractError::NoDelegationsForValidator {}),
+        };
 
         // Withdraw rewards as a submessage
         let withdraw_msg = SubMsg::reply_on_success(
@@ -194,8 +227,17 @@ mod execute {
         );
 
         // TODO On reply, send funds to consumer contract
+        let send_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: "????".to_string(),
+            msg: to_binary(&MeshConsumerRecieveRewards {
+                amount: rewards_amount.clone(),
+            })?,
+            funds: rewards_amount,
+        });
 
-        Ok(Response::default().add_submessage(withdraw_msg))
+        Ok(Response::default()
+            .add_submessage(withdraw_msg)
+            .add_message(send_msg))
     }
 }
 
