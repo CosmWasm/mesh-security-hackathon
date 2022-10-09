@@ -193,20 +193,12 @@ mod execute {
         let consumer_addr;
 
         match consumer {
-            Some(consumer) => {
-                consumer_addr = deps.api.addr_validate(&consumer)?;
+            Some(consumer) => consumer_addr = deps.api.addr_validate(&consumer)?,
+            None => consumer_addr = deps.api.addr_validate(&info.sender.as_str())?,
+        };
 
-                if CONSUMERS.has(deps.storage, &consumer_addr) {
-                    return Err(ContractError::NoConsumer {});
-                };
-            }
-            None => {
-                consumer_addr = deps.api.addr_validate(&info.sender.as_str())?;
-
-                if CONSUMERS.has(deps.storage, &info.sender) {
-                    return Err(ContractError::NoConsumer {});
-                }
-            }
+        if CONSUMERS.has(deps.storage, &consumer_addr) {
+            return Err(ContractError::NoConsumer {});
         };
 
         // TODO Need to figure out how many rewards we got, so can send them
