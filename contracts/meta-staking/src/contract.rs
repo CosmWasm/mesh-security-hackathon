@@ -74,11 +74,10 @@ pub fn execute(
 mod execute {
     use cosmwasm_schema::cw_serde;
     use cosmwasm_std::{
-        Addr, Coin, CosmosMsg, DistributionMsg, Order, ReplyOn, StakingMsg, StdError, SubMsg,
-        Uint128, WasmMsg,
+        Addr, Coin, CosmosMsg, DistributionMsg, Order, StakingMsg, Uint128, WasmMsg,
     };
 
-    use crate::state::{ConsumerInfo, CONSUMERS, CONSUMERS_BY_VALIDATOR, VALIDATORS_BY_CONSUMER};
+    use crate::state::{CONSUMERS, CONSUMERS_BY_VALIDATOR, VALIDATORS_BY_CONSUMER};
 
     use super::*;
 
@@ -240,15 +239,15 @@ mod execute {
             let (addr, amount) = res;
 
             // Get the rewards amount
-            let perc = (*amount / total_delegations).u128() * (100 as u128);
-            let final_amount = (perc * rewards_total_amount.amount.u128()) / (100 as u128);
+            let perc = (*amount / total_delegations).u128() * (100_u128);
+            let final_amount = (perc * rewards_total_amount.amount.u128()) / (100_u128);
 
             // Add rewards to the consumer
             CONSUMERS
                 .update(deps.storage, addr, |consumer| {
                     let consumer = match consumer {
                         Some(mut consumer) => {
-                            consumer.rewards = consumer.rewards + Uint128::from(final_amount);
+                            consumer.rewards += Uint128::from(final_amount);
                             consumer
                         }
                         None => return Err(ContractError::NoConsumer {}),
@@ -261,14 +260,10 @@ mod execute {
         });
 
         // Withdraw rewards as a submessage
-        let withdraw_msg = SubMsg {
-            id: WITHDRAW_REWARDS_REPLY_ID,
-            msg: CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward { validator }),
-            gas_limit: None,
-            reply_on: ReplyOn::Never,
-        };
+        let withdraw_msg =
+            CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward { validator });
 
-        Ok(Response::default().add_submessage(withdraw_msg))
+        Ok(Response::default().add_message(withdraw_msg))
     }
 
     pub fn withdraw_to_customer(
@@ -282,7 +277,7 @@ mod execute {
 
         let mut consumer = CONSUMERS.load(deps.storage, &info.sender)?;
 
-        if consumer.rewards.u128() <= 0_u128 {
+        if consumer.rewards.u128() == 0_u128 {
             return Err(ContractError::ZeroRewardsToSend {});
         }
 
@@ -292,11 +287,11 @@ mod execute {
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: info.sender.to_string(),
             msg: to_binary(&MeshConsumerRecieveRewards {
-                amount: consumer.rewards.clone(),
+                amount: consumer.rewards,
             })?,
             funds: vec![Coin {
                 denom,
-                amount: consumer.rewards.clone(),
+                amount: consumer.rewards,
             }],
         });
 
