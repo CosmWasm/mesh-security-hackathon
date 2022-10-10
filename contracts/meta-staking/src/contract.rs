@@ -280,7 +280,7 @@ mod execute {
             return Err(ContractError::NoConsumer {});
         };
 
-        let consumer = CONSUMERS.load(deps.storage, &info.sender)?;
+        let mut consumer = CONSUMERS.load(deps.storage, &info.sender)?;
 
         if consumer.rewards.u128() <= 0_u128 {
             return Err(ContractError::ZeroRewardsToSend {});
@@ -300,16 +300,8 @@ mod execute {
             }],
         });
 
-        CONSUMERS.update(deps.storage, &info.sender, |consumer| {
-            let consumer = if let Some(mut consumer) = consumer {
-                consumer.rewards = Uint128::from(0_u128);
-                consumer
-            } else {
-                return Err(ContractError::NoConsumer {});
-            };
-
-            Ok(consumer)
-        })?;
+        consumer.rewards = Uint128::from(0_u128);
+        CONSUMERS.save(deps.storage, &info.sender, &consumer)?;
 
         Ok(Response::default().add_message(msg))
     }
