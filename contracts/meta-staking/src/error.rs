@@ -34,6 +34,9 @@ pub enum ContractError {
     #[error("Consumer does not exists")]
     NoConsumer {},
 
+    #[error("Rewards amount is 0")]
+    ZeroRewardsToSend {},
+
     #[error("An unknown reply ID was received.")]
     UnknownReplyID {},
 }

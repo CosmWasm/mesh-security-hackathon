@@ -21,6 +21,8 @@ pub struct ConsumerInfo {
     pub available_funds: Uint128,
     // Total staked funds, cannot stake more than available funds
     pub total_staked: Uint128,
+    // Sum of rewards that can be sent to consumer.
+    pub rewards: Uint128,
 }
 
 impl ConsumerInfo {
@@ -28,6 +30,7 @@ impl ConsumerInfo {
         ConsumerInfo {
             available_funds: funds.into(),
             total_staked: Uint128::zero(),
+            rewards: Uint128::zero(),
         }
     }
 
@@ -50,5 +53,7 @@ impl ConsumerInfo {
     }
 }
 
-/// Map<(consumer address, validator address), Validator>
+/// Map<(consumer address, validator address), Amount>
 pub const VALIDATORS_BY_CONSUMER: Map<(&Addr, &str), Uint128> = Map::new("validators_by_consumer");
+/// Map<(validator address, consumer address), Amount>
+pub const CONSUMERS_BY_VALIDATOR: Map<(&str, &Addr), Uint128> = Map::new("consumers_by_validators");

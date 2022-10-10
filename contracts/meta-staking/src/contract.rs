@@ -56,10 +56,10 @@ pub fn execute(
         ExecuteMsg::Undelegate { validator, amount } => {
             execute::undelegate(deps, env, info, validator, amount)
         }
-        ExecuteMsg::WithdrawDelegatorReward {
-            validator,
-            consumer,
-        } => execute::withdraw_delegator_reward(deps, env, info, validator, consumer),
+        ExecuteMsg::WithdrawDelegatorReward { validator } => {
+            execute::withdraw_delegator_reward(deps, env, validator)
+        }
+        ExecuteMsg::WithdrawToCostumer {} => execute::withdraw_to_customer(deps, env, info),
         ExecuteMsg::Sudo(sudo_msg) => {
             ensure_eq!(
                 CONFIG.load(deps.storage)?.admin,
@@ -73,14 +73,17 @@ pub fn execute(
 
 mod execute {
     use cosmwasm_schema::cw_serde;
-    use cosmwasm_std::{Coin, CosmosMsg, DistributionMsg, StakingMsg, SubMsg, Uint128, WasmMsg};
+    use cosmwasm_std::{
+        Addr, Coin, CosmosMsg, DistributionMsg, Order, ReplyOn, StakingMsg, StdError, SubMsg,
+        Uint128, WasmMsg,
+    };
 
-    use crate::state::{CONSUMERS, VALIDATORS_BY_CONSUMER};
+    use crate::state::{ConsumerInfo, CONSUMERS, CONSUMERS_BY_VALIDATOR, VALIDATORS_BY_CONSUMER};
 
     use super::*;
 
     pub fn delegate(
-        deps: DepsMut,
+        mut deps: DepsMut,
         _env: Env,
         info: MessageInfo,
         validator: String,
@@ -104,13 +107,7 @@ mod execute {
 
         // Update info for the (consumer, validator) map
         // We add the amount delegated to the validator.
-        VALIDATORS_BY_CONSUMER.update(
-            deps.storage,
-            (&info.sender, &validator),
-            |validator_info| -> Result<_, ContractError> {
-                Ok(validator_info.unwrap_or_default() + amount)
-            },
-        )?;
+        deps = update_delegations(deps, info, &validator, amount, Method::Add)?;
 
         // Get local denom
         let denom = deps.querier.query_bonded_denom()?;
@@ -125,7 +122,7 @@ mod execute {
     }
 
     pub fn undelegate(
-        deps: DepsMut,
+        mut deps: DepsMut,
         _env: Env,
         info: MessageInfo,
         validator: String,
@@ -154,15 +151,7 @@ mod execute {
 
         // Update info for the (consumer, validator) map
         // We subtract the amount delegated to the validator.
-        VALIDATORS_BY_CONSUMER.update(
-            deps.storage,
-            (&info.sender, &validator),
-            |validator_info| -> Result<_, ContractError> {
-                let val = validator_info.ok_or(ContractError::NoDelegationsForValidator {})?;
-                val.checked_sub(amount)
-                    .map_err(|_| ContractError::InsufficientDelegation {})
-            },
-        )?;
+        deps = update_delegations(deps, info, &validator, amount, Method::Sub)?;
 
         // Get local denom
         let denom = deps.querier.query_bonded_denom()?;
@@ -176,58 +165,153 @@ mod execute {
         Ok(Response::default().add_message(msg))
     }
 
+    enum Method {
+        Add,
+        Sub,
+    }
+
+    fn update_delegations<'a>(
+        deps: DepsMut<'a>,
+        info: MessageInfo,
+        validator: &str,
+        amount: Uint128,
+        method: Method,
+    ) -> Result<DepsMut<'a>, ContractError> {
+        let action = |validator_info: Option<Uint128>| -> Result<_, ContractError> {
+            match method {
+                Method::Add => {
+                    let val = validator_info.ok_or(ContractError::NoDelegationsForValidator {})?;
+                    val.checked_sub(amount)
+                        .map_err(|_| ContractError::InsufficientDelegation {})
+                }
+                Method::Sub => Ok(validator_info.unwrap_or_default() + amount),
+            }
+        };
+
+        VALIDATORS_BY_CONSUMER.update(deps.storage, (&info.sender, validator), action)?;
+
+        CONSUMERS_BY_VALIDATOR.update(deps.storage, (validator, &info.sender), action)?;
+
+        Ok(deps)
+    }
+
     #[cw_serde]
     struct MeshConsumerRecieveRewards {
-        amount: Vec<Coin>,
+        amount: Uint128,
     }
 
     // TODO finish me
     pub fn withdraw_delegator_reward(
         deps: DepsMut,
-        _env: Env,
-        info: MessageInfo,
+        env: Env,
         validator: String,
-        consumer: Option<String>,
     ) -> Result<Response, ContractError> {
-        // checks if consumer exists
-        let consumer_addr = match consumer {
-            Some(consumer) => deps.api.addr_validate(&consumer)?,
-            None => deps.api.addr_validate(&info.sender.as_str())?,
-        };
-
-        if CONSUMERS.has(deps.storage, &consumer_addr) {
-            return Err(ContractError::NoConsumer {});
-        };
-
         // TODO Need to figure out how many rewards we got, so can send them
         // to the consumer contract
         let delegation_query = deps
             .querier
-            .query_delegation(consumer_addr, validator.clone())?;
+            .query_delegation(env.contract.address, validator.clone())?;
 
-        let rewards_amount = match delegation_query {
+        // We assume only 1 coin is being delegated
+        let rewards_total_amount = &match delegation_query {
             Some(delegation) => delegation.accumulated_rewards,
             None => return Err(ContractError::NoDelegationsForValidator {}),
-        };
+        }[0];
 
-        // Withdraw rewards as a submessage
-        let withdraw_msg = SubMsg::reply_on_success(
-            DistributionMsg::WithdrawDelegatorReward { validator },
-            WITHDRAW_REWARDS_REPLY_ID,
-        );
+        // Get all consumers by a single validator iter
+        let total_consumers_iter = CONSUMERS_BY_VALIDATOR
+            .prefix(&validator)
+            .range(deps.storage, None, None, Order::Ascending)
+            .filter_map(|res| res.ok())
+            .collect::<Vec<(Addr, Uint128)>>();
 
-        // TODO On reply, send funds to consumer contract
-        let send_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: "????".to_string(),
-            msg: to_binary(&MeshConsumerRecieveRewards {
-                amount: rewards_amount.clone(),
-            })?,
-            funds: rewards_amount,
+        // Sum of all delegations so we can count the perc of rewards
+        let total_delegations = total_consumers_iter
+            .iter()
+            .map(|res| {
+                let (_, amount) = res;
+                Ok(amount)
+            })
+            .sum::<StdResult<Uint128>>()?;
+
+        // VERY EXPENSIVE - in case of a lot of consumers, this will become very expensive to call.
+        // 100% should be refactored asap.
+        total_consumers_iter.iter().all(|res| {
+            let (addr, amount) = res;
+
+            // Get the rewards amount
+            let perc = (*amount / total_delegations).u128() * (100 as u128);
+            let final_amount = (perc * rewards_total_amount.amount.u128()) / (100 as u128);
+
+            // Add rewards to the consumer
+            CONSUMERS
+                .update(deps.storage, addr, |consumer| {
+                    let consumer = match consumer {
+                        Some(mut consumer) => {
+                            consumer.rewards = consumer.rewards + Uint128::from(final_amount);
+                            consumer
+                        }
+                        None => return Err(ContractError::NoConsumer {}),
+                    };
+
+                    Ok(consumer)
+                })
+                .unwrap();
+            true
         });
 
-        Ok(Response::default()
-            .add_submessage(withdraw_msg)
-            .add_message(send_msg))
+        // Withdraw rewards as a submessage
+        let withdraw_msg = SubMsg {
+            id: WITHDRAW_REWARDS_REPLY_ID,
+            msg: CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward { validator }),
+            gas_limit: None,
+            reply_on: ReplyOn::Never,
+        };
+
+        Ok(Response::default().add_submessage(withdraw_msg))
+    }
+
+    pub fn withdraw_to_customer(
+        deps: DepsMut,
+        _env: Env,
+        info: MessageInfo,
+    ) -> Result<Response, ContractError> {
+        if CONSUMERS.has(deps.storage, &info.sender) {
+            return Err(ContractError::NoConsumer {});
+        };
+
+        let consumer = CONSUMERS.load(deps.storage, &info.sender)?;
+
+        if consumer.rewards.u128() <= 0_u128 {
+            return Err(ContractError::ZeroRewardsToSend {});
+        }
+
+        // TODO On reply, send funds to consumer contract
+        let denom = deps.querier.query_bonded_denom()?;
+
+        let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: info.sender.to_string(),
+            msg: to_binary(&MeshConsumerRecieveRewards {
+                amount: consumer.rewards.clone(),
+            })?,
+            funds: vec![Coin {
+                denom,
+                amount: consumer.rewards.clone(),
+            }],
+        });
+
+        CONSUMERS.update(deps.storage, &info.sender, |consumer| {
+            let consumer = if let Some(mut consumer) = consumer {
+                consumer.rewards = Uint128::from(0_u128);
+                consumer
+            } else {
+                return Err(ContractError::NoConsumer {});
+            };
+
+            Ok(consumer)
+        })?;
+
+        Ok(Response::default().add_message(msg))
     }
 }
 
