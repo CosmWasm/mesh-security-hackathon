@@ -276,7 +276,7 @@ mod execute {
         _env: Env,
         info: MessageInfo,
     ) -> Result<Response, ContractError> {
-        if CONSUMERS.has(deps.storage, &info.sender) {
+        if !CONSUMERS.has(deps.storage, &info.sender) {
             return Err(ContractError::NoConsumer {});
         };
 
@@ -286,7 +286,7 @@ mod execute {
             return Err(ContractError::ZeroRewardsToSend {});
         }
 
-        // TODO On reply, send funds to consumer contract
+        // send funds to consumer contract msg
         let denom = deps.querier.query_bonded_denom()?;
 
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -300,6 +300,7 @@ mod execute {
             }],
         });
 
+        // Update consumer rewards to 0
         consumer.rewards = Uint128::from(0_u128);
         CONSUMERS.save(deps.storage, &info.sender, &consumer)?;
 
