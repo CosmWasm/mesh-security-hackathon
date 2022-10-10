@@ -178,12 +178,12 @@ mod execute {
     ) -> Result<DepsMut<'a>, ContractError> {
         let action = |validator_info: Option<Uint128>| -> Result<_, ContractError> {
             match method {
-                Method::Add => {
+                Method::Sub => {
                     let val = validator_info.ok_or(ContractError::NoDelegationsForValidator {})?;
                     val.checked_sub(amount)
                         .map_err(|_| ContractError::InsufficientDelegation {})
                 }
-                Method::Sub => Ok(validator_info.unwrap_or_default() + amount),
+                Method::Add => Ok(validator_info.unwrap_or_default() + amount),
             }
         };
 
@@ -199,14 +199,12 @@ mod execute {
         amount: Uint128,
     }
 
-    // TODO finish me
     pub fn withdraw_delegator_reward(
         deps: DepsMut,
         env: Env,
         validator: String,
     ) -> Result<Response, ContractError> {
-        // TODO Need to figure out how many rewards we got, so can send them
-        // to the consumer contract
+        // Query fullDelegation to get the total rewards amount
         let delegation_query = deps
             .querier
             .query_delegation(env.contract.address, validator.clone())?;
@@ -238,11 +236,11 @@ mod execute {
         total_consumers_iter.iter().all(|res| {
             let (addr, amount) = res;
 
-            // Get the rewards amount
+            // Get the rewards amount of the consumer
             let perc = (*amount / total_delegations).u128() * (100_u128);
             let final_amount = (perc * rewards_total_amount.amount.u128()) / (100_u128);
 
-            // Add rewards to the consumer
+            // Add rewards to ConsumerInfo
             CONSUMERS
                 .update(deps.storage, addr, |consumer| {
                     let consumer = match consumer {
@@ -259,7 +257,7 @@ mod execute {
             true
         });
 
-        // Withdraw rewards as a submessage
+        // Withdraw rewards from validator
         let withdraw_msg =
             CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward { validator });
 
@@ -303,7 +301,6 @@ mod execute {
     }
 }
 
-// TODO query this info by consumer...
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
