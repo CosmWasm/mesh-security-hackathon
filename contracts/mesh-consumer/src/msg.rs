@@ -20,7 +20,7 @@ pub struct ProviderInfo {
 pub enum ExecuteMsg {
     MeshConsumerRecieveRewardsMsg {
         rewards_by_validator: Vec<(String, Uint128)>,
-    }
+    },
 }
 
 #[cw_serde]

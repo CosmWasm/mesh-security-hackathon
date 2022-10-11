@@ -185,7 +185,10 @@ pub fn ibc_packet_ack(
     // we need to parse the ack based on our request
     let original_packet: ConsumerMsg = from_slice(&msg.original_packet.data)?;
     match original_packet {
-        ConsumerMsg::Rewards { rewards_by_validator: _, denom: _} => fail_rewards(deps),
+        ConsumerMsg::Rewards {
+            rewards_by_validator: _,
+            denom: _,
+        } => fail_rewards(deps),
         ConsumerMsg::UpdateValidators { added, removed } => {
             fail_update_validators(deps, added, removed)
         }
@@ -202,7 +205,10 @@ pub fn ibc_packet_timeout(
     // we need to parse the ack based on our request
     let original_packet: ConsumerMsg = from_slice(&msg.packet.data)?;
     match original_packet {
-        ConsumerMsg::Rewards {rewards_by_validator:_, denom: _ } => fail_rewards(deps),
+        ConsumerMsg::Rewards {
+            rewards_by_validator: _,
+            denom: _,
+        } => fail_rewards(deps),
         ConsumerMsg::UpdateValidators { added, removed } => {
             fail_update_validators(deps, added, removed)
         }

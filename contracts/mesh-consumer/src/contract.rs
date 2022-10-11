@@ -1,5 +1,3 @@
-use core::time;
-
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -9,7 +7,6 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 
 use mesh_ibc::ConsumerMsg;
-use meta_staking::msg::MeshConsumerRecieveRewardsMsg;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -65,7 +62,7 @@ pub fn execute_receive_rewards(
     let channel_id = CHANNEL.load(deps.storage)?;
     let timeout: IbcTimeout = env.block.time.plus_seconds(300).into();
     // NOTE We try to split the addr from the port_id, maybe better to set the addr in init?
-    let provider_addr = config.provider.port_id.split(".").last();
+    let provider_addr = config.provider.port_id.split('.').last();
 
     let provider_addr = match provider_addr {
         Some(addr) => addr,
@@ -87,12 +84,12 @@ pub fn execute_receive_rewards(
     });
 
     transfer_msgs.push(IbcMsg::SendPacket {
-        channel_id: channel_id.clone(),
+        channel_id,
         data: to_binary(&ConsumerMsg::Rewards {
             rewards_by_validator,
             denom: info.funds[0].clone().denom,
         })?,
-        timeout: timeout.clone(),
+        timeout,
     });
 
     Ok(Response::default().add_messages(transfer_msgs))

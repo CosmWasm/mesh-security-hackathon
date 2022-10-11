@@ -11,8 +11,8 @@ use cosmwasm_std::{
 };
 
 use mesh_ibc::{
-    check_order, check_version, ConsumerMsg, ListValidatorsResponse, ProviderMsg, StdAck,
-    UpdateValidatorsResponse, RewardsResponse,
+    check_order, check_version, ConsumerMsg, ListValidatorsResponse, ProviderMsg, RewardsResponse,
+    StdAck, UpdateValidatorsResponse,
 };
 
 use crate::error::ContractError;
@@ -145,12 +145,9 @@ pub fn receive_rewards(
     rewards_by_validator.iter().for_each(|res| {
         let (val, total_rewards_amount) = res;
 
-        let total_shares_staked = VALIDATORS
-            .load(deps.storage, &val)
-            .unwrap_or_default()
-            .stake;
+        let total_shares_staked = VALIDATORS.load(deps.storage, val).unwrap_or_default().stake;
         let staked_by_validator = STAKED_BY_VALIDATOR
-            .prefix(&val)
+            .prefix(val)
             .range(deps.storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<(Addr, Stake)>>>()
             .unwrap_or_default();
@@ -162,7 +159,7 @@ pub fn receive_rewards(
             let final_amount = (perc * total_rewards_amount.u128()) / (100_u128);
 
             REWARDS
-                .update::<_, StdError>(deps.storage, &delegator, |coins| match coins {
+                .update::<_, StdError>(deps.storage, delegator, |coins| match coins {
                     Some(mut coins) => {
                         let mut empty_coin = Coin {
                             denom: ibc_denom.to_string(),

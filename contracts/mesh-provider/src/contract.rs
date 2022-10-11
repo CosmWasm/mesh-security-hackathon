@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo, Order, Reply,
-    Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg, BankMsg,
+    Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
@@ -16,7 +16,9 @@ use crate::msg::{
     AccountResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, ListValidatorsResponse, QueryMsg,
     StakeInfo, ValidatorResponse,
 };
-use crate::state::{Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, VALIDATORS, STAKED_BY_VALIDATOR};
+use crate::state::{
+    Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, STAKED_BY_VALIDATOR, VALIDATORS,
+};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";

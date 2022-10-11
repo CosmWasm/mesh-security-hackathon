@@ -74,14 +74,14 @@ pub fn execute(
 }
 
 mod execute {
-    use cosmwasm_schema::cw_serde;
     use cosmwasm_std::{
         Addr, Coin, CosmosMsg, DistributionMsg, Order, StakingMsg, StdError, Uint128, WasmMsg,
     };
 
-    use crate::{state::{
-        CONSUMERS, CONSUMERS_BY_VALIDATOR, VALIDATORS_BY_CONSUMER, VALIDATORS_REWARDS,
-    }, msg::MeshConsumerRecieveRewardsMsg};
+    use crate::{
+        msg::MeshConsumerRecieveRewardsMsg,
+        state::{CONSUMERS, CONSUMERS_BY_VALIDATOR, VALIDATORS_BY_CONSUMER, VALIDATORS_REWARDS},
+    };
 
     use super::*;
 
@@ -254,7 +254,7 @@ mod execute {
                 .unwrap();
 
             VALIDATORS_REWARDS
-                .update::<_, StdError>(deps.storage, (&addr, &validator), |amount| {
+                .update::<_, StdError>(deps.storage, (addr, &validator), |amount| {
                     let amount = match amount {
                         Some(old_amount) => old_amount.u128() + final_amount,
                         None => final_amount,
@@ -304,7 +304,7 @@ mod execute {
 
                 if let Some(result) = res {
                     if result.1.u128() > 0_u128 {
-                        rewards_by_validator_vec.push(result.clone());
+                        rewards_by_validator_vec.push(result);
                     }
                 }
             });
@@ -312,7 +312,7 @@ mod execute {
         // Remove rewards from list because we send them away.
         rewards_by_validator_vec.iter().for_each(|res| {
             let (validator, _) = res;
-            VALIDATORS_REWARDS.remove(deps.storage, (&sender, &validator));
+            VALIDATORS_REWARDS.remove(deps.storage, (&sender, validator));
         });
 
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {

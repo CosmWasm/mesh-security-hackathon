@@ -1,6 +1,6 @@
 use crate::ContractError;
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{ensure, Addr, Coin, Uint128};
+use cosmwasm_std::{ensure, Addr, Uint128};
 use cw_storage_plus::{Item, Map};
 
 #[cw_serde]

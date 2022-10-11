@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Addr, Decimal, Fraction, Uint128, Coin};
+use cosmwasm_std::{Addr, Coin, Decimal, Fraction, Uint128};
 use cw_controllers::Claims;
 use cw_storage_plus::{Item, Map};
 
