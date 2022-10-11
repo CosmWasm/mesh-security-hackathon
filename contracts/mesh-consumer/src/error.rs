@@ -14,6 +14,9 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("Couldn't parse provider from port_id")]
+    ProviderAddrParsing {},
+
     #[error("Contract already has a bound channel: {0}")]
     ChannelExists(String),
 

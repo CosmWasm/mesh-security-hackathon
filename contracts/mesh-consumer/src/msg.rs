@@ -17,7 +17,9 @@ pub struct ProviderInfo {
 }
 
 #[cw_serde]
-pub enum ExecuteMsg {}
+pub enum ExecuteMsg {
+    MeshConsumerRecieveRewardsMsg {}
+}
 
 #[cw_serde]
 #[derive(QueryResponses)]

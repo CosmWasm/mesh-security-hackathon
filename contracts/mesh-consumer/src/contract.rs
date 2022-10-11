@@ -1,11 +1,17 @@
+use core::time;
+
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{
+    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult,
+};
 use cw2::set_contract_version;
+
+use mesh_ibc::ConsumerMsg;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, CONFIG};
+use crate::state::{Config, CHANNEL, CONFIG};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-consumer";
@@ -34,12 +40,55 @@ pub fn instantiate(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    _deps: DepsMut,
-    _env: Env,
-    _info: MessageInfo,
-    _msg: ExecuteMsg,
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    unimplemented!();
+    match msg {
+        ExecuteMsg::MeshConsumerRecieveRewardsMsg {} => receive_rewards(deps, env, info),
+    }
+}
+
+// We receive the rewards as funds from meta-stacking, and send it over IBC to mesh-provider
+pub fn receive_rewards(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let channel_id = CHANNEL.load(deps.storage)?;
+    let timeout: IbcTimeout = env.block.time.plus_seconds(300).into();
+    // NOTE We try to split the addr from the port_id, maybe better to set the addr in init?
+    let provider_addr = config.provider.port_id.split(".").last();
+
+    let provider_addr = match provider_addr {
+        Some(addr) => addr,
+        None => return Err(ContractError::ProviderAddrParsing {}),
+    };
+
+    let mut transfer_msgs = vec![];
+
+    info.funds.iter().all(|coin| {
+        if coin.amount.u128() > 0_u128 {
+            let msg = IbcMsg::Transfer {
+                channel_id: channel_id.clone(),
+                to_address: provider_addr.to_string(),
+                amount: coin.clone(),
+                timeout: timeout.clone(),
+            };
+            transfer_msgs.push(msg)
+        }
+        true
+    });
+
+    transfer_msgs.push(IbcMsg::SendPacket {
+        channel_id: channel_id.clone(),
+        data: to_binary(&ConsumerMsg::Rewards {})?,
+        timeout: timeout.clone(),
+    });
+
+    Ok(Response::default().add_messages(transfer_msgs))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
