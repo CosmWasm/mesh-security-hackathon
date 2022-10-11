@@ -6,7 +6,7 @@ use crate::state::ConsumerInfo;
 // mesh-consumer msg to receive rewards
 #[cw_serde]
 pub struct MeshConsumerRecieveRewardsMsg {
-    pub rewards_by_validator_vec: Vec<(String, Uint128)>,
+    pub rewards_by_validator: Vec<(String, Uint128)>,
 }
 
 #[cw_serde]

@@ -317,7 +317,7 @@ mod execute {
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: sender.to_string(),
             msg: to_binary(&MeshConsumerRecieveRewardsMsg {
-                rewards_by_validator_vec,
+                rewards_by_validator: rewards_by_validator_vec,
             })?,
             funds: vec![Coin {
                 denom,
