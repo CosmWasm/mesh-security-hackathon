@@ -208,7 +208,6 @@ mod execute {
             .querier
             .query_delegation(env.contract.address, validator.clone())?;
 
-        // We assume only 1 coin is being delegated
         let rewards_total_amount = &match delegation_query {
             Some(delegation) => delegation.accumulated_rewards,
             None => return Err(ContractError::NoDelegationsForValidator {}),
