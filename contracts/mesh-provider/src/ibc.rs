@@ -1,19 +1,24 @@
+use std::collections::HashMap;
+
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_slice, to_binary, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    from_slice, to_binary, Addr, Coin, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Order, StdError,
+    StdResult, Uint128,
 };
 
 use mesh_ibc::{
     check_order, check_version, ConsumerMsg, ListValidatorsResponse, ProviderMsg, StdAck,
-    UpdateValidatorsResponse,
+    UpdateValidatorsResponse, RewardsResponse,
 };
 
 use crate::error::ContractError;
-use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, VALIDATORS};
+use crate::state::{
+    Stake, ValStatus, Validator, CHANNEL, CONFIG, PORT, REWARDS, STAKED_BY_VALIDATOR, VALIDATORS,
+};
 
 // TODO: make configurable?
 /// packets live one hour
@@ -60,11 +65,18 @@ pub fn ibc_channel_connect(
 ) -> Result<IbcBasicResponse, ContractError> {
     let channel = msg.channel();
     let channel_id = &channel.endpoint.channel_id;
+    let port_id = &channel.endpoint.port_id;
 
     // save the channel id for future use
     match CHANNEL.may_load(deps.storage)? {
         Some(chan) => return Err(ContractError::ChannelExists(chan)),
         None => CHANNEL.save(deps.storage, channel_id)?,
+    };
+
+    // save the port id for future use
+    match PORT.may_load(deps.storage)? {
+        Some(port) => return Err(ContractError::PortExists(port)),
+        None => CHANNEL.save(deps.storage, port_id)?,
     };
 
     let packet = ProviderMsg::ListValidators {};
@@ -111,16 +123,74 @@ pub fn ibc_packet_receive(
 
     let msg: ConsumerMsg = from_slice(&msg.packet.data)?;
     match msg {
-        ConsumerMsg::Rewards {} => receive_rewards(deps),
+        ConsumerMsg::Rewards {
+            rewards_by_validator,
+            denom,
+        } => receive_rewards(deps, rewards_by_validator, denom),
         ConsumerMsg::UpdateValidators { added, removed } => {
             receive_update_validators(deps, added, removed)
         }
     }
 }
 
-pub fn receive_rewards(_deps: DepsMut) -> Result<IbcReceiveResponse, ContractError> {
-    // TODO
-    unimplemented!();
+pub fn receive_rewards(
+    deps: DepsMut,
+    rewards_by_validator: Vec<(String, Uint128)>,
+    denom: String,
+) -> Result<IbcReceiveResponse, ContractError> {
+    let port_id = PORT.load(deps.storage)?;
+    let channel_id = CHANNEL.load(deps.storage)?;
+    let ibc_denom = format!("{}/{}/{}", &port_id, &channel_id, &denom);
+
+    rewards_by_validator.iter().for_each(|res| {
+        let (val, total_rewards_amount) = res;
+
+        let total_shares_staked = VALIDATORS
+            .load(deps.storage, &val)
+            .unwrap_or_default()
+            .stake;
+        let staked_by_validator = STAKED_BY_VALIDATOR
+            .prefix(&val)
+            .range(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<(Addr, Stake)>>>()
+            .unwrap_or_default();
+
+        staked_by_validator.iter().for_each(|res| {
+            let (delegator, stake) = res;
+
+            let perc = (stake.shares / total_shares_staked).u128() * (100_u128);
+            let final_amount = (perc * total_rewards_amount.u128()) / (100_u128);
+
+            REWARDS
+                .update::<_, StdError>(deps.storage, &delegator, |coins| match coins {
+                    Some(mut coins) => {
+                        let mut empty_coin = Coin {
+                            denom: ibc_denom.to_string(),
+                            amount: Uint128::from(0_u128),
+                        };
+                        let exists = coins.get_mut(&ibc_denom).unwrap_or(&mut empty_coin);
+
+                        exists.amount += Uint128::from(final_amount);
+                        Ok(coins)
+                    }
+                    None => {
+                        let mut coins = HashMap::new();
+                        coins.insert(
+                            ibc_denom.to_string(),
+                            Coin {
+                                denom: ibc_denom.to_string(),
+                                amount: Uint128::from(final_amount),
+                            },
+                        );
+                        Ok(coins)
+                    }
+                })
+                .unwrap();
+        })
+    });
+
+    let ack = StdAck::success(&RewardsResponse {});
+    Ok(IbcReceiveResponse::new().set_ack(ack))
 }
 
 pub fn receive_update_validators(

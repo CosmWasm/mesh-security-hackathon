@@ -22,6 +22,9 @@ pub enum ContractError {
     #[error("Contract already has a bound channel: {0}")]
     ChannelExists(String),
 
+    #[error("Contract already has a bound port: {0}")]
+    PortExists(String),
+
     #[error("Unauthorized counterparty chain, awaiting connection '{0}'")]
     WrongConnection(String),
 

@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo, Order, Reply,
-    Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg, BankMsg,
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
@@ -16,7 +16,7 @@ use crate::msg::{
     AccountResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, ListValidatorsResponse, QueryMsg,
     StakeInfo, ValidatorResponse,
 };
-use crate::state::{Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, VALIDATORS};
+use crate::state::{Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, VALIDATORS, STAKED_BY_VALIDATOR};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
@@ -123,6 +123,7 @@ pub fn execute_receive_claim(
         .unwrap_or_default();
     stake.stake_validator(&mut val, amount);
     STAKED.save(deps.storage, (&owner, &validator), &stake)?;
+    STAKED_BY_VALIDATOR.save(deps.storage, (&validator, &owner), &stake)?;
     VALIDATORS.save(deps.storage, &validator, &val)?;
 
     // send out IBC packet for staking change
@@ -190,6 +191,7 @@ pub fn execute_unstake(
     // check if we need to slash
     let slash = stake.take_slash(&val);
     STAKED.save(deps.storage, (&info.sender, &validator), &stake)?;
+    STAKED_BY_VALIDATOR.save(deps.storage, (&validator, &info.sender), &stake)?;
     VALIDATORS.save(deps.storage, &validator, &val)?;
 
     // create a future claim on number of shares (so we can adjust for later slashing)
@@ -290,6 +292,7 @@ pub fn query_account(deps: Deps, address: String) -> StdResult<AccountResponse> 
             })
         })
         .collect::<StdResult<Vec<_>>>()?;
+
     Ok(AccountResponse { staked })
 }
 

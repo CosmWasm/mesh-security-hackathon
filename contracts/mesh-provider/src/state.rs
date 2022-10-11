@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Addr, Decimal, Fraction, Uint128};
+use cosmwasm_std::{Addr, Decimal, Fraction, Uint128, Coin};
 use cw_controllers::Claims;
 use cw_storage_plus::{Item, Map};
 
@@ -20,16 +22,21 @@ pub struct Config {
 
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const CHANNEL: Item<String> = Item::new("channel");
+pub const PORT: Item<String> = Item::new("port");
 
 // info on each validator, including voting and slashing
 pub const VALIDATORS: Map<&str, Validator> = Map::new("validators");
 
+// STAKED and STAKED_BY_VALIDATOR *MUST* be synced.
 // map from (delgator, validator) to current stake - stored as shares, previously multiplied
 pub const STAKED: Map<(&Addr, &str), Stake> = Map::new("staked");
+// map from (validator, delgator) to current stake - kept sync to STAKED
+pub const STAKED_BY_VALIDATOR: Map<(&str, &Addr), Stake> = Map::new("staked_by_validator");
 
 pub const CLAIMS: Claims = Claims::new("claims");
 
-// TODO: rewards
+// map from `delegator` to rewards (hashmap of coins by denom)
+pub const REWARDS: Map<&Addr, HashMap<String, Coin>> = Map::new("rewards");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct Stake {
@@ -38,7 +45,7 @@ pub struct Stake {
     /// total number of shares bonded
     /// Note: if current value of these shares is less than locked, we have been slashed
     /// and act accordingly
-    shares: Uint128,
+    pub shares: Uint128,
 }
 
 impl Stake {
