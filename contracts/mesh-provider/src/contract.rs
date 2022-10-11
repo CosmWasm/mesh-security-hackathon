@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo, Order, Reply,
-    Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg, Coin, BankMsg,
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
@@ -17,7 +17,7 @@ use crate::msg::{
     StakeInfo, ValidatorResponse,
 };
 use crate::state::{
-    Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, STAKED_BY_VALIDATOR, VALIDATORS,
+    Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, STAKED_BY_VALIDATOR, VALIDATORS, REWARDS,
 };
 
 // version info for migration info
@@ -98,6 +98,7 @@ pub fn execute(
             execute_unstake(deps, info, env, validator, amount)
         }
         ExecuteMsg::Unbond {} => execute_unbond(deps, info, env),
+        ExecuteMsg::ClaimRewards {} => execute_claim_rewards(deps, info),
     }
 }
 
@@ -257,6 +258,20 @@ pub fn execute_unbond(
     Ok(Response::new().add_message(msg))
 }
 
+pub fn execute_claim_rewards(
+    deps: DepsMut,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+    let sender  = deps.api.addr_validate(&info.sender.as_str())?;
+    let rewards = REWARDS.load(deps.storage, &sender)?;
+
+    let amount: Vec<Coin> = rewards.values().map(|x| x.clone()).collect();
+    let msg = BankMsg::Send { to_address: sender.to_string(), amount };
+
+    REWARDS.remove(deps.storage, &sender);
+
+    Ok(Response::new().add_message(msg))
+}
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
