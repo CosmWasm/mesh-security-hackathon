@@ -3,6 +3,12 @@ use cosmwasm_std::{AllValidatorsResponse, Coin, DelegationResponse, Uint128};
 
 use crate::state::ConsumerInfo;
 
+// mesh-consumer msg to receive rewards
+#[cw_serde]
+pub struct MeshConsumerRecieveRewardsMsg {
+    pub rewards_by_validator_vec: Vec<(String, Uint128)>,
+}
+
 #[cw_serde]
 pub struct InstantiateMsg {}
 
@@ -27,7 +33,7 @@ pub enum ExecuteMsg {
         validator: String,
     },
     WithdrawToCostumer {
-        consumer: String
+        consumer: String,
     },
     /// Use for now, only admin can call - later we can remove if x/gov calls SudoMsg directly
     Sudo(SudoMsg),

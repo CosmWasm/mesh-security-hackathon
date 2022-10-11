@@ -79,9 +79,9 @@ mod execute {
         Addr, Coin, CosmosMsg, DistributionMsg, Order, StakingMsg, StdError, Uint128, WasmMsg,
     };
 
-    use crate::state::{
+    use crate::{state::{
         CONSUMERS, CONSUMERS_BY_VALIDATOR, VALIDATORS_BY_CONSUMER, VALIDATORS_REWARDS,
-    };
+    }, msg::MeshConsumerRecieveRewardsMsg};
 
     use super::*;
 
@@ -196,12 +196,6 @@ mod execute {
         CONSUMERS_BY_VALIDATOR.update(deps.storage, (validator, &info.sender), action)?;
 
         Ok(deps)
-    }
-
-    // mesh-consumer msg to receive rewards
-    #[cw_serde]
-    struct MeshConsumerRecieveRewardsMsg {
-        rewards_by_validator_vec: Vec<(String, Uint128)>,
     }
 
     pub fn withdraw_delegator_reward(
