@@ -59,7 +59,9 @@ pub fn execute(
         ExecuteMsg::WithdrawDelegatorReward { validator } => {
             execute::withdraw_delegator_reward(deps, env, validator)
         }
-        ExecuteMsg::WithdrawToCostumer {} => execute::withdraw_to_customer(deps, env, info),
+        ExecuteMsg::WithdrawToCostumer { consumer } => {
+            execute::withdraw_to_customer(deps, consumer)
+        }
         ExecuteMsg::Sudo(sudo_msg) => {
             ensure_eq!(
                 CONFIG.load(deps.storage)?.admin,
@@ -74,10 +76,12 @@ pub fn execute(
 mod execute {
     use cosmwasm_schema::cw_serde;
     use cosmwasm_std::{
-        Addr, Coin, CosmosMsg, DistributionMsg, Order, StakingMsg, Uint128, WasmMsg,
+        Addr, Coin, CosmosMsg, DistributionMsg, Order, StakingMsg, StdError, Uint128, WasmMsg,
     };
 
-    use crate::state::{CONSUMERS, CONSUMERS_BY_VALIDATOR, VALIDATORS_BY_CONSUMER};
+    use crate::state::{
+        CONSUMERS, CONSUMERS_BY_VALIDATOR, VALIDATORS_BY_CONSUMER, VALIDATORS_REWARDS,
+    };
 
     use super::*;
 
@@ -196,7 +200,9 @@ mod execute {
 
     // mesh-consumer msg to receive rewards
     #[cw_serde]
-    struct MeshConsumerRecieveRewardsMsg {}
+    struct MeshConsumerRecieveRewardsMsg {
+        rewards_by_validator_vec: Vec<(String, Uint128)>,
+    }
 
     pub fn withdraw_delegator_reward(
         deps: DepsMut,
@@ -252,6 +258,18 @@ mod execute {
                     Ok(consumer)
                 })
                 .unwrap();
+
+            VALIDATORS_REWARDS
+                .update::<_, StdError>(deps.storage, (&addr, &validator), |amount| {
+                    let amount = match amount {
+                        Some(old_amount) => old_amount.u128() + final_amount,
+                        None => final_amount,
+                    };
+
+                    Ok(Uint128::from(amount))
+                })
+                .unwrap();
+
             true
         });
 
@@ -264,14 +282,15 @@ mod execute {
 
     pub fn withdraw_to_customer(
         deps: DepsMut,
-        _env: Env,
-        info: MessageInfo,
+        consumer: String,
     ) -> Result<Response, ContractError> {
-        if !CONSUMERS.has(deps.storage, &info.sender) {
+        let sender = deps.api.addr_validate(&consumer)?;
+
+        if !CONSUMERS.has(deps.storage, &sender) {
             return Err(ContractError::NoConsumer {});
         };
 
-        let mut consumer = CONSUMERS.load(deps.storage, &info.sender)?;
+        let mut consumer = CONSUMERS.load(deps.storage, &sender)?;
 
         if consumer.rewards.u128() == 0_u128 {
             return Err(ContractError::ZeroRewardsToSend {});
@@ -280,9 +299,32 @@ mod execute {
         // send funds to consumer contract msg
         let denom = deps.querier.query_bonded_denom()?;
 
+        // Get list of rewards by validator, so provider will be able to use it
+        let mut rewards_by_validator_vec = vec![];
+
+        VALIDATORS_REWARDS
+            .prefix(&sender)
+            .range(deps.storage, None, None, Order::Ascending)
+            .for_each(|res| {
+                let res = res.ok();
+
+                if let Some(result) = res {
+                    if result.1.u128() > 0_u128 {
+                        rewards_by_validator_vec.push(result.clone());
+                    }
+                }
+            });
+
+        rewards_by_validator_vec.iter().for_each(|res| {
+            let (validator, _) = res;
+            VALIDATORS_REWARDS.remove(deps.storage, (&sender, &validator));
+        });
+
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: info.sender.to_string(),
-            msg: to_binary(&MeshConsumerRecieveRewardsMsg {})?,
+            contract_addr: sender.to_string(),
+            msg: to_binary(&MeshConsumerRecieveRewardsMsg {
+                rewards_by_validator_vec,
+            })?,
             funds: vec![Coin {
                 denom,
                 amount: consumer.rewards,
@@ -291,7 +333,7 @@ mod execute {
 
         // Update consumer rewards to 0
         consumer.rewards = Uint128::from(0_u128);
-        CONSUMERS.save(deps.storage, &info.sender, &consumer)?;
+        CONSUMERS.save(deps.storage, &sender, &consumer)?;
 
         Ok(Response::default().add_message(msg))
     }
