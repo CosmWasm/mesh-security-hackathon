@@ -309,6 +309,7 @@ mod execute {
                 }
             });
 
+        // Remove rewards from list because we send them away.
         rewards_by_validator_vec.iter().for_each(|res| {
             let (validator, _) = res;
             VALIDATORS_REWARDS.remove(deps.storage, (&sender, &validator));
