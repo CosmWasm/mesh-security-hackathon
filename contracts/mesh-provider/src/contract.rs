@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo, Order, Reply,
-    Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg, Coin, BankMsg,
+    ensure_eq, to_binary, BankMsg, Binary, Coin, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo,
+    Order, Reply, Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
@@ -17,7 +17,8 @@ use crate::msg::{
     StakeInfo, ValidatorResponse,
 };
 use crate::state::{
-    Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, STAKED_BY_VALIDATOR, VALIDATORS, REWARDS,
+    Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, REWARDS, STAKED, STAKED_BY_VALIDATOR,
+    VALIDATORS,
 };
 
 // version info for migration info
@@ -258,15 +259,19 @@ pub fn execute_unbond(
     Ok(Response::new().add_message(msg))
 }
 
-pub fn execute_claim_rewards(
-    deps: DepsMut,
-    info: MessageInfo,
-) -> Result<Response, ContractError> {
-    let sender  = deps.api.addr_validate(&info.sender.as_str())?;
+pub fn execute_claim_rewards(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    let sender = deps.api.addr_validate(&info.sender.as_str())?;
     let rewards = REWARDS.load(deps.storage, &sender)?;
 
+    if rewards.is_empty() {
+        return Err(ContractError::NoRewardsToClaim {});
+    }
+
     let amount: Vec<Coin> = rewards.values().map(|x| x.clone()).collect();
-    let msg = BankMsg::Send { to_address: sender.to_string(), amount };
+    let msg = BankMsg::Send {
+        to_address: sender.to_string(),
+        amount,
+    };
 
     REWARDS.remove(deps.storage, &sender);
 

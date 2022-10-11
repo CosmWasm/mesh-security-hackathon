@@ -43,6 +43,9 @@ pub enum ContractError {
     #[error("No tokens are ready to be unbonded")]
     NothingToClaim,
 
+    #[error("No rewards to be claimed")]
+    NoRewardsToClaim,
+
     #[error("Validator was never registered: {0}")]
     UnknownValidator(String),
 
