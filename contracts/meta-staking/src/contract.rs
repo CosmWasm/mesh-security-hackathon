@@ -194,10 +194,9 @@ mod execute {
         Ok(deps)
     }
 
+    // mesh-consumer msg to receive rewards
     #[cw_serde]
-    struct MeshConsumerRecieveRewards {
-        amount: Uint128,
-    }
+    struct MeshConsumerRecieveRewardsMsg {}
 
     pub fn withdraw_delegator_reward(
         deps: DepsMut,
@@ -284,9 +283,7 @@ mod execute {
 
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: info.sender.to_string(),
-            msg: to_binary(&MeshConsumerRecieveRewards {
-                amount: consumer.rewards,
-            })?,
+            msg: to_binary(&MeshConsumerRecieveRewardsMsg {})?,
             funds: vec![Coin {
                 denom,
                 amount: consumer.rewards,
