@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Decimal;
+use cosmwasm_std::{Decimal, Uint128};
 
 use crate::state::Config;
 
@@ -18,7 +18,9 @@ pub struct ProviderInfo {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    MeshConsumerRecieveRewardsMsg {}
+    MeshConsumerRecieveRewardsMsg {
+        rewards_by_validator: Vec<(String, Uint128)>,
+    }
 }
 
 #[cw_serde]

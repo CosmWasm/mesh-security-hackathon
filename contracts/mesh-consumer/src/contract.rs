@@ -3,11 +3,12 @@ use core::time;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult,
+    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
 
 use mesh_ibc::ConsumerMsg;
+use meta_staking::msg::MeshConsumerRecieveRewardsMsg;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -46,15 +47,16 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::MeshConsumerRecieveRewardsMsg {} => receive_rewards(deps, env, info),
+        ExecuteMsg::MeshConsumerRecieveRewardsMsg { rewards_by_validator} => execute_receive_rewards(deps, env, info, rewards_by_validator),
     }
 }
 
 // We receive the rewards as funds from meta-stacking, and send it over IBC to mesh-provider
-pub fn receive_rewards(
+pub fn execute_receive_rewards(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
+    rewards_by_validator: Vec<(String, Uint128)>
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let channel_id = CHANNEL.load(deps.storage)?;
@@ -69,7 +71,7 @@ pub fn receive_rewards(
 
     let mut transfer_msgs = vec![];
 
-    info.funds.iter().all(|coin| {
+    info.funds.iter().for_each(|coin| {
         if coin.amount.u128() > 0_u128 {
             let msg = IbcMsg::Transfer {
                 channel_id: channel_id.clone(),
@@ -79,12 +81,11 @@ pub fn receive_rewards(
             };
             transfer_msgs.push(msg)
         }
-        true
     });
 
     transfer_msgs.push(IbcMsg::SendPacket {
         channel_id: channel_id.clone(),
-        data: to_binary(&ConsumerMsg::Rewards {})?,
+        data: to_binary(&ConsumerMsg::Rewards {rewards_by_validator})?,
         timeout: timeout.clone(),
     });
 
