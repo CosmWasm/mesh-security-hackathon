@@ -39,7 +39,8 @@ pub enum ConsumerMsg {
         removed: Vec<String>,
     },
     Rewards {
-        rewards_by_validator: Vec<(String, Uint128)>
+        rewards_by_validator: Vec<(String, Uint128)>,
+        denom: String,
     },
 }
 

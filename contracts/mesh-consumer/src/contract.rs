@@ -3,7 +3,8 @@ use core::time;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult, Uint128,
+    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult,
+    Uint128,
 };
 use cw2::set_contract_version;
 
@@ -47,7 +48,9 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::MeshConsumerRecieveRewardsMsg { rewards_by_validator} => execute_receive_rewards(deps, env, info, rewards_by_validator),
+        ExecuteMsg::MeshConsumerRecieveRewardsMsg {
+            rewards_by_validator,
+        } => execute_receive_rewards(deps, env, info, rewards_by_validator),
     }
 }
 
@@ -56,7 +59,7 @@ pub fn execute_receive_rewards(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    rewards_by_validator: Vec<(String, Uint128)>
+    rewards_by_validator: Vec<(String, Uint128)>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let channel_id = CHANNEL.load(deps.storage)?;
@@ -85,7 +88,10 @@ pub fn execute_receive_rewards(
 
     transfer_msgs.push(IbcMsg::SendPacket {
         channel_id: channel_id.clone(),
-        data: to_binary(&ConsumerMsg::Rewards {rewards_by_validator})?,
+        data: to_binary(&ConsumerMsg::Rewards {
+            rewards_by_validator,
+            denom: info.funds[0].denom,
+        })?,
         timeout: timeout.clone(),
     });
 
