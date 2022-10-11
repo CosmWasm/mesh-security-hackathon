@@ -90,7 +90,7 @@ pub fn execute_receive_rewards(
         channel_id: channel_id.clone(),
         data: to_binary(&ConsumerMsg::Rewards {
             rewards_by_validator,
-            denom: info.funds[0].denom,
+            denom: info.funds[0].clone().denom,
         })?,
         timeout: timeout.clone(),
     });
