@@ -187,7 +187,6 @@ pub fn ibc_packet_ack(
     match original_packet {
         ConsumerMsg::Rewards {
             rewards_by_validator: _,
-            denom: _,
         } => fail_rewards(deps),
         ConsumerMsg::UpdateValidators { added, removed } => {
             fail_update_validators(deps, added, removed)
@@ -207,7 +206,6 @@ pub fn ibc_packet_timeout(
     match original_packet {
         ConsumerMsg::Rewards {
             rewards_by_validator: _,
-            denom: _,
         } => fail_rewards(deps),
         ConsumerMsg::UpdateValidators { added, removed } => {
             fail_update_validators(deps, added, removed)

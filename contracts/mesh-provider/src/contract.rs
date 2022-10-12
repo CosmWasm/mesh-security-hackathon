@@ -260,14 +260,14 @@ pub fn execute_unbond(
 }
 
 pub fn execute_claim_rewards(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
-    let sender = deps.api.addr_validate(&info.sender.as_str())?;
+    let sender = deps.api.addr_validate(info.sender.as_str())?;
     let rewards = REWARDS.load(deps.storage, &sender)?;
 
     if rewards.is_empty() {
         return Err(ContractError::NoRewardsToClaim {});
     }
 
-    let amount: Vec<Coin> = rewards.values().map(|x| x.clone()).collect();
+    let amount: Vec<Coin> = rewards.values().cloned().collect();
     let msg = BankMsg::Send {
         to_address: sender.to_string(),
         amount,

@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult,
-    Uint128,
+    to_binary, Binary, Coin, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response,
+    StdResult,
 };
 use cw2::set_contract_version;
 
@@ -56,7 +58,7 @@ pub fn execute_receive_rewards(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    rewards_by_validator: Vec<(String, Uint128)>,
+    rewards_by_validator: HashMap<String, Coin>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let channel_id = CHANNEL.load(deps.storage)?;
@@ -87,7 +89,6 @@ pub fn execute_receive_rewards(
         channel_id,
         data: to_binary(&ConsumerMsg::Rewards {
             rewards_by_validator,
-            denom: info.funds[0].clone().denom,
         })?,
         timeout,
     });

@@ -54,10 +54,13 @@ pub enum ExecuteMsg {
         validator: String,
     },
     /// Triggers the unbonding period for your staked tokens
-    Unstake { amount: Uint128, validator: String },
+    Unstake {
+        amount: Uint128,
+        validator: String,
+    },
     /// Called after unbonding_period has passed from Unstake. Releases claim on lockup contract
     Unbond {/* ??? */},
-    ClaimRewards {}
+    ClaimRewards {},
 }
 
 #[cw_serde]

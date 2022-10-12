@@ -250,7 +250,10 @@ mod execute {
                 .iter()
                 .map(|coin| {
                     let amount = Uint128::from((perc * coin.amount.u128()) / (100_u128));
-                    Coin { denom: coin.denom.clone(), amount }
+                    Coin {
+                        denom: coin.denom.clone(),
+                        amount,
+                    }
                 })
                 .collect::<Vec<Coin>>();
 
@@ -263,9 +266,12 @@ mod execute {
 
                 match saved_coin {
                     Some(s_coin) => {
-                        let new_coin = Coin { denom: s_coin.denom.clone(), amount: s_coin.amount + coin.amount };
+                        let new_coin = Coin {
+                            denom: s_coin.denom.clone(),
+                            amount: s_coin.amount + coin.amount,
+                        };
                         consumer.rewards.insert(coin.denom.clone(), new_coin);
-                    },
+                    }
                     None => {
                         consumer.rewards.insert(coin.denom.clone(), coin.clone());
                     }
@@ -276,7 +282,7 @@ mod execute {
 
             VALIDATORS_REWARDS
                 .update::<_, StdError>(deps.storage, (addr, &validator), |_| {
-                    Ok(consumer.rewards.values().map(|x| x.clone()).collect::<Vec<Coin>>())
+                    Ok(consumer.rewards.values().cloned().collect::<Vec<Coin>>())
                 })
                 .unwrap();
 
@@ -325,12 +331,15 @@ mod execute {
                             let saved_coin = rewards_by_validator.get(&coin.denom);
                             match saved_coin {
                                 Some(s_coin) => {
-                                    let new_coin = Coin { denom: s_coin.denom.clone(), amount: s_coin.amount + coin.amount };
+                                    let new_coin = Coin {
+                                        denom: s_coin.denom.clone(),
+                                        amount: s_coin.amount + coin.amount,
+                                    };
                                     rewards_by_validator.insert(coin.denom.clone(), new_coin);
-                                },
+                                }
                                 None => {
                                     rewards_by_validator.insert(coin.denom.clone(), coin.clone());
-                                },
+                                }
                             }
                         })
                     }
@@ -347,7 +356,7 @@ mod execute {
             msg: to_binary(&MeshConsumerRecieveRewardsMsg {
                 rewards_by_validator,
             })?,
-            funds: consumer.rewards.values().map(|x| x.clone()).collect::<Vec<Coin>>(),
+            funds: consumer.rewards.values().cloned().collect::<Vec<Coin>>(),
         });
 
         // Update consumer rewards to 0

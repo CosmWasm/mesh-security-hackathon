@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Decimal, Uint128};
+use cosmwasm_std::{Coin, Decimal};
 
 use crate::state::Config;
 
@@ -19,7 +21,7 @@ pub struct ProviderInfo {
 #[cw_serde]
 pub enum ExecuteMsg {
     MeshConsumerRecieveRewardsMsg {
-        rewards_by_validator: Vec<(String, Uint128)>,
+        rewards_by_validator: HashMap<String, Coin>,
     },
 }
 

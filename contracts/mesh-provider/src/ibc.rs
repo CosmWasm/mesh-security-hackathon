@@ -125,8 +125,7 @@ pub fn ibc_packet_receive(
     match msg {
         ConsumerMsg::Rewards {
             rewards_by_validator,
-            denom,
-        } => receive_rewards(deps, rewards_by_validator, denom),
+        } => receive_rewards(deps, rewards_by_validator),
         ConsumerMsg::UpdateValidators { added, removed } => {
             receive_update_validators(deps, added, removed)
         }
@@ -135,15 +134,17 @@ pub fn ibc_packet_receive(
 
 pub fn receive_rewards(
     deps: DepsMut,
-    rewards_by_validator: Vec<(String, Uint128)>,
-    denom: String,
+    rewards_by_validator: HashMap<String, Coin>,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let port_id = PORT.load(deps.storage)?;
     let channel_id = CHANNEL.load(deps.storage)?;
-    let ibc_denom = format!("{}/{}/{}", &port_id, &channel_id, &denom);
 
     rewards_by_validator.iter().for_each(|res| {
         let (val, total_rewards_amount) = res;
+        let ibc_denom = format!(
+            "{}/{}/{}",
+            &port_id, &channel_id, &total_rewards_amount.denom
+        );
 
         let total_shares_staked = VALIDATORS.load(deps.storage, val).unwrap_or_default().stake;
         let staked_by_validator = STAKED_BY_VALIDATOR
@@ -156,7 +157,7 @@ pub fn receive_rewards(
             let (delegator, stake) = res;
 
             let perc = (stake.shares / total_shares_staked).u128() * (100_u128);
-            let final_amount = (perc * total_rewards_amount.u128()) / (100_u128);
+            let final_amount = (perc * total_rewards_amount.amount.u128()) / (100_u128);
 
             REWARDS
                 .update::<_, StdError>(deps.storage, delegator, |coins| match coins {
