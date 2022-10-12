@@ -211,7 +211,13 @@ mod execute {
         let rewards_total_amount = &match delegation_query {
             Some(delegation) => delegation.accumulated_rewards,
             None => return Err(ContractError::NoDelegationsForValidator {}),
-        }[0];
+        };
+
+        if rewards_total_amount.is_empty() {
+            return Err(ContractError::ZeroRewardsToSend {})
+        }
+
+        let rewards_total_amount = &rewards_total_amount[0];
 
         // Get all consumers by a single validator iter
         let total_consumers_iter = CONSUMERS_BY_VALIDATOR
@@ -271,7 +277,7 @@ mod execute {
         let withdraw_msg =
             CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward { validator });
 
-        Ok(Response::default().add_message(withdraw_msg))
+        Ok(Response::default().add_message(withdraw_msg).add_attribute("total_rewards", rewards_total_amount.to_string()))
     }
 
     pub fn withdraw_to_customer(
