@@ -1,6 +1,8 @@
+use std::{vec, collections::HashMap};
+
 use crate::ContractError;
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{ensure, Addr, Uint128};
+use cosmwasm_std::{ensure, Addr, Uint128, Coin};
 use cw_storage_plus::{Item, Map};
 
 #[cw_serde]
@@ -22,7 +24,7 @@ pub struct ConsumerInfo {
     // Total staked funds, cannot stake more than available funds
     pub total_staked: Uint128,
     // Sum of rewards that can be sent to consumer.
-    pub rewards: Uint128,
+    pub rewards: HashMap<String, Coin>,
 }
 
 impl ConsumerInfo {
@@ -30,7 +32,7 @@ impl ConsumerInfo {
         ConsumerInfo {
             available_funds: funds.into(),
             total_staked: Uint128::zero(),
-            rewards: Uint128::zero(),
+            rewards: HashMap::new(),
         }
     }
 
@@ -54,7 +56,7 @@ impl ConsumerInfo {
 }
 
 /// Map<(consumer address, validator address), rewards amount>
-pub const VALIDATORS_REWARDS: Map<(&Addr, &str), Uint128> = Map::new("validators_rewards");
+pub const VALIDATORS_REWARDS: Map<(&Addr, &str), Vec<Coin>> = Map::new("validators_rewards");
 
 /// Map<(consumer address, validator address), Amount>
 pub const VALIDATORS_BY_CONSUMER: Map<(&Addr, &str), Uint128> = Map::new("validators_by_consumer");
