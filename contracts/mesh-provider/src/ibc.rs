@@ -76,7 +76,7 @@ pub fn ibc_channel_connect(
     // save the port id for future use
     match PORT.may_load(deps.storage)? {
         Some(port) => return Err(ContractError::PortExists(port)),
-        None => CHANNEL.save(deps.storage, port_id)?,
+        None => PORT.save(deps.storage, port_id)?,
     };
 
     let packet = ProviderMsg::ListValidators {};
