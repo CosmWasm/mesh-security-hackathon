@@ -187,6 +187,7 @@ pub fn ibc_packet_ack(
     match original_packet {
         ConsumerMsg::Rewards {
             rewards_by_validator: _,
+            denom: _,
         } => fail_rewards(deps),
         ConsumerMsg::UpdateValidators { added, removed } => {
             fail_update_validators(deps, added, removed)
@@ -206,6 +207,7 @@ pub fn ibc_packet_timeout(
     match original_packet {
         ConsumerMsg::Rewards {
             rewards_by_validator: _,
+            denom: _,
         } => fail_rewards(deps),
         ConsumerMsg::UpdateValidators { added, removed } => {
             fail_update_validators(deps, added, removed)
@@ -215,7 +217,7 @@ pub fn ibc_packet_timeout(
 
 pub fn fail_rewards(_deps: DepsMut) -> Result<IbcBasicResponse, ContractError> {
     // TODO
-    unimplemented!();
+    Ok(IbcBasicResponse::new())
 }
 
 pub fn fail_update_validators(
@@ -224,5 +226,5 @@ pub fn fail_update_validators(
     _removed: Vec<String>,
 ) -> Result<IbcBasicResponse, ContractError> {
     // TODO
-    unimplemented!();
+    Ok(IbcBasicResponse::new())
 }

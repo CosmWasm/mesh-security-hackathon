@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{AllValidatorsResponse, Coin, DelegationResponse, Uint128};
 
@@ -8,7 +6,7 @@ use crate::state::ConsumerInfo;
 // mesh-consumer msg to receive rewards
 #[cw_serde]
 pub struct MeshConsumerRecieveRewardsMsg {
-    pub rewards_by_validator: HashMap<String, Coin>,
+    pub rewards_by_validator: Vec<(String, Vec<Coin>)>,
 }
 
 #[cw_serde]

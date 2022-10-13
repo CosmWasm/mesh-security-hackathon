@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    ensure_eq, to_binary, BankMsg, Binary, Coin, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo,
+    ensure_eq, to_binary, Binary, Coin, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo,
     Order, Reply, Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
@@ -99,7 +99,7 @@ pub fn execute(
             execute_unstake(deps, info, env, validator, amount)
         }
         ExecuteMsg::Unbond {} => execute_unbond(deps, info, env),
-        ExecuteMsg::ClaimRewards {} => execute_claim_rewards(deps, info),
+        ExecuteMsg::ClaimRewards {} => execute_claim_rewards(deps, env, info),
     }
 }
 
@@ -259,23 +259,34 @@ pub fn execute_unbond(
     Ok(Response::new().add_message(msg))
 }
 
-pub fn execute_claim_rewards(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+pub fn execute_claim_rewards(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
     let sender = deps.api.addr_validate(info.sender.as_str())?;
-    let rewards = REWARDS.load(deps.storage, &sender)?;
+    let amount = REWARDS
+        .prefix(&sender)
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|res| -> Result<Coin, ContractError> {
+            let (denom, amount) = res?;
 
-    if rewards.is_empty() {
+            Ok(Coin { denom, amount })
+        })
+        .collect::<Result<Vec<Coin>, ContractError>>()?;
+
+    if amount.is_empty() {
         return Err(ContractError::NoRewardsToClaim {});
     }
 
-    let amount: Vec<Coin> = rewards.values().cloned().collect();
-    let msg = BankMsg::Send {
-        to_address: sender.to_string(),
-        amount,
-    };
+    let balance = deps.querier.query_all_balances(env.contract.address)?;
 
-    REWARDS.remove(deps.storage, &sender);
+    // let msg = BankMsg::Send {
+    //     to_address: sender.to_string(),
+    //     amount: amount.clone(),
+    // };
 
-    Ok(Response::new().add_message(msg))
+    amount.iter().for_each(|coin| {
+        REWARDS.remove(deps.storage, (&sender, coin.denom.clone()));
+    });
+
+    Ok(Response::new().add_attribute("balances", balance.len().to_string()))
 }
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {

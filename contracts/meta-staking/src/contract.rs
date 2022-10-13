@@ -74,15 +74,16 @@ pub fn execute(
 }
 
 mod execute {
-    use std::{collections::HashMap, vec};
+    use std::{ops::Add, vec};
+
+    use mesh_apis::ConsumerExecuteMsg;
 
     use cosmwasm_std::{
-        Addr, Coin, CosmosMsg, DistributionMsg, Order, StakingMsg, StdError, Uint128, WasmMsg,
+        coin, Addr, Coin, CosmosMsg, DistributionMsg, Order, StakingMsg, StdError, Uint128, WasmMsg,
     };
 
-    use crate::{
-        msg::MeshConsumerRecieveRewardsMsg,
-        state::{CONSUMERS, CONSUMERS_BY_VALIDATOR, VALIDATORS_BY_CONSUMER, VALIDATORS_REWARDS},
+    use crate::state::{
+        CONSUMERS, CONSUMERS_BY_VALIDATOR, VALIDATORS_BY_CONSUMER, VALIDATORS_REWARDS,
     };
 
     use super::*;
@@ -213,12 +214,9 @@ mod execute {
         let total_accumulated_rewards = &match delegation_query {
             Some(delegation) => delegation.accumulated_rewards,
             None => return Err(ContractError::NoDelegationsForValidator {}),
-        };
+        }[0];
 
-        if total_accumulated_rewards.is_empty()
-            || (total_accumulated_rewards[0].amount.is_zero()
-                && total_accumulated_rewards[1].amount.is_zero())
-        {
+        if total_accumulated_rewards.amount.is_zero() {
             return Err(ContractError::ZeroRewardsToSend {});
         }
 
@@ -233,60 +231,29 @@ mod execute {
         let total_delegations = total_consumers_iter
             .iter()
             .map(|res| {
-                let (_, amount) = res;
-                Ok(amount)
+                Ok(res.1) // amount = Uint128
             })
             .sum::<StdResult<Uint128>>()?;
 
-        // VERY EXPENSIVE - in case of a lot of consumers, this will become very expensive to call.
-        // 100% should be refactored asap.
-        total_consumers_iter.iter().all(|res| {
+        // Might be expensive, need to moniter/test
+        total_consumers_iter.iter().for_each(|res| {
             let (addr, amount) = res;
 
             // Get the rewards amount of the consumer
             let perc = (*amount / total_delegations).u128() * (100_u128);
-
-            let total_rewards_to_add = total_accumulated_rewards
-                .iter()
-                .map(|coin| {
-                    let amount = Uint128::from((perc * coin.amount.u128()) / (100_u128));
-                    Coin {
-                        denom: coin.denom.clone(),
-                        amount,
-                    }
-                })
-                .collect::<Vec<Coin>>();
+            let rewards_to_add = (perc * total_accumulated_rewards.amount.u128()) / (100_u128);
 
             // Should be safe because we loop over consumers
             let mut consumer = CONSUMERS.load(deps.storage, addr).unwrap();
 
-            // Add new rewards to existing rewards if there is any
-            total_rewards_to_add.iter().for_each(|coin| {
-                let saved_coin = consumer.rewards.get(&coin.denom);
-
-                match saved_coin {
-                    Some(s_coin) => {
-                        let new_coin = Coin {
-                            denom: s_coin.denom.clone(),
-                            amount: s_coin.amount + coin.amount,
-                        };
-                        consumer.rewards.insert(coin.denom.clone(), new_coin);
-                    }
-                    None => {
-                        consumer.rewards.insert(coin.denom.clone(), coin.clone());
-                    }
-                }
-            });
+            consumer.rewards = consumer.rewards.add(Uint128::from(rewards_to_add));
+            consumer.rewards_denom = total_accumulated_rewards.denom.clone();
 
             CONSUMERS.save(deps.storage, addr, &consumer).unwrap();
 
             VALIDATORS_REWARDS
-                .update::<_, StdError>(deps.storage, (addr, &validator), |_| {
-                    Ok(consumer.rewards.values().cloned().collect::<Vec<Coin>>())
-                })
+                .update::<_, StdError>(deps.storage, (addr, &validator), |_| Ok(consumer.rewards))
                 .unwrap();
-
-            true
         });
 
         // Withdraw rewards from validator
@@ -308,59 +275,48 @@ mod execute {
 
         let mut consumer = CONSUMERS.load(deps.storage, &consumer_addr)?;
 
-        if consumer.rewards.is_empty() {
+        if consumer.rewards.is_zero() {
             return Err(ContractError::ZeroRewardsToSend {});
         }
 
         // Get list of rewards by validator, so provider will be able to use it
-        let mut rewards_by_validator: HashMap<String, Coin> = HashMap::new();
-        //Validators list to empty
-        let mut validators_empty = vec![];
+        let mut rewards_by_validator: Vec<(String, Uint128)> = vec![];
+        // Validators list to empty
+        let mut validators_to_empty = vec![];
 
         VALIDATORS_REWARDS
             .prefix(&consumer_addr)
             .range(deps.storage, None, None, Order::Ascending)
             .for_each(|res| {
-                let res = res.ok();
+                let res = res;
 
-                if let Some((val, coins)) = res {
-                    validators_empty.push(val);
+                if let Ok((val, amount)) = res {
+                    validators_to_empty.push(val.clone());
 
-                    if !coins.is_empty() {
-                        coins.iter().for_each(|coin| {
-                            let saved_coin = rewards_by_validator.get(&coin.denom);
-                            match saved_coin {
-                                Some(s_coin) => {
-                                    let new_coin = Coin {
-                                        denom: s_coin.denom.clone(),
-                                        amount: s_coin.amount + coin.amount,
-                                    };
-                                    rewards_by_validator.insert(coin.denom.clone(), new_coin);
-                                }
-                                None => {
-                                    rewards_by_validator.insert(coin.denom.clone(), coin.clone());
-                                }
-                            }
-                        })
+                    if !amount.is_zero() {
+                        rewards_by_validator.push((val, amount))
                     }
                 }
             });
 
+        let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: consumer_addr.to_string(),
+            msg: to_binary(&ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg {
+                rewards_by_validator,
+            })?,
+            funds: vec![coin(
+                consumer.rewards.u128(),
+                consumer.rewards_denom.clone(),
+            )],
+        });
+
         // Remove rewards from list because we send them away.
-        validators_empty.iter().for_each(|val| {
+        validators_to_empty.iter().for_each(|val| {
             VALIDATORS_REWARDS.remove(deps.storage, (&consumer_addr, val));
         });
 
-        let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: consumer_addr.to_string(),
-            msg: to_binary(&MeshConsumerRecieveRewardsMsg {
-                rewards_by_validator,
-            })?,
-            funds: consumer.rewards.values().cloned().collect::<Vec<Coin>>(),
-        });
-
         // Update consumer rewards to 0
-        consumer.rewards = HashMap::new();
+        consumer.rewards = Uint128::zero();
         CONSUMERS.save(deps.storage, &consumer_addr, &consumer)?;
 
         Ok(Response::default().add_message(msg))

@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use cosmwasm_schema::cw_serde;
 
-use cosmwasm_std::{Coin, Uint128};
+use cosmwasm_std::Uint128;
 
 /// These are messages sent from the provider to the consumer
 #[cw_serde]
@@ -41,7 +39,8 @@ pub enum ConsumerMsg {
         removed: Vec<String>,
     },
     Rewards {
-        rewards_by_validator: HashMap<String, Coin>,
+        rewards_by_validator: Vec<(String, Uint128)>,
+        denom: String,
     },
 }
 

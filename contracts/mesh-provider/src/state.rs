@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Addr, Coin, Decimal, Fraction, Uint128};
+use cosmwasm_std::{Addr, Decimal, Fraction, Uint128};
 use cw_controllers::Claims;
 use cw_storage_plus::{Item, Map};
 
@@ -35,8 +33,8 @@ pub const STAKED_BY_VALIDATOR: Map<(&str, &Addr), Stake> = Map::new("staked_by_v
 
 pub const CLAIMS: Claims = Claims::new("claims");
 
-// map from `delegator` to rewards (hashmap of coins by denom)
-pub const REWARDS: Map<&Addr, HashMap<String, Coin>> = Map::new("rewards");
+// map from (delegator, denom) to rewards amount
+pub const REWARDS: Map<(&Addr, String), Uint128> = Map::new("rewards");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct Stake {

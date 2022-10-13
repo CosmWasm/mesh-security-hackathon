@@ -25,22 +25,22 @@ library = []
 optimize = """docker run --rm -v "$(pwd)":/code \
   --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
   --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/rust-optimizer:0.12.6
+  cosmwasm/rust-optimizer:0.12.8
 """
 
 [dependencies]
 mesh-apis = { path = "../../packages/mesh-apis", version = "0.1.0" }
 mesh-ibc = { path = "../../packages/mesh-ibc", version = "0.1.0" }
-cosmwasm-schema = "1.1.2"
-cosmwasm-std = "1.1.2"
-cosmwasm-storage = "1.1.2"
+cosmwasm-schema = "1.1.4"
+cosmwasm-std = "1.1.4"
+cosmwasm-storage = "1.1.4"
 cw-controllers = "0.15.1"
 cw-utils = "0.15.1"
 cw-storage-plus = "0.15.1"
 cw2 = "0.15.1"
-schemars = "0.8.8"
-serde = { version = "1.0.137", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.31" }
+schemars = "0.8.11"
+serde = { version = "1.0.145", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.37" }
 
 [dev-dependencies]
 cw-multi-test = "0.15.1"

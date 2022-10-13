@@ -1,13 +1,11 @@
-use std::collections::HashMap;
-
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_slice, to_binary, Addr, Coin, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    from_slice, to_binary, Addr, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Order, StdError,
-    StdResult, Uint128,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Order, StdResult,
+    Uint128,
 };
 
 use mesh_ibc::{
@@ -125,7 +123,8 @@ pub fn ibc_packet_receive(
     match msg {
         ConsumerMsg::Rewards {
             rewards_by_validator,
-        } => receive_rewards(deps, rewards_by_validator),
+            denom,
+        } => receive_rewards(deps, rewards_by_validator, denom),
         ConsumerMsg::UpdateValidators { added, removed } => {
             receive_update_validators(deps, added, removed)
         }
@@ -134,17 +133,12 @@ pub fn ibc_packet_receive(
 
 pub fn receive_rewards(
     deps: DepsMut,
-    rewards_by_validator: HashMap<String, Coin>,
+    rewards_by_validator: Vec<(String, Uint128)>,
+    denom: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    let port_id = PORT.load(deps.storage)?;
-    let channel_id = CHANNEL.load(deps.storage)?;
-
+    // We loop each validator funds
     rewards_by_validator.iter().for_each(|res| {
         let (val, total_rewards_amount) = res;
-        let ibc_denom = format!(
-            "{}/{}/{}",
-            &port_id, &channel_id, &total_rewards_amount.denom
-        );
 
         let total_shares_staked = VALIDATORS.load(deps.storage, val).unwrap_or_default().stake;
         let staked_by_validator = STAKED_BY_VALIDATOR
@@ -153,36 +147,38 @@ pub fn receive_rewards(
             .collect::<StdResult<Vec<(Addr, Stake)>>>()
             .unwrap_or_default();
 
+        // We loop over all staked by validator to know how much we need to pay from this specific validator 
         staked_by_validator.iter().for_each(|res| {
             let (delegator, stake) = res;
-
             let perc = (stake.shares / total_shares_staked).u128() * (100_u128);
-            let final_amount = (perc * total_rewards_amount.amount.u128()) / (100_u128);
+            let amount_to_add =
+                Uint128::from((perc * total_rewards_amount.u128()) / (100_u128));
+                let denom = denom.clone();
+            // let ibc_denom = format!(
+            //     "transfer/{}/{}",
+            //     &channel_id,
+            //     denom.clone()
+            // );
+
+            let rewards = REWARDS
+                .prefix(delegator)
+                .range(deps.storage, None, None, Order::Ascending)
+                .map(|x| x.unwrap())
+                .find(|res| {
+                    let (s_denom, _) = res;
+                    denom == *s_denom
+                });
+
+            let rewards_amount = match rewards {
+                Some(saved_rewards) => {
+                    let (_, amount) = saved_rewards;
+                    amount_to_add.checked_add(amount).unwrap_or_default() // refactor to return err
+                }
+                None => amount_to_add,
+            };
 
             REWARDS
-                .update::<_, StdError>(deps.storage, delegator, |coins| match coins {
-                    Some(mut coins) => {
-                        let mut empty_coin = Coin {
-                            denom: ibc_denom.to_string(),
-                            amount: Uint128::from(0_u128),
-                        };
-                        let exists = coins.get_mut(&ibc_denom).unwrap_or(&mut empty_coin);
-
-                        exists.amount += Uint128::from(final_amount);
-                        Ok(coins)
-                    }
-                    None => {
-                        let mut coins = HashMap::new();
-                        coins.insert(
-                            ibc_denom.to_string(),
-                            Coin {
-                                denom: ibc_denom.to_string(),
-                                amount: Uint128::from(final_amount),
-                            },
-                        );
-                        Ok(coins)
-                    }
-                })
+                .save(deps.storage, (delegator, denom), &rewards_amount)
                 .unwrap();
         })
     });

@@ -1,17 +1,16 @@
-use std::collections::HashMap;
-
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Coin, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response,
-    StdResult,
+    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult,
+    Uint128,
 };
 use cw2::set_contract_version;
 
+use mesh_apis::ConsumerExecuteMsg;
 use mesh_ibc::ConsumerMsg;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{InstantiateMsg, QueryMsg};
 use crate::state::{Config, CHANNEL, CONFIG};
 
 // version info for migration info
@@ -32,6 +31,7 @@ pub fn instantiate(
         meta_staking_contract_address,
         provider: msg.provider,
         remote_to_local_exchange_rate: msg.remote_to_local_exchange_rate,
+        ics20_channel: msg.ics20_channel,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &config)?;
@@ -44,10 +44,10 @@ pub fn execute(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    msg: ExecuteMsg,
+    msg: ConsumerExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::MeshConsumerRecieveRewardsMsg {
+        ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg {
             rewards_by_validator,
         } => execute_receive_rewards(deps, env, info, rewards_by_validator),
     }
@@ -58,7 +58,7 @@ pub fn execute_receive_rewards(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    rewards_by_validator: HashMap<String, Coin>,
+    rewards_by_validator: Vec<(String, Uint128)>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let channel_id = CHANNEL.load(deps.storage)?;
@@ -72,23 +72,21 @@ pub fn execute_receive_rewards(
     };
 
     let mut transfer_msgs = vec![];
+    let coin = info.funds[0].clone();
 
-    info.funds.iter().for_each(|coin| {
-        if coin.amount.u128() > 0_u128 {
-            let msg = IbcMsg::Transfer {
-                channel_id: channel_id.clone(),
-                to_address: provider_addr.to_string(),
-                amount: coin.clone(),
-                timeout: timeout.clone(),
-            };
-            transfer_msgs.push(msg)
-        }
-    });
+    let msg = IbcMsg::Transfer {
+        channel_id: config.ics20_channel.clone(),
+        to_address: provider_addr.to_string(),
+        amount: coin.clone(),
+        timeout: timeout.clone(),
+    };
+    transfer_msgs.push(msg);
 
     transfer_msgs.push(IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&ConsumerMsg::Rewards {
             rewards_by_validator,
+            denom: coin.denom,
         })?,
         timeout,
     });
@@ -123,6 +121,7 @@ mod tests {
             meta_staking_contract_address: "meta_staking".to_string(),
             provider: provider_info(),
             remote_to_local_exchange_rate: Decimal::percent(10),
+            ics20_channel: "channel-10".to_string(),
         };
         let info = mock_info("creator", &coins(1000, "earth"));
 

@@ -30,6 +30,7 @@ optimize = """docker run --rm -v "$(pwd)":/code \
 
 [dependencies]
 mesh-ibc = { path = "../../packages/mesh-ibc", version = "0.1.0" }
+mesh-apis = { path = "../../packages/mesh-apis", version = "0.1.0" }
 meta-staking = { path = "../meta-staking", version = "0.1.0", features = ["library"] }
 cosmwasm-schema = "1.1.2"
 cosmwasm-std = "1.1.2"
