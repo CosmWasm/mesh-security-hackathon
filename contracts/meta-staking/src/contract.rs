@@ -59,9 +59,13 @@ pub fn execute(
         ExecuteMsg::WithdrawDelegatorReward { validator } => {
             execute::withdraw_delegator_reward(deps, env, validator)
         }
-        ExecuteMsg::WithdrawToCostumer { consumer } => {
-            execute::withdraw_to_customer(deps, consumer)
+        ExecuteMsg::WithdrawAllToCostumer { consumer } => {
+            execute::withdraw_all_to_customer(deps, consumer)
         }
+        ExecuteMsg::WithdrawToCostumer {
+            consumer,
+            validator,
+        } => execute::withdraw_to_customer(deps, consumer, validator),
         ExecuteMsg::Sudo(sudo_msg) => {
             ensure_eq!(
                 CONFIG.load(deps.storage)?.admin,
@@ -263,7 +267,7 @@ mod execute {
         Ok(Response::default().add_message(withdraw_msg))
     }
 
-    pub fn withdraw_to_customer(
+    pub fn withdraw_all_to_customer(
         deps: DepsMut,
         consumer: String,
     ) -> Result<Response, ContractError> {
@@ -317,6 +321,43 @@ mod execute {
 
         // Update consumer rewards to 0
         consumer.rewards = Uint128::zero();
+        CONSUMERS.save(deps.storage, &consumer_addr, &consumer)?;
+
+        Ok(Response::default().add_message(msg))
+    }
+
+    pub fn withdraw_to_customer(
+        deps: DepsMut,
+        consumer: String,
+        validator: String,
+    ) -> Result<Response, ContractError> {
+        let consumer_addr = deps.api.addr_validate(&consumer)?;
+
+        if !CONSUMERS.has(deps.storage, &consumer_addr) {
+            return Err(ContractError::NoConsumer {});
+        };
+
+        let mut consumer = CONSUMERS.load(deps.storage, &consumer_addr)?;
+        let rewards_to_send =
+            VALIDATORS_REWARDS.load(deps.storage, (&consumer_addr, &validator))?;
+
+        if consumer.rewards.is_zero() || rewards_to_send.is_zero() {
+            return Err(ContractError::ZeroRewardsToSend {});
+        }
+
+        let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: consumer_addr.to_string(),
+            msg: to_binary(&ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg {
+                rewards_by_validator: vec![(validator.clone(), rewards_to_send)],
+            })?,
+            funds: vec![coin(rewards_to_send.u128(), consumer.rewards_denom.clone())],
+        });
+
+        // Removed rewards from list by validator
+        VALIDATORS_REWARDS.remove(deps.storage, (&consumer_addr, &validator));
+
+        // Update consumer rewards minus sent rewards
+        consumer.rewards = consumer.rewards.checked_sub(rewards_to_send)?;
         CONSUMERS.save(deps.storage, &consumer_addr, &consumer)?;
 
         Ok(Response::default().add_message(msg))

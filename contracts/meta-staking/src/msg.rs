@@ -32,8 +32,12 @@ pub enum ExecuteMsg {
         /// The `validator_address`
         validator: String,
     },
+    WithdrawAllToCostumer {
+        consumer: String,
+    },
     WithdrawToCostumer {
         consumer: String,
+        validator: String,
     },
     /// Use for now, only admin can call - later we can remove if x/gov calls SudoMsg directly
     Sudo(SudoMsg),
