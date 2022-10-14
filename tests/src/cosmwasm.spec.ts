@@ -4,13 +4,23 @@ import { assert } from "@cosmjs/utils";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
+// eslint-disable-next-line import/order
+import { MeshProviderClient } from "./bindings/MeshProvider.client";
+
 const pprint = (x: unknown) => console.log(JSON.stringify(x, undefined, 2));
 
 const { osmosis: oldOsmo, setup, wasmd } = testutils;
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
 import { MetaStakingClient } from "./bindings/MetaStaking.client";
-import { assertPacketsFromB, IbcVersion, setupContracts, setupOsmosisClient, setupWasmClient } from "./utils";
+import {
+  assertPacketsFromA,
+  assertPacketsFromB,
+  IbcVersion,
+  setupContracts,
+  setupOsmosisClient,
+  setupWasmClient,
+} from "./utils";
 
 let wasmIds: Record<string, number> = {};
 let osmosisIds: Record<string, number> = {};
@@ -49,7 +59,9 @@ interface SetupInfo {
   link: Link;
   ics20: {
     wasm: string;
+    wasmPort: string;
     osmo: string;
+    osmoPort: string;
   };
 }
 
@@ -108,6 +120,16 @@ async function demoSetup(): Promise<SetupInfo> {
     "auto"
   );
 
+  // create a ics20 channel on this connection
+  // We need to pass it to mesh-consumer
+  const ics20Info = await link.createChannel("A", wasmd.ics20Port, osmosis.ics20Port, Order.ORDER_UNORDERED, "ics20-1");
+  const ics20 = {
+    wasm: ics20Info.src.channelId,
+    wasmPort: ics20Info.src.portId,
+    osmo: ics20Info.dest.channelId,
+    osmoPort: ics20Info.dest.portId,
+  };
+
   // instantiate mesh_consumer on wasmd
   const initMeshConsumer = {
     provider: {
@@ -116,6 +138,7 @@ async function demoSetup(): Promise<SetupInfo> {
     },
     remote_to_local_exchange_rate: "0.1",
     meta_staking_contract_address: wasmMetaStaking,
+    ics20_channel: ics20.wasm,
   };
   const { contractAddress: wasmMeshConsumer } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
@@ -129,13 +152,6 @@ async function demoSetup(): Promise<SetupInfo> {
 
   // Create connection between mesh_consumer and mesh_provider
   await link.createChannel("A", meshConsumerPort, meshProviderPort, Order.ORDER_UNORDERED, IbcVersion);
-
-  // also create a ics20 channel on this connection
-  const ics20Info = await link.createChannel("A", wasmd.ics20Port, osmosis.ics20Port, Order.ORDER_UNORDERED, "ics20-1");
-  const ics20 = {
-    wasm: ics20Info.src.channelId,
-    osmo: ics20Info.dest.channelId,
-  };
 
   return {
     wasmClient,
@@ -213,6 +229,7 @@ test.serial("fail if connect from different connect or port", async (t) => {
     },
     remote_to_local_exchange_rate: "0.1",
     meta_staking_contract_address: wasmMetaStaking,
+    ics20_channel: "channel-10",
   };
   const { contractAddress: wasmMeshConsumer } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
@@ -234,10 +251,10 @@ test.serial("fail if connect from different connect or port", async (t) => {
 });
 
 test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
-  const { wasmClient, osmoClient, wasmMeshConsumer, osmoMeshProvider, osmoMeshLockup, wasmMetaStaking, link } =
+  const { wasmClient, osmoClient, wasmMeshConsumer, osmoMeshProvider, osmoMeshLockup, wasmMetaStaking, link, ics20 } =
     await demoSetup();
 
-  const fundsAvailableForStaking = { amount: "100000", denom: "ustake" };
+  const fundsAvailableForStaking = { amount: "1000000", denom: "ustake" };
 
   // Fund meta staking module
   const funding_res = await wasmClient.sign.sendTokens(
@@ -265,7 +282,7 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   console.log("Add consumer to wasmd meta-staking contract: ", add_consumer_res);
 
   // Lockup 100 tokens on Osmosis
-  const lockedTokens = { amount: "100", denom: "uosmo" };
+  const lockedTokens = { amount: "500000", denom: "uosmo" };
   const lockupRes = await osmoClient.sign.execute(
     osmoClient.senderAddress,
     osmoMeshLockup,
@@ -274,7 +291,7 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
     "memo",
     [lockedTokens]
   );
-  console.log("Alice locks up 100uosmo: ", lockupRes);
+  console.log("Alice locks up 500000uosmo: ", lockupRes);
 
   // Relay packets to get list of validators from provider
   const relay_info_1 = await link.relayAll();
@@ -283,12 +300,15 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   // Get list of validators
   const osmoValidators = await osmoClient.sign.queryContractSmart(osmoMeshProvider, { list_validators: {} });
   console.log("List of validators: ", osmoValidators);
+  const validatorAddr = osmoValidators.validators[0].address;
 
   // Grant claim, cross stake 100 tokens to validator on wasmd
   const grantClaimRes = await osmoClient.sign.execute(
     osmoClient.senderAddress,
     osmoMeshLockup,
-    { grant_claim: { leinholder: osmoMeshProvider, amount: "100", validator: osmoValidators.validators[0].address } },
+    {
+      grant_claim: { leinholder: osmoMeshProvider, amount: "500000", validator: validatorAddr },
+    },
     "auto"
   );
   console.log("Grant a claim to provider contract (cross-stake): ", grantClaimRes);
@@ -313,7 +333,7 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   const unstakeRes = await osmoClient.sign.execute(
     osmoClient.senderAddress,
     osmoMeshProvider,
-    { unstake: { amount: "100", validator: osmoValidators.validators[0].address } },
+    { unstake: { amount: "100", validator: validatorAddr } },
     "auto"
   );
   console.log("Unstake remote tokens: ", unstakeRes);
@@ -326,6 +346,54 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
     account: { address: osmoClient.senderAddress },
   });
   console.log("List of staked tokens on consumer chain: ", emptyStakedTokenResponse);
+
+  /** Start withdraw rewards process */
+  const preConsumerbalance = await wasmClient.sign.getBalance(wasmMeshConsumer, "ucosm");
+  const preMetabalance = await wasmClient.sign.getBalance(wasmMetaStaking, "ucosm");
+  const preProviderbalance = await osmoClient.sign.getBalance(osmoMeshProvider, `ucosm`);
+
+  console.log("Meta:", preMetabalance, "Consumer:", preConsumerbalance, "Provider:", preProviderbalance);
+
+  // Pay some fees so we have some rewards
+  for (let i = 0; i < 5; i++) {
+    await wasmClient.sign.sendTokens(
+      wasmClient.senderAddress,
+      metaStakingClient.contractAddress,
+      [{ amount: "1", denom: "ustake" }],
+      "auto"
+    );
+  }
+
+  // Withdraw rewards from validator
+  const resWithdrawReward = await metaStakingClient.withdrawDelegatorReward({
+    validator: validatorAddr,
+  });
+  const preSendMetabalance = await wasmClient.sign.getBalance(wasmMetaStaking, "ucosm");
+
+  console.log("Withdraw amount:", resWithdrawReward.logs[0].events[5].attributes[0].value);
+  console.log("Pre-send meta balance:", preSendMetabalance);
+
+  // withdraw from meta-staking to consumer to provider
+  const resWithdrawToConsumer = await metaStakingClient.withdrawToCostumer({
+    consumer: wasmMeshConsumer,
+  });
+
+  // Relay our packets to provider
+  const relay_info_4 = await link.relayAll();
+  assertPacketsFromA(relay_info_4, 1, true);
+
+  const consumerbalance = await wasmClient.sign.getBalance(wasmMeshConsumer, "ucosm");
+  const metabalance = await wasmClient.sign.getBalance(wasmMetaStaking, "ucosm");
+  const providerbalance = await osmoClient.sign.getBalance(osmoMeshProvider, `${ics20.osmoPort}/${ics20.osmo}/ucosm`);
+
+  console.log("After withdraw: ", "Meta:", metabalance, "Consumer:", consumerbalance, "Provider:", providerbalance);
+
+  // Do rewards withdraw from provider to the sender
+  const meshProviderClient = new MeshProviderClient(osmoClient.sign, osmoClient.senderAddress, osmoMeshProvider);
+
+  const withdrawToUser = await meshProviderClient.claimRewards();
+
+  console.log("Withdraw to user:", withdrawToUser.logs[0].events[2].attributes);
 
   // Make another tx to advanace the block
   await osmoClient.sign.execute(osmoClient.senderAddress, osmoMeshLockup, { bond: {} }, "auto", "memo", [lockedTokens]);
