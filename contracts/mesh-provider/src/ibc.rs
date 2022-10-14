@@ -147,13 +147,12 @@ pub fn receive_rewards(
             .collect::<StdResult<Vec<(Addr, Stake)>>>()
             .unwrap_or_default();
 
-        // We loop over all staked by validator to know how much we need to pay from this specific validator 
+        // We loop over all staked by validator to know how much we need to pay from this specific validator
         staked_by_validator.iter().for_each(|res| {
             let (delegator, stake) = res;
             let perc = (stake.shares / total_shares_staked).u128() * (100_u128);
-            let amount_to_add =
-                Uint128::from((perc * total_rewards_amount.u128()) / (100_u128));
-                let denom = denom.clone();
+            let amount_to_add = Uint128::from((perc * total_rewards_amount.u128()) / (100_u128));
+            let denom = denom.clone();
             // let ibc_denom = format!(
             //     "transfer/{}/{}",
             //     &channel_id,

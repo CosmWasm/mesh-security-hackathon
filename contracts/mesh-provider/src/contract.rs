@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    ensure_eq, to_binary, Binary, Coin, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo,
-    Order, Reply, Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    ensure_eq, to_binary, Binary, Coin, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo, Order,
+    Reply, Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
@@ -259,7 +259,11 @@ pub fn execute_unbond(
     Ok(Response::new().add_message(msg))
 }
 
-pub fn execute_claim_rewards(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
+pub fn execute_claim_rewards(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
     let sender = deps.api.addr_validate(info.sender.as_str())?;
     let amount = REWARDS
         .prefix(&sender)
