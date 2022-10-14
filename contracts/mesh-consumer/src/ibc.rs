@@ -216,7 +216,7 @@ pub fn ibc_packet_timeout(
 }
 
 pub fn fail_rewards(_deps: DepsMut) -> Result<IbcBasicResponse, ContractError> {
-    // TODO
+    // TODO what should we do on failure to withdraw rewards?
     Ok(IbcBasicResponse::new())
 }
 

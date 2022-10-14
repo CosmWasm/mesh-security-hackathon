@@ -259,6 +259,8 @@ pub fn execute_unbond(
     Ok(Response::new().add_message(msg))
 }
 
+// HACK this implementation of claiming rewards is not performant or robust
+// It is intended for proof of concept only.
 pub fn execute_claim_rewards(
     deps: DepsMut,
     env: Env,
