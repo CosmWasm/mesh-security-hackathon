@@ -374,13 +374,24 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   console.log("Pre-send meta balance:", preSendMetabalance);
 
   // withdraw from meta-staking to consumer to provider
-  const resWithdrawToConsumer = await metaStakingClient.withdrawToCostumer({
+  const resWithdrawToConsumer = await metaStakingClient.withdrawAllToCostumer({
     consumer: wasmMeshConsumer,
   });
 
   // Relay our packets to provider
   const relay_info_4 = await link.relayAll();
   assertPacketsFromA(relay_info_4, 1, true);
+
+  await wasmClient.sign.sendTokens(
+    wasmClient.senderAddress,
+    metaStakingClient.contractAddress,
+    [{ amount: "1", denom: "ustake" }],
+    "auto"
+  );
+
+  // Try to relay again to see if something changed
+  const relay_info_5 = await link.relayAll();
+  assertPacketsFromB(relay_info_5, 0, true);
 
   const consumerbalance = await wasmClient.sign.getBalance(wasmMeshConsumer, "ucosm");
   const metabalance = await wasmClient.sign.getBalance(wasmMetaStaking, "ucosm");

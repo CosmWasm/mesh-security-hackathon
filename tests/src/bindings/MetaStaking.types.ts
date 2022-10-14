@@ -25,8 +25,14 @@ export type ExecuteMsg =
       };
     }
   | {
+      withdraw_all_to_costumer: {
+        consumer: string;
+      };
+    }
+  | {
       withdraw_to_costumer: {
         consumer: string;
+        validator: string;
       };
     }
   | {
@@ -101,7 +107,8 @@ export interface Validator {
 }
 export interface ConsumerInfo {
   available_funds: Uint128;
-  rewards: Coin[];
+  rewards: Uint128;
+  rewards_denom: string;
   total_staked: Uint128;
 }
 export interface ConsumersResponse {
