@@ -176,13 +176,12 @@ pub fn ibc_packet_ack(
     env: Env,
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // we only care if there was an error...
     let res: StdAck = from_slice(&msg.acknowledgement.data)?;
-    if res.is_ok() {
-        return Ok(IbcBasicResponse::new());
+    if res.is_err() {
+        return Err(ContractError::AckFailed {});
     }
 
-    // we need to parse the ack based on our request
+    // We need to parse the ack based on our request
     let original_packet: ConsumerMsg = from_slice(&msg.original_packet.data)?;
     match original_packet {
         ConsumerMsg::Rewards {
