@@ -243,7 +243,7 @@ pub fn ibc_packet_timeout(
 
 pub fn fail_rewards(_deps: DepsMut) -> Result<IbcBasicResponse, ContractError> {
     // TODO what should we do on failure to withdraw rewards?
-    Ok(IbcBasicResponse::new())
+    Err(ContractError::RewardsFailed {})
 }
 
 pub fn fail_update_validators(
@@ -251,6 +251,5 @@ pub fn fail_update_validators(
     _added: Vec<String>,
     _removed: Vec<String>,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // TODO
-    Ok(IbcBasicResponse::new())
+    Err(ContractError::UpdateValidatorsFailed {})
 }

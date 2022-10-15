@@ -31,4 +31,10 @@ pub enum ContractError {
 
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
+
+    #[error("Rewards acknowledgement failed")]
+    RewardsFailed {},
+
+    #[error("Update validators acknowledgement failed")]
+    UpdateValidatorsFailed {},
 }
