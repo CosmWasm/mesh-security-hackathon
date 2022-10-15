@@ -8,6 +8,7 @@ export type Binary = string;
 export interface InstantiateMsg {
   consumer: ConsumerInfo;
   lockup: string;
+  rewards_ibc_denom: string;
   slasher: SlasherInfo;
   unbonding_period: number;
 }
@@ -40,18 +41,15 @@ export type ExecuteMsg =
       };
     }
   | {
-      // eslint-disable-next-line @typescript-eslint/ban-types
       unbond: {};
     }
   | {
-      // eslint-disable-next-line @typescript-eslint/ban-types
       claim_rewards: {};
     };
 export type Decimal = string;
 export type Uint128 = string;
 export type QueryMsg =
   | {
-      // eslint-disable-next-line @typescript-eslint/ban-types
       config: {};
     }
   | {

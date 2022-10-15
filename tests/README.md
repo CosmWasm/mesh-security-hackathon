@@ -108,9 +108,9 @@ cosmwasm-ts-codegen generate \
 
 cosmwasm-ts-codegen generate \
  --plugin client \
- --schema ls ../contracts/meta-staking/schema \
+ --schema ls ../contracts/mesh-provider/schema \
  --out ./src/bindings \
- --name MetaStaking \
+ --name MeshProvider \
  --no-bundle
 
 (You can safely say "no" for "enable bundle")

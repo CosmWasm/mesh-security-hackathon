@@ -1,10 +1,12 @@
+import { createHash } from "crypto";
 import { readFileSync } from "fs";
 
 import { AckWithMetadata, CosmWasmSigner, RelayInfo, testutils } from "@confio/relayer";
+import { Coin } from "@cosmjs/amino";
 import { fromBase64, fromUtf8 } from "@cosmjs/encoding";
+import { Decimal } from "@cosmjs/math";
 import { GasPrice, StargateClient } from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
-
 const { fundAccount, generateMnemonic, osmosis: oldOsmo, signingClient, signingCosmWasmClient, wasmd } = testutils;
 
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
@@ -143,4 +145,19 @@ export function parseString(str: Uint8Array): any {
 
 export function parseBinary(bin: string): any {
   return JSON.parse(fromUtf8(fromBase64(bin)));
+}
+
+/**
+ * Function to substract coins with type Coin
+ */
+export function subCoins(lhs: Coin, rhs: Coin) {
+  if (lhs.denom !== rhs.denom) throw new Error("Trying to add two coins with different denoms");
+  return {
+    amount: Decimal.fromAtomics(lhs.amount, 0).minus(Decimal.fromAtomics(rhs.amount, 0)).atomics,
+    denom: lhs.denom,
+  };
+}
+
+export function hash(string: string) {
+  return createHash("sha256").update(string).digest("hex").toUpperCase();
 }

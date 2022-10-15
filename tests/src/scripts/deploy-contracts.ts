@@ -63,6 +63,7 @@ async function installProvider(
     lockup: meshLockupAddr,
     // TODO: get real number somehow... look at tendermint client queries or staking?
     unbonding_period: 86400 * 14,
+    rewards_ibc_denom: "d",
   };
   const { contractAddress: meshProviderAddr } = await client.instantiate(
     signer,
