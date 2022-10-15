@@ -138,8 +138,6 @@ async function demoSetup(): Promise<SetupInfo> {
     osmoPort: ics20Info.dest.portId,
   };
 
-  console.log(ics20Info, link);
-
   // instantiate mesh_consumer on wasmd
   const initMeshConsumer = {
     provider: {
