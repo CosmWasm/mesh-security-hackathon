@@ -392,7 +392,7 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
     consumer: wasmMeshConsumer,
   });
 
-  console.log(resWithdrawToConsumer);
+  console.log("Withdraw to consumer response: ", resWithdrawToConsumer);
 
   // Relay our packets to provider
   const relay_info_4 = await link.relayAll();
@@ -404,21 +404,21 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   assertPacketsFromB(relay_info_5, 0, true);
 
   // Log balances
+  const metaStakingBalances = await wasmStargateClient.getAllBalances(wasmMetaStaking);
   const meshConsumerBalances = await wasmStargateClient.getAllBalances(wasmMeshConsumer);
-  console.log("mesh-consumer balances: ", meshConsumerBalances);
-
   const meshProviderBalances = await osmoStargateClient.getAllBalances(osmoMeshProvider);
-  console.log("mesh-provider balances: ", meshProviderBalances);
-
-  const consumerbalance = await wasmClient.sign.getBalance(wasmMeshConsumer, "ucosm");
-  const metabalance = await wasmClient.sign.getBalance(wasmMetaStaking, "ucosm");
-  const providerbalance = await osmoClient.sign.getBalance(osmoMeshProvider, `${ics20.osmoPort}/${ics20.osmo}/ucosm`);
-
-  console.log("After withdraw: ", "Meta:", metabalance, "Consumer:", consumerbalance, "Provider:", providerbalance);
+  console.log(
+    "After withdraw balances: ",
+    "Meta:",
+    metaStakingBalances,
+    "Consumer:",
+    meshConsumerBalances,
+    "Provider:",
+    meshProviderBalances
+  );
 
   // Do rewards withdraw from provider to the sender
   const meshProviderClient = new MeshProviderClient(osmoClient.sign, osmoClient.senderAddress, osmoMeshProvider);
-
   const withdrawToUser = await meshProviderClient.claimRewards();
 
   console.log("Withdraw to user:", withdrawToUser);
@@ -436,8 +436,8 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   console.log("Unbond tokens response: ", unbondRes);
 
   // Check balance
-  const balance = await osmoClient.sign.getBalance(osmoClient.senderAddress, "uosmo");
-  console.log("Alice balance: ", balance);
+  const balances = await osmoStargateClient.getAllBalances(osmoClient.senderAddress);
+  console.log("Alice balances: ", balances);
 
   // If we made it through everything, we win
   t.assert(true);

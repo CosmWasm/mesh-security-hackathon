@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_slice, to_binary, Addr, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    from_slice, to_binary, Addr, Coin, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Order, StdResult,
     Uint128,
@@ -123,8 +123,8 @@ pub fn ibc_packet_receive(
     match msg {
         ConsumerMsg::Rewards {
             rewards_by_validator,
-            denom,
-        } => receive_rewards(deps, rewards_by_validator, denom),
+            total_funds,
+        } => receive_rewards(deps, rewards_by_validator, total_funds),
         ConsumerMsg::UpdateValidators { added, removed } => {
             receive_update_validators(deps, added, removed)
         }
@@ -134,7 +134,7 @@ pub fn ibc_packet_receive(
 pub fn receive_rewards(
     deps: DepsMut,
     rewards_by_validator: Vec<(String, Uint128)>,
-    denom: String,
+    total_funds: Coin,
 ) -> Result<IbcReceiveResponse, ContractError> {
     // We loop each validator funds
     rewards_by_validator.iter().for_each(|res| {
@@ -152,7 +152,7 @@ pub fn receive_rewards(
             let (delegator, stake) = res;
             let perc = (stake.shares / total_shares_staked).u128() * (100_u128);
             let amount_to_add = Uint128::from((perc * total_rewards_amount.u128()) / (100_u128));
-            let denom = denom.clone();
+            let denom = total_funds.denom.clone();
             // let ibc_denom = format!(
             //     "transfer/{}/{}",
             //     &channel_id,

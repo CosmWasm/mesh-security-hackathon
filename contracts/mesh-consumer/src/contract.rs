@@ -60,38 +60,21 @@ pub fn execute_receive_rewards(
     info: MessageInfo,
     rewards_by_validator: Vec<(String, Uint128)>,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
     let channel_id = CHANNEL.load(deps.storage)?;
     let timeout: IbcTimeout = env.block.time.plus_seconds(300).into();
-    // NOTE We try to split the addr from the port_id, maybe better to set the addr in init?
-    let provider_addr = config.provider.port_id.split('.').last();
 
-    let provider_addr = match provider_addr {
-        Some(addr) => addr,
-        None => return Err(ContractError::ProviderAddrParsing {}),
-    };
-
-    let mut transfer_msgs = vec![];
     let coin = info.funds[0].clone();
 
-    let msg = IbcMsg::Transfer {
-        channel_id: config.ics20_channel.clone(),
-        to_address: provider_addr.to_string(),
-        amount: coin.clone(),
-        timeout: timeout.clone(),
-    };
-    transfer_msgs.push(msg);
-
-    transfer_msgs.push(IbcMsg::SendPacket {
+    let msg = IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&ConsumerMsg::Rewards {
             rewards_by_validator,
-            denom: coin.denom,
+            total_funds: coin,
         })?,
         timeout,
-    });
+    };
 
-    Ok(Response::default().add_messages(transfer_msgs))
+    Ok(Response::default().add_message(msg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
