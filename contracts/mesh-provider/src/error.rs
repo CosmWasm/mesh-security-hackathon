@@ -47,10 +47,7 @@ pub enum ContractError {
     NoRewardsToClaim,
 
     #[error("Balance is too low: {rewards:?} > {balance:?}")]
-    WrongBalance {
-        balance: Uint128,
-        rewards: Uint128
-    },
+    WrongBalance { balance: Uint128, rewards: Uint128 },
 
     #[error("Validator was never registered: {0}")]
     UnknownValidator(String),

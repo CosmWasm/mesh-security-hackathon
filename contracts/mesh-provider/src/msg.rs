@@ -14,7 +14,7 @@ pub struct InstantiateMsg {
     /// Unbonding period of the remote chain in seconds
     pub unbonding_period: u64,
     /// IBC denom string - "port_id/channel_id/denom"
-    pub denom: String
+    pub denom: String,
 }
 
 #[cw_serde]

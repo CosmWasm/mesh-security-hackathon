@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    ensure_eq, to_binary, Binary, Coin, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo, Order,
-    Reply, Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg, BankMsg, coin,
+    coin, ensure_eq, to_binary, BankMsg, Binary, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo,
+    Order, Reply, Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
@@ -40,7 +40,7 @@ pub fn instantiate(
         slasher: None,
         lockup: deps.api.addr_validate(&msg.lockup)?,
         unbonding_period: msg.unbonding_period,
-        denom: msg.denom
+        denom: msg.denom,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &state)?;
@@ -269,18 +269,25 @@ pub fn execute_claim_rewards(
 ) -> Result<Response, ContractError> {
     let sender = deps.api.addr_validate(info.sender.as_str())?;
     let config = CONFIG.load(deps.storage)?;
-    let amount = REWARDS.load(deps.storage, &sender).unwrap_or(Uint128::zero());
+    let amount = REWARDS
+        .load(deps.storage, &sender)
+        .unwrap_or(Uint128::zero());
 
     // Make sure we need to send something
-    if amount.is_zero(){
+    if amount.is_zero() {
         return Err(ContractError::NoRewardsToClaim {});
     }
 
-    let balance = deps.querier.query_balance(env.contract.address, config.denom.clone())?;
+    let balance = deps
+        .querier
+        .query_balance(env.contract.address, config.denom.clone())?;
 
     // Make sure we have something to send, if its false, funds are stuck in consumer and needed admin.
     if amount > balance.amount {
-        return Err(ContractError::WrongBalance { balance: balance.amount, rewards: amount });
+        return Err(ContractError::WrongBalance {
+            balance: balance.amount,
+            rewards: amount,
+        });
     }
 
     let msg = BankMsg::Send {
@@ -390,7 +397,7 @@ mod tests {
             },
             lockup: "lockup_contract".to_string(),
             unbonding_period: 86400 * 14,
-            denom: "transfer/channel-0/ucosm".to_string()
+            denom: "transfer/channel-0/ucosm".to_string(),
         };
         let info = mock_info("creator", &coins(1000, "earth"));
 

@@ -63,7 +63,7 @@ mod tests {
             },
             lockup: "lockup_contract".to_string(),
             unbonding_period: 86400 * 14,
-            denom: "transfer/channel-0/ucosm".to_string()
+            denom: "transfer/channel-0/ucosm".to_string(),
         };
         let provider_addr = app
             .instantiate_contract(
