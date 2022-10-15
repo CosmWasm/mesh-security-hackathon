@@ -13,8 +13,6 @@ pub struct InstantiateMsg {
     pub lockup: String,
     /// Unbonding period of the remote chain in seconds
     pub unbonding_period: u64,
-    /// IBC denom string - "port_id/channel_id/denom"
-    pub denom: String,
 }
 
 #[cw_serde]
@@ -63,6 +61,10 @@ pub enum ExecuteMsg {
     /// Called after unbonding_period has passed from Unstake. Releases claim on lockup contract
     Unbond {/* ??? */},
     ClaimRewards {},
+    SetRewardsDenom {
+        /// IBC denom string - "port_id/channel_id/denom"
+        denom: String
+    },
 }
 
 #[cw_serde]

@@ -40,7 +40,7 @@ pub fn instantiate(
         slasher: None,
         lockup: deps.api.addr_validate(&msg.lockup)?,
         unbonding_period: msg.unbonding_period,
-        denom: msg.denom,
+        denom: "".to_string(),
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &state)?;
@@ -101,6 +101,7 @@ pub fn execute(
         }
         ExecuteMsg::Unbond {} => execute_unbond(deps, info, env),
         ExecuteMsg::ClaimRewards {} => execute_claim_rewards(deps, env, info),
+        ExecuteMsg::SetRewardsDenom { denom } => execute_set_rewards_denom(deps, denom),
     }
 }
 
@@ -299,6 +300,17 @@ pub fn execute_claim_rewards(
 
     Ok(Response::new().add_message(msg))
 }
+
+// HACK TODO: Make sure only admins can call this
+pub fn execute_set_rewards_denom(deps: DepsMut, denom: String) -> Result<Response, ContractError> {
+    CONFIG.update::<_, ContractError>(deps.storage, |mut config| {
+        config.denom = denom;
+        Ok(config)
+    })?;
+
+    Ok(Response::new())
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -397,7 +409,6 @@ mod tests {
             },
             lockup: "lockup_contract".to_string(),
             unbonding_period: 86400 * 14,
-            denom: "transfer/channel-0/ucosm".to_string(),
         };
         let info = mock_info("creator", &coins(1000, "earth"));
 
