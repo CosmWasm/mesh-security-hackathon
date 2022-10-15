@@ -16,6 +16,8 @@ pub struct Config {
     pub lockup: Addr,
     /// Unbonding period of the remote chain in seconds
     pub unbonding_period: u64,
+    /// IBC denom string - "port_id/channel_id/denom"
+    pub denom: String
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
@@ -33,8 +35,8 @@ pub const STAKED_BY_VALIDATOR: Map<(&str, &Addr), Stake> = Map::new("staked_by_v
 
 pub const CLAIMS: Claims = Claims::new("claims");
 
-// map from (delegator, denom) to rewards amount
-pub const REWARDS: Map<(&Addr, String), Uint128> = Map::new("rewards");
+// map from delegator to rewards amount
+pub const REWARDS: Map<&Addr, Uint128> = Map::new("rewards");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct Stake {

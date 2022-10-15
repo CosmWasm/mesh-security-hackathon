@@ -123,8 +123,8 @@ pub fn ibc_packet_receive(
     match msg {
         ConsumerMsg::Rewards {
             rewards_by_validator,
-            total_funds,
-        } => receive_rewards(deps, rewards_by_validator, total_funds),
+            total_funds: _,
+        } => receive_rewards(deps, rewards_by_validator),
         ConsumerMsg::UpdateValidators { added, removed } => {
             receive_update_validators(deps, added, removed)
         }
@@ -134,7 +134,6 @@ pub fn ibc_packet_receive(
 pub fn receive_rewards(
     deps: DepsMut,
     rewards_by_validator: Vec<(String, Uint128)>,
-    total_funds: Coin,
 ) -> Result<IbcReceiveResponse, ContractError> {
     // We loop each validator funds
     rewards_by_validator.iter().for_each(|res| {
@@ -152,33 +151,12 @@ pub fn receive_rewards(
             let (delegator, stake) = res;
             let perc = (stake.shares / total_shares_staked).u128() * (100_u128);
             let amount_to_add = Uint128::from((perc * total_rewards_amount.u128()) / (100_u128));
-            let denom = total_funds.denom.clone();
-            // let ibc_denom = format!(
-            //     "transfer/{}/{}",
-            //     &channel_id,
-            //     denom.clone()
-            // );
 
-            let rewards = REWARDS
-                .prefix(delegator)
-                .range(deps.storage, None, None, Order::Ascending)
-                .map(|x| x.unwrap())
-                .find(|res| {
-                    let (s_denom, _) = res;
-                    denom == *s_denom
-                });
+            let mut rewards = REWARDS.load(deps.storage, delegator).unwrap_or_default();
 
-            let rewards_amount = match rewards {
-                Some(saved_rewards) => {
-                    let (_, amount) = saved_rewards;
-                    amount_to_add.checked_add(amount).unwrap_or_default() // refactor to return err
-                }
-                None => amount_to_add,
-            };
+            rewards = rewards.checked_add(amount_to_add).unwrap_or_default();
 
-            REWARDS
-                .save(deps.storage, (delegator, denom), &rewards_amount)
-                .unwrap();
+            REWARDS.save(deps.storage, delegator, &rewards).unwrap();
         })
     });
 

@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use cosmwasm_std::StdError;
+use cosmwasm_std::{StdError, Uint128};
 use cw_utils::ParseReplyError;
 
 use mesh_ibc::MeshSecurityError;
@@ -45,6 +45,12 @@ pub enum ContractError {
 
     #[error("No rewards to be claimed")]
     NoRewardsToClaim,
+
+    #[error("Balance is too low: {rewards:?} > {balance:?}")]
+    WrongBalance {
+        balance: Uint128,
+        rewards: Uint128
+    },
 
     #[error("Validator was never registered: {0}")]
     UnknownValidator(String),
