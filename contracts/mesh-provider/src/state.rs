@@ -8,6 +8,8 @@ use cw_storage_plus::{Item, Map};
 use crate::msg::ConsumerInfo;
 use crate::ContractError;
 
+const UINT_100: Uint128 = Uint128::new(100_u128);
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub consumer: ConsumerInfo,
@@ -35,8 +37,8 @@ pub const STAKED_BY_VALIDATOR: Map<(&str, &Addr), Stake> = Map::new("staked_by_v
 
 pub const CLAIMS: Claims = Claims::new("claims");
 
-// map from delegator to rewards amount
-pub const REWARDS: Map<&Addr, Uint128> = Map::new("rewards");
+// map from validator to rewards amount
+pub const VALIDATOR_REWARDS: Map<&str, Uint128> = Map::new("validator_rewards");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct Stake {
@@ -56,6 +58,19 @@ impl Stake {
     /// How many tokens this is worth at current validator price
     pub fn current_value(&self, val: &Validator) -> Uint128 {
         val.shares_to_tokens(self.shares)
+    }
+
+    /// Calculate rewards
+    pub fn calc_rewards(
+        &self,
+        staked: Uint128,
+        total_rewards: Uint128,
+    ) -> Result<Uint128, ContractError> {
+        let perc = self.shares.checked_div(staked)?.checked_mul(UINT_100)?;
+
+        let rewards_to_send = perc.checked_mul(total_rewards)?.checked_div(UINT_100)?;
+
+        Ok(rewards_to_send)
     }
 
     /// Check if a slash has occurred. If so, reduced my locked balance and

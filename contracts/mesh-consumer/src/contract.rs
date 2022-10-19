@@ -2,7 +2,6 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult,
-    Uint128,
 };
 use cw2::set_contract_version;
 
@@ -48,8 +47,8 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg {
-            rewards_by_validator,
-        } => execute_receive_rewards(deps, env, info, rewards_by_validator),
+            validator
+        } => execute_receive_rewards(deps, env, info, validator),
     }
 }
 
@@ -58,7 +57,7 @@ pub fn execute_receive_rewards(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    rewards_by_validator: Vec<(String, Uint128)>,
+    validator: String,
 ) -> Result<Response, ContractError> {
     let channel_id = CHANNEL.load(deps.storage)?;
     let timeout: IbcTimeout = env.block.time.plus_seconds(300).into();
@@ -68,7 +67,7 @@ pub fn execute_receive_rewards(
     let msg = IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&ConsumerMsg::Rewards {
-            rewards_by_validator,
+            validator,
             total_funds: coin,
         })?,
         timeout,

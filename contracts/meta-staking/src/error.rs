@@ -1,4 +1,4 @@
-use cosmwasm_std::{OverflowError, StdError};
+use cosmwasm_std::{OverflowError, StdError, DivideByZeroError};
 use cw_utils::ParseReplyError;
 use thiserror::Error;
 
@@ -12,6 +12,9 @@ pub enum ContractError {
 
     #[error(transparent)]
     ParseReplyError(#[from] ParseReplyError),
+
+    #[error(transparent)]
+    DivideByZeroError(#[from] DivideByZeroError),
 
     #[error("Unauthorized")]
     Unauthorized {},

@@ -61,9 +61,6 @@ pub fn execute(
         ExecuteMsg::WithdrawDelegatorReward { validator } => {
             execute::withdraw_delegator_reward(deps, env, validator)
         }
-        ExecuteMsg::WithdrawAllToCostumer { consumer } => {
-            execute::withdraw_all_to_customer(deps, consumer)
-        }
         ExecuteMsg::WithdrawToCostumer {
             consumer,
             validator,
@@ -85,11 +82,12 @@ mod execute {
     use mesh_apis::ConsumerExecuteMsg;
 
     use cosmwasm_std::{
-        coin, Addr, Coin, CosmosMsg, DistributionMsg, Order, StakingMsg, StdError, Uint128, WasmMsg,
+        coin, Coin, CosmosMsg, DistributionMsg, Order, StakingMsg, StdError, Uint128, WasmMsg,
     };
 
     use crate::state::{
-        CONSUMERS, CONSUMERS_BY_VALIDATOR, VALIDATORS_BY_CONSUMER, VALIDATORS_REWARDS,
+        CONSUMERS, CONSUMERS_BY_VALIDATOR, REWARDS_DENOM, VALIDATORS_BY_CONSUMER,
+        VALIDATORS_REWARDS,
     };
 
     use super::*;
@@ -217,130 +215,30 @@ mod execute {
             .querier
             .query_delegation(env.contract.address, validator.clone())?;
 
+        // Total rewards we have from this validator
         let total_accumulated_rewards = &match delegation_query {
             Some(delegation) => delegation.accumulated_rewards,
             None => return Err(ContractError::NoDelegationsForValidator {}),
         }[0];
 
-        // Get all consumers by a single validator iter
-        let total_consumers_iter = CONSUMERS_BY_VALIDATOR
-            .prefix(&validator)
-            .range(deps.storage, None, None, Order::Ascending)
-            .collect::<StdResult<Vec<(Addr, Uint128)>>>()?;
-
-        // Sum of all delegations so we can count the perc of rewards
-        let total_delegations = total_consumers_iter
-            .iter()
-            .map(|res| {
-                Ok(res.1) // amount = Uint128
-            })
-            .sum::<StdResult<Uint128>>()?;
-
-        if total_accumulated_rewards.amount.is_zero() || total_delegations.is_zero() {
+        if total_accumulated_rewards.amount.is_zero() {
             return Err(ContractError::ZeroRewardsToSend {});
         }
 
-        // Might be expensive, need to moniter/test
-        total_consumers_iter
-            .iter()
-            .for_each(|res: &(Addr, Uint128)| {
-                let (addr, amount) = res;
-                if amount.is_zero() {
-                    return;
-                }
+        // HACK - better way of saving the denom of rewards?
+        REWARDS_DENOM.save(deps.storage, &total_accumulated_rewards.denom)?;
 
-                // Get the rewards amount of the consumer
-                let perc = amount
-                    .checked_div(total_delegations)
-                    .unwrap()
-                    .checked_mul(UINT_100)
-                    .unwrap();
+        VALIDATORS_REWARDS.update::<_, StdError>(deps.storage, &validator, |rewards| {
+            let rewards = rewards.unwrap_or_default();
 
-                let rewards_to_add = perc
-                    .checked_mul(total_accumulated_rewards.amount)
-                    .unwrap()
-                    .checked_div(UINT_100)
-                    .unwrap();
-
-                // Should be safe because we loop over consumers
-                let mut consumer = CONSUMERS.load(deps.storage, addr).unwrap();
-
-                consumer.rewards = consumer.rewards.checked_add(rewards_to_add).unwrap();
-                consumer.rewards_denom = total_accumulated_rewards.denom.clone();
-
-                CONSUMERS.save(deps.storage, addr, &consumer).unwrap();
-
-                VALIDATORS_REWARDS
-                    .update::<_, StdError>(deps.storage, (addr, &validator), |_| {
-                        Ok(consumer.rewards)
-                    })
-                    .unwrap();
-            });
+            Ok(rewards.checked_add(total_accumulated_rewards.amount)?)
+        })?;
 
         // Withdraw rewards from validator
         let withdraw_msg =
             CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward { validator });
 
         Ok(Response::default().add_message(withdraw_msg))
-    }
-
-    pub fn withdraw_all_to_customer(
-        deps: DepsMut,
-        consumer: String,
-    ) -> Result<Response, ContractError> {
-        let consumer_addr = deps.api.addr_validate(&consumer)?;
-
-        if !CONSUMERS.has(deps.storage, &consumer_addr) {
-            return Err(ContractError::NoConsumer {});
-        };
-
-        let mut consumer = CONSUMERS.load(deps.storage, &consumer_addr)?;
-
-        if consumer.rewards.is_zero() {
-            return Err(ContractError::ZeroRewardsToSend {});
-        }
-
-        // Get list of rewards by validator, so provider will be able to use it
-        let mut rewards_by_validator: Vec<(String, Uint128)> = vec![];
-        // Validators list to empty
-        let mut validators_to_empty = vec![];
-
-        VALIDATORS_REWARDS
-            .prefix(&consumer_addr)
-            .range(deps.storage, None, None, Order::Ascending)
-            .for_each(|res| {
-                let res = res;
-
-                if let Ok((val, amount)) = res {
-                    validators_to_empty.push(val.clone());
-
-                    if !amount.is_zero() {
-                        rewards_by_validator.push((val, amount))
-                    }
-                }
-            });
-
-        let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: consumer_addr.to_string(),
-            msg: to_binary(&ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg {
-                rewards_by_validator,
-            })?,
-            funds: vec![coin(
-                consumer.rewards.u128(),
-                consumer.rewards_denom.clone(),
-            )],
-        });
-
-        // Remove rewards from list because we send them away.
-        validators_to_empty.iter().for_each(|val| {
-            VALIDATORS_REWARDS.remove(deps.storage, (&consumer_addr, val));
-        });
-
-        // Update consumer rewards to 0
-        consumer.rewards = Uint128::zero();
-        CONSUMERS.save(deps.storage, &consumer_addr, &consumer)?;
-
-        Ok(Response::default().add_message(msg))
     }
 
     pub fn withdraw_to_customer(
@@ -354,28 +252,45 @@ mod execute {
             return Err(ContractError::NoConsumer {});
         };
 
-        let mut consumer = CONSUMERS.load(deps.storage, &consumer_addr)?;
-        let rewards_to_send =
-            VALIDATORS_REWARDS.load(deps.storage, (&consumer_addr, &validator))?;
+        let consumer = CONSUMERS.load(deps.storage, &consumer_addr)?;
+        let total_validators_rewards = VALIDATORS_REWARDS.load(deps.storage, &validator)?;
 
-        if consumer.rewards.is_zero() || rewards_to_send.is_zero() {
+        // Sum of all delegations
+        let total_delegations = CONSUMERS_BY_VALIDATOR
+            .prefix(&validator)
+            .range(deps.storage, None, None, Order::Ascending)
+            .map(|res| -> StdResult<Uint128> { Ok(res?.1) })
+            .sum::<StdResult<Uint128>>()?;
+
+        if consumer.total_staked.is_zero()
+            || total_validators_rewards.is_zero()
+            || total_delegations.is_zero()
+        {
             return Err(ContractError::ZeroRewardsToSend {});
         }
+
+        // Get the rewards amount of the consumer
+        let perc = consumer
+            .total_staked
+            .checked_div(total_delegations)?
+            .checked_mul(UINT_100)?;
+
+        let rewards_to_send = perc
+            .checked_mul(total_validators_rewards)?
+            .checked_div(UINT_100)?;
+
+        // substract rewards sent from validator
+        VALIDATORS_REWARDS.save(deps.storage, &validator, &total_validators_rewards.checked_sub(rewards_to_send)?)?;
+
+        let rewards_denom = REWARDS_DENOM.load(deps.storage)?;
 
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: consumer_addr.to_string(),
             msg: to_binary(&ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg {
-                rewards_by_validator: vec![(validator.clone(), rewards_to_send)],
+                validator
             })?,
-            funds: vec![coin(rewards_to_send.u128(), consumer.rewards_denom.clone())],
+            funds: vec![coin(rewards_to_send.u128(), rewards_denom)],
         });
-
-        // Removed rewards from list by validator
-        VALIDATORS_REWARDS.remove(deps.storage, (&consumer_addr, &validator));
-
-        // Update consumer rewards minus sent rewards
-        consumer.rewards = consumer.rewards.checked_sub(rewards_to_send)?;
-        CONSUMERS.save(deps.storage, &consumer_addr, &consumer)?;
 
         Ok(Response::default().add_message(msg))
     }

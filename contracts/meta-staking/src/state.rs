@@ -21,10 +21,6 @@ pub struct ConsumerInfo {
     pub available_funds: Uint128,
     // Total staked funds, cannot stake more than available funds
     pub total_staked: Uint128,
-    // Sum of rewards that can be sent to consumer.
-    pub rewards: Uint128,
-    // The denom we use
-    pub rewards_denom: String,
 }
 
 impl ConsumerInfo {
@@ -32,8 +28,6 @@ impl ConsumerInfo {
         ConsumerInfo {
             available_funds: funds.into(),
             total_staked: Uint128::zero(),
-            rewards: Uint128::zero(),
-            rewards_denom: String::new(),
         }
     }
 
@@ -57,7 +51,8 @@ impl ConsumerInfo {
 }
 
 /// Map<(consumer address, validator address), rewards amount>
-pub const VALIDATORS_REWARDS: Map<(&Addr, &str), Uint128> = Map::new("validators_rewards");
+pub const VALIDATORS_REWARDS: Map<&str, Uint128> = Map::new("validators_rewards");
+pub const REWARDS_DENOM: Item<String> = Item::new("rewards_denom");
 
 /// Map<(consumer address, validator address), Amount>
 pub const VALIDATORS_BY_CONSUMER: Map<(&Addr, &str), Uint128> = Map::new("validators_by_consumer");

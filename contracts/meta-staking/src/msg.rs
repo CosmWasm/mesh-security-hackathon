@@ -32,9 +32,6 @@ pub enum ExecuteMsg {
         /// The `validator_address`
         validator: String,
     },
-    WithdrawAllToCostumer {
-        consumer: String,
-    },
     WithdrawToCostumer {
         consumer: String,
         validator: String,

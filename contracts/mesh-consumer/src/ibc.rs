@@ -185,7 +185,7 @@ pub fn ibc_packet_ack(
     let original_packet: ConsumerMsg = from_slice(&msg.original_packet.data)?;
     match original_packet {
         ConsumerMsg::Rewards {
-            rewards_by_validator: _,
+            validator: _,
             total_funds,
         } => acknowledge_rewards(deps, env, total_funds),
         ConsumerMsg::UpdateValidators {
@@ -231,7 +231,7 @@ pub fn ibc_packet_timeout(
     let original_packet: ConsumerMsg = from_slice(&msg.packet.data)?;
     match original_packet {
         ConsumerMsg::Rewards {
-            rewards_by_validator: _,
+            validator: _,
             total_funds: _,
         } => fail_rewards(deps),
         ConsumerMsg::UpdateValidators { added, removed } => {

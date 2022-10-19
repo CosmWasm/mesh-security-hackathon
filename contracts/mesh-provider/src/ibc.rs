@@ -2,10 +2,9 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_slice, to_binary, Addr, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    from_slice, to_binary, Coin, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Order, StdResult,
-    Uint128,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128,
 };
 
 use mesh_ibc::{
@@ -14,9 +13,7 @@ use mesh_ibc::{
 };
 
 use crate::error::ContractError;
-use crate::state::{
-    Stake, ValStatus, Validator, CHANNEL, CONFIG, PORT, REWARDS, STAKED_BY_VALIDATOR, VALIDATORS,
-};
+use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PORT, VALIDATORS, VALIDATOR_REWARDS};
 
 // TODO: make configurable?
 /// packets live one hour
@@ -122,9 +119,9 @@ pub fn ibc_packet_receive(
     let msg: ConsumerMsg = from_slice(&msg.packet.data)?;
     match msg {
         ConsumerMsg::Rewards {
-            rewards_by_validator,
-            total_funds: _,
-        } => receive_rewards(deps, rewards_by_validator),
+            validator,
+            total_funds,
+        } => receive_rewards(deps, validator, total_funds),
         ConsumerMsg::UpdateValidators { added, removed } => {
             receive_update_validators(deps, added, removed)
         }
@@ -133,32 +130,15 @@ pub fn ibc_packet_receive(
 
 pub fn receive_rewards(
     deps: DepsMut,
-    rewards_by_validator: Vec<(String, Uint128)>,
+    validator: String,
+    total_funds: Coin,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    // We loop each validator funds
-    rewards_by_validator.iter().for_each(|res| {
-        let (val, total_rewards_amount) = res;
+    // Update the rewards of this validator
+    VALIDATOR_REWARDS.update::<_, ContractError>(deps.storage, &validator, |rewards| {
+        let rewards = rewards.unwrap_or_default();
 
-        let total_shares_staked = VALIDATORS.load(deps.storage, val).unwrap_or_default().stake;
-        let staked_by_validator = STAKED_BY_VALIDATOR
-            .prefix(val)
-            .range(deps.storage, None, None, Order::Ascending)
-            .collect::<StdResult<Vec<(Addr, Stake)>>>()
-            .unwrap_or_default();
-
-        // We loop over all staked by validator to know how much we need to pay from this specific validator
-        staked_by_validator.iter().for_each(|res| {
-            let (delegator, stake) = res;
-            let perc = (stake.shares / total_shares_staked).u128() * (100_u128);
-            let amount_to_add = Uint128::from((perc * total_rewards_amount.u128()) / (100_u128));
-
-            let mut rewards = REWARDS.load(deps.storage, delegator).unwrap_or_default();
-
-            rewards = rewards.checked_add(amount_to_add).unwrap_or_default();
-
-            REWARDS.save(deps.storage, delegator, &rewards).unwrap();
-        })
-    });
+        Ok(rewards.checked_add(total_funds.amount)?)
+    })?;
 
     let ack = StdAck::success(&RewardsResponse {});
     Ok(IbcReceiveResponse::new().set_ack(ack))

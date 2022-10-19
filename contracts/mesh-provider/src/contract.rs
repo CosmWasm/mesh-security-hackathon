@@ -17,8 +17,8 @@ use crate::msg::{
     StakeInfo, ValidatorResponse,
 };
 use crate::state::{
-    Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, REWARDS, STAKED, STAKED_BY_VALIDATOR,
-    VALIDATORS,
+    Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, STAKED_BY_VALIDATOR,
+    VALIDATORS, VALIDATOR_REWARDS,
 };
 
 // version info for migration info
@@ -100,7 +100,7 @@ pub fn execute(
             execute_unstake(deps, info, env, validator, amount)
         }
         ExecuteMsg::Unbond {} => execute_unbond(deps, info, env),
-        ExecuteMsg::ClaimRewards {} => execute_claim_rewards(deps, env, info),
+        ExecuteMsg::ClaimRewards {validator} => execute_claim_rewards(deps, env, info, validator),
     }
 }
 
@@ -266,36 +266,51 @@ pub fn execute_claim_rewards(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
+    validator: String
 ) -> Result<Response, ContractError> {
-    let sender = deps.api.addr_validate(info.sender.as_str())?;
+    let delegator = deps.api.addr_validate(info.sender.as_str())?;
     let config = CONFIG.load(deps.storage)?;
-    let amount = REWARDS
-        .load(deps.storage, &sender)
-        .unwrap_or(Uint128::zero());
 
-    // Make sure we need to send something
-    if amount.is_zero() {
+    // calculate rewards
+    let validator_stake = VALIDATORS.load(deps.storage, &validator)?.stake;
+    let delegator_stake = STAKED.load(deps.storage, (&delegator, &validator))?;
+    let total_rewards = VALIDATOR_REWARDS.load(deps.storage, &validator)?;
+
+    // Make sure we have something to send
+    if total_rewards.is_zero() {
         return Err(ContractError::NoRewardsToClaim {});
     }
+
+    // We calculate the rewards
+    let rewards_to_send = delegator_stake.calc_rewards(validator_stake, total_rewards)?;
+
+    if rewards_to_send.is_zero() {
+        return Err(ContractError::NoRewardsToClaim {});
+    }
+
+    VALIDATOR_REWARDS.update::<_, ContractError>(deps.storage, &validator, |val| -> Result<Uint128, ContractError> {
+        match val {
+            Some(val) => Ok(val.checked_sub(rewards_to_send)?),
+            None => Err(ContractError::NoRewardsToClaim),
+        }
+    })?;
 
     let balance = deps
         .querier
         .query_balance(env.contract.address, config.denom.clone())?;
 
     // Make sure we have something to send, if its false, funds are stuck in consumer and needed admin.
-    if amount > balance.amount {
+    if rewards_to_send > balance.amount {
         return Err(ContractError::WrongBalance {
             balance: balance.amount,
-            rewards: amount,
+            rewards: rewards_to_send,
         });
     }
 
     let msg = BankMsg::Send {
-        to_address: sender.to_string(),
-        amount: vec![coin(amount.u128(), config.denom)],
+        to_address: delegator.to_string(),
+        amount: vec![coin(rewards_to_send.u128(), config.denom)],
     };
-
-    REWARDS.remove(deps.storage, &sender);
 
     Ok(Response::new().add_message(msg))
 }

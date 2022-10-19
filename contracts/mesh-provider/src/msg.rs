@@ -62,7 +62,9 @@ pub enum ExecuteMsg {
     },
     /// Called after unbonding_period has passed from Unstake. Releases claim on lockup contract
     Unbond {/* ??? */},
-    ClaimRewards {},
+    ClaimRewards {
+        validator: String
+    },
 }
 
 #[cw_serde]

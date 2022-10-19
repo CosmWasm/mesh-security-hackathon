@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use cosmwasm_std::{StdError, Uint128};
+use cosmwasm_std::{StdError, Uint128, OverflowError, DivideByZeroError};
 use cw_utils::ParseReplyError;
 
 use mesh_ibc::MeshSecurityError;
@@ -9,6 +9,12 @@ use mesh_ibc::MeshSecurityError;
 pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
+
+    #[error("{0}")]
+    OverflowError(#[from] OverflowError),
+
+    #[error("{0}")]
+    DivideByZeroError(#[from] DivideByZeroError),
 
     #[error("{0}")]
     Parse(#[from] ParseReplyError),
