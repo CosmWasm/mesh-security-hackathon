@@ -2,6 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     ensure_eq, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+    Uint128,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
@@ -15,6 +16,7 @@ const CONTRACT_NAME: &str = "crates.io:meta-staking";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const WITHDRAW_REWARDS_REPLY_ID: u64 = 0;
+const UINT_100: Uint128 = Uint128::new(100_u128);
 
 const DEFAULT_LIMIT: u32 = 100;
 
@@ -78,7 +80,7 @@ pub fn execute(
 }
 
 mod execute {
-    use std::{ops::Add, vec};
+    use std::vec;
 
     use mesh_apis::ConsumerExecuteMsg;
 
@@ -220,16 +222,11 @@ mod execute {
             None => return Err(ContractError::NoDelegationsForValidator {}),
         }[0];
 
-        if total_accumulated_rewards.amount.is_zero() {
-            return Err(ContractError::ZeroRewardsToSend {});
-        }
-
         // Get all consumers by a single validator iter
         let total_consumers_iter = CONSUMERS_BY_VALIDATOR
             .prefix(&validator)
             .range(deps.storage, None, None, Order::Ascending)
-            .filter_map(|res| res.ok())
-            .collect::<Vec<(Addr, Uint128)>>();
+            .collect::<StdResult<Vec<(Addr, Uint128)>>>()?;
 
         // Sum of all delegations so we can count the perc of rewards
         let total_delegations = total_consumers_iter
@@ -239,26 +236,46 @@ mod execute {
             })
             .sum::<StdResult<Uint128>>()?;
 
+        if total_accumulated_rewards.amount.is_zero() || total_delegations.is_zero() {
+            return Err(ContractError::ZeroRewardsToSend {});
+        }
+
         // Might be expensive, need to moniter/test
-        total_consumers_iter.iter().for_each(|res| {
-            let (addr, amount) = res;
+        total_consumers_iter
+            .iter()
+            .for_each(|res: &(Addr, Uint128)| {
+                let (addr, amount) = res;
+                if amount.is_zero() {
+                    return;
+                }
 
-            // Get the rewards amount of the consumer
-            let perc = (*amount / total_delegations).u128() * (100_u128);
-            let rewards_to_add = (perc * total_accumulated_rewards.amount.u128()) / (100_u128);
+                // Get the rewards amount of the consumer
+                let perc = amount
+                    .checked_div(total_delegations)
+                    .unwrap()
+                    .checked_mul(UINT_100)
+                    .unwrap();
 
-            // Should be safe because we loop over consumers
-            let mut consumer = CONSUMERS.load(deps.storage, addr).unwrap();
+                let rewards_to_add = perc
+                    .checked_mul(total_accumulated_rewards.amount)
+                    .unwrap()
+                    .checked_div(UINT_100)
+                    .unwrap();
 
-            consumer.rewards = consumer.rewards.add(Uint128::from(rewards_to_add));
-            consumer.rewards_denom = total_accumulated_rewards.denom.clone();
+                // Should be safe because we loop over consumers
+                let mut consumer = CONSUMERS.load(deps.storage, addr).unwrap();
 
-            CONSUMERS.save(deps.storage, addr, &consumer).unwrap();
+                consumer.rewards = consumer.rewards.checked_add(rewards_to_add).unwrap();
+                consumer.rewards_denom = total_accumulated_rewards.denom.clone();
 
-            VALIDATORS_REWARDS
-                .update::<_, StdError>(deps.storage, (addr, &validator), |_| Ok(consumer.rewards))
-                .unwrap();
-        });
+                CONSUMERS.save(deps.storage, addr, &consumer).unwrap();
+
+                VALIDATORS_REWARDS
+                    .update::<_, StdError>(deps.storage, (addr, &validator), |_| {
+                        Ok(consumer.rewards)
+                    })
+                    .unwrap();
+            });
 
         // Withdraw rewards from validator
         let withdraw_msg =
