@@ -2,28 +2,27 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     coin, ensure_eq, to_binary, BankMsg, Binary, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo,
-    Order, Reply, Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    Order, Reply, Response, StdResult, SubMsgResponse, Uint128, WasmMsg, SubMsg,
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
-use cw_utils::{parse_instantiate_response_data};
+use cw_utils::{parse_instantiate_response_data, Expiration};
 use mesh_apis::ClaimProviderMsg;
 use mesh_ibc::ProviderMsg;
 
 use crate::error::ContractError;
 use crate::ibc::build_timeout;
 use crate::msg::{
-    AccountResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, ListValidatorsResponse, QueryMsg,
-    StakeInfo, ValidatorResponse,
+    AccountResponse, ConfigResponse, ExecuteMsg, ListValidatorsResponse, QueryMsg,
+    StakeInfo, ValidatorResponse, InstantiateMsg,
 };
 use crate::state::{
-    Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, PACKET_LIFETIME, STAKED, VALIDATORS,
+    ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, VALIDATORS, RETRIES, LIST_VALIDATORS_MAX_RETRIES, STAKE_MAX_RETRIES, UNSTAKE_MAX_RETRIES, RetryState, Config, PACKET_LIFETIME,
 };
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const LIST_VALIDATORS_RETRIES: u32 = 5;
 
 // for reply callbacks
 const INIT_CALLBACK_ID: u64 = 1;
@@ -38,16 +37,19 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let state = Config {
         consumer: msg.consumer,
         slasher: None,
         lockup: deps.api.addr_validate(&msg.lockup)?,
         unbonding_period: msg.unbonding_period,
-        rewards_ibc_denom: msg.rewards_ibc_denom,
-        list_validators_retries_remaining: LIST_VALIDATORS_RETRIES,
     };
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &state)?;
+    RETRIES.save(deps.storage, &RetryState {
+        list_validators_retries_remaining: LIST_VALIDATORS_MAX_RETRIES,
+        stake_retries_remaining: STAKE_MAX_RETRIES,
+        unstake_retries_remaining: UNSTAKE_MAX_RETRIES,
+    })?;
 
     // Set packet time from msg or set default
     PACKET_LIFETIME.save(
@@ -130,24 +132,7 @@ pub fn execute_receive_claim(
         return Err(ContractError::ZeroAmount);
     }
 
-    let mut val = VALIDATORS
-        .may_load(deps.storage, &validator)?
-        .ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
-    let mut stake = STAKED
-        .may_load(deps.storage, (&owner, &validator))?
-        .unwrap_or_default();
-
-    // First calculate rewards with old stake (or set default if first delegation)
-    stake.calc_pending_rewards(
-        val.rewards.rewards_per_token,
-        val.shares_to_tokens(stake.shares),
-    )?;
-
-    stake.stake_validator(&mut val, amount);
-    STAKED.save(deps.storage, (&owner, &validator), &stake)?;
-    VALIDATORS.save(deps.storage, &validator, &val)?;
-
-    // send out IBC packet for staking change
+    // send out IBC packet for staking change, update contract state on ack
     let packet = ProviderMsg::Stake {
         validator,
         amount,
@@ -221,6 +206,16 @@ pub fn execute_unstake(
     STAKED.save(deps.storage, (&info.sender, &validator), &stake)?;
     VALIDATORS.save(deps.storage, &validator, &val)?;
 
+    // create a future claim on number of shares (so we can adjust for later slashing)
+    let cfg = CONFIG.load(deps.storage)?;
+    let ready = env.block.time.plus_seconds(cfg.unbonding_period);
+    CLAIMS.create_claim(
+        deps.storage,
+        &info.sender,
+        amount,
+        Expiration::AtTime(ready),
+    )?;
+
     // send out IBC packet for staking change
     let packet = ProviderMsg::Unstake {
         validator,
@@ -234,7 +229,6 @@ pub fn execute_unstake(
     };
     let mut res = Response::new().add_message(msg);
 
-    let cfg = CONFIG.load(deps.storage)?;
     if let Some(slash) = slash {
         let msg = WasmMsg::Execute {
             contract_addr: cfg.lockup.into_string(),
@@ -401,7 +395,7 @@ fn build_response((address, val): (String, Validator)) -> ValidatorResponse {
 
 #[cfg(test)]
 mod tests {
-    use crate::msg::{ConsumerInfo, SlasherInfo};
+    use crate::msg::{ConsumerInfo, SlasherInfo, InstantiateMsg};
 
     use super::*;
     use cosmwasm_std::coins;
