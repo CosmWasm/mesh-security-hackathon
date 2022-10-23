@@ -43,6 +43,12 @@ pub enum ContractError {
     #[error("Rewards amount is 0")]
     ZeroRewardsToSend {},
 
+    #[error("Something went wrong in the rewards calculation of the validator")]
+    ValidatorRewardsCalculationWrong {},
+
+    #[error("We are missing the validator rewards info")]
+    ValidatorRewardsIsMissing {},
+
     #[error("An unknown reply ID was received.")]
     UnknownReplyID {},
 }

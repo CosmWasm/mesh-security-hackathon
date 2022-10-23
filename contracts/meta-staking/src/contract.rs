@@ -2,7 +2,6 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     ensure_eq, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
-    Uint128,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
@@ -16,7 +15,6 @@ const CONTRACT_NAME: &str = "crates.io:meta-staking";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const WITHDRAW_REWARDS_REPLY_ID: u64 = 0;
-const UINT_100: Uint128 = Uint128::new(100_u128);
 
 const DEFAULT_LIMIT: u32 = 100;
 
@@ -64,7 +62,7 @@ pub fn execute(
         ExecuteMsg::WithdrawToCostumer {
             consumer,
             validator,
-        } => execute::withdraw_to_customer(deps, consumer, validator),
+        } => execute::withdraw_to_customer(deps, env, consumer, validator),
         ExecuteMsg::Sudo(sudo_msg) => {
             ensure_eq!(
                 CONFIG.load(deps.storage)?.admin,
@@ -82,11 +80,11 @@ mod execute {
     use mesh_apis::ConsumerExecuteMsg;
 
     use cosmwasm_std::{
-        coin, Coin, CosmosMsg, DistributionMsg, Order, StakingMsg, StdError, Uint128, WasmMsg,
+        coin, Coin, CosmosMsg, DistributionMsg, Order, StakingMsg, Uint128, WasmMsg,
     };
 
     use crate::state::{
-        CONSUMERS, CONSUMERS_BY_VALIDATOR, REWARDS_DENOM, VALIDATORS_BY_CONSUMER,
+        ValidatorRewards, CONSUMERS, CONSUMERS_BY_VALIDATOR, REWARDS_DENOM, VALIDATORS_BY_CONSUMER,
         VALIDATORS_REWARDS,
     };
 
@@ -94,12 +92,27 @@ mod execute {
 
     pub fn delegate(
         mut deps: DepsMut,
-        _env: Env,
+        env: Env,
         info: MessageInfo,
         validator: String,
         amount: Uint128,
     ) -> Result<Response, ContractError> {
         // TODO Validate validator valoper address
+
+        // If its a first delegation to a validator, we set validator rewards to 0
+        let validator_rewards = VALIDATORS_REWARDS.may_load(deps.storage, &validator)?;
+
+        let validator_rewards = match validator_rewards {
+            Some(val_rewards) => val_rewards,
+            None => {
+                let val = ValidatorRewards::new(env.block.height);
+
+                VALIDATORS_REWARDS.save(deps.storage, &validator, &val)?;
+                val
+            }
+        };
+
+        let delegations = VALIDATORS_BY_CONSUMER.load(deps.storage, (&info.sender, &validator))?;
 
         CONSUMERS.update(
             deps.storage,
@@ -107,6 +120,12 @@ mod execute {
             |cons| -> Result<_, ContractError> {
                 // fail if consumer was never registered
                 let mut cons = cons.ok_or(ContractError::Unauthorized {})?;
+                // calculate consumer rewards till now (with old stake)
+                cons.calc_pending_rewards(
+                    validator_rewards.total_rptpb,
+                    delegations,
+                    env.block.height,
+                )?;
                 // HACK temporary work around for proof of concept. Real implementation
                 // would use something like a generic Superfluid module to mint or burn
                 // synthetic tokens.
@@ -133,25 +152,36 @@ mod execute {
 
     pub fn undelegate(
         mut deps: DepsMut,
-        _env: Env,
+        env: Env,
         info: MessageInfo,
         validator: String,
         amount: Uint128,
     ) -> Result<Response, ContractError> {
         // TODO Validate validator valoper address
 
+        let validator_rewards = VALIDATORS_REWARDS.load(deps.storage, &validator)?;
+
+        let delegations = VALIDATORS_BY_CONSUMER.load(deps.storage, (&info.sender, &validator))?;
+
         // Increase the amount of available funds for that consumer
         CONSUMERS.update(
             deps.storage,
             &info.sender,
-            |current| -> Result<_, ContractError> {
+            |cons| -> Result<_, ContractError> {
                 // fail if consumer was never registered
-                let mut cur = current.ok_or(ContractError::Unauthorized {})?;
+                let mut cons = cons.ok_or(ContractError::Unauthorized {})?;
+                // calculate consumer rewards till now (with old stake)
+                cons.calc_pending_rewards(
+                    validator_rewards.total_rptpb,
+                    delegations,
+                    env.block.height,
+                )?;
+
                 // HACK temporary work around for proof of concept. Real implementation
                 // would use something like a generic Superfluid module to mint or burn
                 // synthetic tokens.
-                cur.decrease_stake(amount)?;
-                Ok(cur)
+                cons.decrease_stake(amount)?;
+                Ok(cons)
             },
         )?;
 
@@ -225,14 +255,29 @@ mod execute {
             return Err(ContractError::ZeroRewardsToSend {});
         }
 
+        let total_delegations = CONSUMERS_BY_VALIDATOR
+            .prefix(&validator)
+            .range(deps.storage, None, None, Order::Ascending)
+            .map(|res| -> StdResult<Uint128> { Ok(res?.1) })
+            .sum::<StdResult<Uint128>>()?;
+
         // HACK - better way of saving the denom of rewards?
         REWARDS_DENOM.save(deps.storage, &total_accumulated_rewards.denom)?;
 
-        VALIDATORS_REWARDS.update::<_, StdError>(deps.storage, &validator, |rewards| {
-            let rewards = rewards.unwrap_or_default();
+        VALIDATORS_REWARDS.update(
+            deps.storage,
+            &validator,
+            |rewards: Option<ValidatorRewards>| -> Result<_, ContractError> {
+                let mut validator_rewards = rewards.unwrap();
 
-            Ok(rewards.checked_add(total_accumulated_rewards.amount)?)
-        })?;
+                validator_rewards.calc_rewards(
+                    total_accumulated_rewards.amount,
+                    total_delegations,
+                    env.block.height,
+                )?;
+                Ok(validator_rewards)
+            },
+        )?;
 
         // Withdraw rewards from validator
         let withdraw_msg =
@@ -243,6 +288,7 @@ mod execute {
 
     pub fn withdraw_to_customer(
         deps: DepsMut,
+        env: Env,
         consumer: String,
         validator: String,
     ) -> Result<Response, ContractError> {
@@ -252,44 +298,30 @@ mod execute {
             return Err(ContractError::NoConsumer {});
         };
 
-        let consumer = CONSUMERS.load(deps.storage, &consumer_addr)?;
-        let total_validators_rewards = VALIDATORS_REWARDS.load(deps.storage, &validator)?;
+        let mut consumer = CONSUMERS.load(deps.storage, &consumer_addr)?;
+        let validators_rewards = VALIDATORS_REWARDS.load(deps.storage, &validator)?;
 
-        // Sum of all delegations
-        let total_delegations = CONSUMERS_BY_VALIDATOR
-            .prefix(&validator)
-            .range(deps.storage, None, None, Order::Ascending)
-            .map(|res| -> StdResult<Uint128> { Ok(res?.1) })
-            .sum::<StdResult<Uint128>>()?;
+        // consumer delegations to this validator
+        let delegations =
+            VALIDATORS_BY_CONSUMER.load(deps.storage, (&consumer_addr, &validator))?;
 
-        if consumer.total_staked.is_zero()
-            || total_validators_rewards.is_zero()
-            || total_delegations.is_zero()
-        {
+        // Do the rewards calculation and update for future calculations
+        consumer.calc_pending_rewards(
+            validators_rewards.total_rptpb,
+            delegations,
+            env.block.height,
+        )?;
+
+        if consumer.rewards.pending.is_zero() {
             return Err(ContractError::ZeroRewardsToSend {});
         }
-
-        // Get the rewards amount of the consumer
-        let perc = consumer
-            .total_staked
-            .checked_div(total_delegations)?
-            .checked_mul(UINT_100)?;
-
-        let rewards_to_send = perc
-            .checked_mul(total_validators_rewards)?
-            .checked_div(UINT_100)?;
-
-        // substract rewards sent from validator
-        VALIDATORS_REWARDS.save(deps.storage, &validator, &total_validators_rewards.checked_sub(rewards_to_send)?)?;
 
         let rewards_denom = REWARDS_DENOM.load(deps.storage)?;
 
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: consumer_addr.to_string(),
-            msg: to_binary(&ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg {
-                validator
-            })?,
-            funds: vec![coin(rewards_to_send.u128(), rewards_denom)],
+            msg: to_binary(&ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg { validator })?,
+            funds: vec![coin(consumer.rewards.pending.u128(), rewards_denom)],
         });
 
         Ok(Response::default().add_message(msg))
@@ -442,7 +474,7 @@ mod sudo {
         CONSUMERS.save(
             deps.storage,
             &address,
-            &ConsumerInfo::new(funds_available_for_staking.amount),
+            &ConsumerInfo::new(funds_available_for_staking.amount, 0),
         )?;
 
         Ok(Response::default())
