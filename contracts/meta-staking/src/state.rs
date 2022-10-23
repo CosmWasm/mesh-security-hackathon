@@ -33,7 +33,7 @@ pub struct ConsumerRewards {
 }
 
 impl ConsumerInfo {
-    pub fn new(funds: impl Into<Uint128>, height: u64) -> Self {
+    pub fn new(funds: impl Into<Uint128>) -> Self {
         ConsumerInfo {
             available_funds: funds.into(),
             total_staked: Uint128::zero(),

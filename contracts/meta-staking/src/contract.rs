@@ -474,7 +474,7 @@ mod sudo {
         CONSUMERS.save(
             deps.storage,
             &address,
-            &ConsumerInfo::new(funds_available_for_staking.amount, 0),
+            &ConsumerInfo::new(funds_available_for_staking.amount),
         )?;
 
         Ok(Response::default())
