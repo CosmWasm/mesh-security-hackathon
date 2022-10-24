@@ -324,6 +324,10 @@ mod execute {
             funds: vec![coin(consumer.rewards.pending.u128(), rewards_denom)],
         });
 
+        // Save new rewards
+        consumer.reset_pending_rewards();
+        CONSUMERS.save(deps.storage, &consumer_addr, &consumer)?;
+
         Ok(Response::default().add_message(msg))
     }
 }

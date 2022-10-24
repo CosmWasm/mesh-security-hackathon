@@ -94,6 +94,10 @@ impl Stake {
         Ok(())
     }
 
+    pub fn reset_pending(&mut self) {
+        self.rewards.pending = Uint128::zero();
+    }
+
     /// Check if a slash has occurred. If so, reduced my locked balance and
     /// return the amount that should be slashed. Note: this is mutable and
     /// will return None after the first call.

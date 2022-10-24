@@ -96,6 +96,10 @@ impl ConsumerInfo {
 
         Ok(())
     }
+
+    pub fn reset_pending_rewards(&mut self) {
+        self.rewards.pending = Uint128::zero();
+    }
 }
 
 pub const REWARDS_DENOM: Item<String> = Item::new("rewards_denom");

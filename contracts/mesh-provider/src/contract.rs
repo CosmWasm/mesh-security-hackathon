@@ -314,6 +314,10 @@ pub fn execute_claim_rewards(
         amount: vec![coin(delegator_stake.rewards.pending.u128(), config.denom)],
     };
 
+    // Save new rewards
+    delegator_stake.reset_pending();
+    STAKED.save(deps.storage, (&delegator, &validator), &delegator_stake)?;
+
     Ok(Response::new().add_message(msg))
 }
 
