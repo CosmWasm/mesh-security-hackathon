@@ -13,7 +13,7 @@ use mesh_ibc::{
 };
 
 use crate::error::ContractError;
-use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PORT, VALIDATORS, VALIDATOR_REWARDS};
+use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PORT, VALIDATORS};
 
 // TODO: make configurable?
 /// packets live one hour
@@ -107,7 +107,7 @@ pub fn ibc_channel_close(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_receive(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, ContractError> {
     // paranoia: ensure it was sent on proper channel
@@ -121,37 +121,50 @@ pub fn ibc_packet_receive(
         ConsumerMsg::Rewards {
             validator,
             total_funds,
-        } => receive_rewards(deps, validator, total_funds),
+        } => receive_rewards(deps, env, validator, total_funds),
         ConsumerMsg::UpdateValidators { added, removed } => {
-            receive_update_validators(deps, added, removed)
+            receive_update_validators(deps, env, added, removed)
         }
     }
 }
 
 pub fn receive_rewards(
     deps: DepsMut,
+    env: Env,
     validator: String,
     total_funds: Coin,
 ) -> Result<IbcReceiveResponse, ContractError> {
     // Update the rewards of this validator
-    VALIDATOR_REWARDS.update::<_, ContractError>(deps.storage, &validator, |rewards| {
-        let rewards = rewards.unwrap_or_default();
+    // This will fail if we didn't add the validator before it, we cannot init the validator and calculate rewards in the same msg. (same block)
+    let res = VALIDATORS.update::<_, ContractError>(deps.storage, &validator, |val| {
+        let mut val = match val {
+            Some(val) => val,
+            None => return Err(ContractError::ValidatorRewardsCalculationWrong {}),
+        };
 
-        Ok(rewards.checked_add(total_funds.amount)?)
-    })?;
+        val.rewards.calc_rewards(total_funds.amount, val.shares_to_tokens(val.stake), env.block.height)?;
 
-    let ack = StdAck::success(&RewardsResponse {});
+        Ok(val)
+    });
+
+    // TODO: if calculation failed, we want to handle it as leftover funds? or send funds back to consumer and handle it there?
+    let ack = match res {
+        Ok(_) => to_binary(&StdAck::success(&RewardsResponse {}))?,
+        Err(err) => to_binary(&StdAck::Error(err.to_string()))?,
+    };
+
     Ok(IbcReceiveResponse::new().set_ack(ack))
 }
 
 pub fn receive_update_validators(
     deps: DepsMut,
+    env: Env,
     added: Vec<String>,
     removed: Vec<String>,
 ) -> Result<IbcReceiveResponse, ContractError> {
     for add in added {
         if !VALIDATORS.has(deps.storage, &add) {
-            VALIDATORS.save(deps.storage, &add, &Validator::new())?;
+            VALIDATORS.save(deps.storage, &add, &Validator::new(env.block.height))?;
         }
     }
     for remove in removed {
@@ -167,7 +180,7 @@ pub fn receive_update_validators(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     let res: StdAck = from_slice(&msg.acknowledgement.data)?;
@@ -182,7 +195,7 @@ pub fn ibc_packet_ack(
     match (original_packet, res.is_ok()) {
         (ProviderMsg::ListValidators {}, true) => {
             let val: ListValidatorsResponse = from_slice(&res.unwrap())?;
-            ack_list_validators(deps, val)
+            ack_list_validators(deps, env, val)
         }
         (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps),
         (
@@ -229,10 +242,11 @@ pub fn ibc_packet_timeout(
 
 pub fn ack_list_validators(
     deps: DepsMut,
+    env: Env,
     res: ListValidatorsResponse,
 ) -> Result<IbcBasicResponse, ContractError> {
     for val in res.validators {
-        VALIDATORS.save(deps.storage, &val, &Validator::new())?;
+        VALIDATORS.save(deps.storage, &val, &Validator::new(env.block.height))?;
     }
     Ok(IbcBasicResponse::new())
 }

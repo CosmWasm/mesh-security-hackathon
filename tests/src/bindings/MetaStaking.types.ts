@@ -3,7 +3,6 @@
  * DO NOT MODIFY IT BY HAND. Instead, modify the source JSONSchema file,
  * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
  */
-
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface InstantiateMsg {}
 export type ExecuteMsg =
@@ -22,11 +21,6 @@ export type ExecuteMsg =
   | {
       withdraw_delegator_reward: {
         validator: string;
-      };
-    }
-  | {
-      withdraw_all_to_costumer: {
-        consumer: string;
       };
     }
   | {
@@ -107,9 +101,13 @@ export interface Validator {
 }
 export interface ConsumerInfo {
   available_funds: Uint128;
-  rewards: Uint128;
-  rewards_denom: string;
+  rewards: ConsumerRewards;
   total_staked: Uint128;
+}
+export interface ConsumerRewards {
+  last_height: number;
+  last_rptpb: Uint128;
+  pending: Uint128;
 }
 export interface ConsumersResponse {
   consumers: ConsumerInfo[];

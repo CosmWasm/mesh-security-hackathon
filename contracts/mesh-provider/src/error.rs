@@ -61,6 +61,12 @@ pub enum ContractError {
     #[error("Validator was removed from valset: {0}")]
     RemovedValidator(String),
 
+    #[error("Something went wrong in the rewards calculation of the validator")]
+    ValidatorRewardsCalculationWrong {},
+
+    #[error("Rewards amount is 0")]
+    ZeroRewardsToSend {},
+
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
     // Add any other custom errors you like here.

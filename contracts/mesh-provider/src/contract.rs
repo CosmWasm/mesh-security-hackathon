@@ -16,10 +16,7 @@ use crate::msg::{
     AccountResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, ListValidatorsResponse, QueryMsg,
     StakeInfo, ValidatorResponse,
 };
-use crate::state::{
-    Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, STAKED_BY_VALIDATOR,
-    VALIDATORS, VALIDATOR_REWARDS,
-};
+use crate::state::{Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, VALIDATORS};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
@@ -100,7 +97,7 @@ pub fn execute(
             execute_unstake(deps, info, env, validator, amount)
         }
         ExecuteMsg::Unbond {} => execute_unbond(deps, info, env),
-        ExecuteMsg::ClaimRewards {validator} => execute_claim_rewards(deps, env, info, validator),
+        ExecuteMsg::ClaimRewards { validator } => execute_claim_rewards(deps, env, info, validator),
     }
 }
 
@@ -126,9 +123,16 @@ pub fn execute_receive_claim(
     let mut stake = STAKED
         .may_load(deps.storage, (&owner, &validator))?
         .unwrap_or_default();
+
+    // First calculate rewards with old stake (or set default if first delegation)
+    stake.calc_pending_rewards(
+        val.rewards.total_rptpb,
+        val.shares_to_tokens(stake.shares),
+        env.block.height,
+    )?;
+
     stake.stake_validator(&mut val, amount);
     STAKED.save(deps.storage, (&owner, &validator), &stake)?;
-    STAKED_BY_VALIDATOR.save(deps.storage, (&validator, &owner), &stake)?;
     VALIDATORS.save(deps.storage, &validator, &val)?;
 
     // send out IBC packet for staking change
@@ -192,11 +196,18 @@ pub fn execute_unstake(
         return Err(ContractError::RemovedValidator(validator));
     }
     let mut stake = STAKED.load(deps.storage, (&info.sender, &validator))?;
+
+    // Calculate rewards with old stake
+    stake.calc_pending_rewards(
+        val.rewards.total_rptpb,
+        val.shares_to_tokens(stake.shares),
+        env.block.height,
+    )?;
+
     stake.unstake_validator(&mut val, amount)?;
     // check if we need to slash
     let slash = stake.take_slash(&val);
     STAKED.save(deps.storage, (&info.sender, &validator), &stake)?;
-    STAKED_BY_VALIDATOR.save(deps.storage, (&validator, &info.sender), &stake)?;
     VALIDATORS.save(deps.storage, &validator, &val)?;
 
     // create a future claim on number of shares (so we can adjust for later slashing)
@@ -266,50 +277,41 @@ pub fn execute_claim_rewards(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    validator: String
+    validator: String,
 ) -> Result<Response, ContractError> {
     let delegator = deps.api.addr_validate(info.sender.as_str())?;
     let config = CONFIG.load(deps.storage)?;
 
     // calculate rewards
-    let validator_stake = VALIDATORS.load(deps.storage, &validator)?.stake;
-    let delegator_stake = STAKED.load(deps.storage, (&delegator, &validator))?;
-    let total_rewards = VALIDATOR_REWARDS.load(deps.storage, &validator)?;
-
-    // Make sure we have something to send
-    if total_rewards.is_zero() {
-        return Err(ContractError::NoRewardsToClaim {});
-    }
+    let validator_info = VALIDATORS.load(deps.storage, &validator)?;
+    let mut delegator_stake = STAKED.load(deps.storage, (&delegator, &validator))?;
 
     // We calculate the rewards
-    let rewards_to_send = delegator_stake.calc_rewards(validator_stake, total_rewards)?;
+    delegator_stake.calc_pending_rewards(
+        validator_info.rewards.total_rptpb,
+        delegator_stake.shares,
+        env.block.height,
+    )?;
 
-    if rewards_to_send.is_zero() {
+    if delegator_stake.rewards.pending.is_zero() {
         return Err(ContractError::NoRewardsToClaim {});
     }
-
-    VALIDATOR_REWARDS.update::<_, ContractError>(deps.storage, &validator, |val| -> Result<Uint128, ContractError> {
-        match val {
-            Some(val) => Ok(val.checked_sub(rewards_to_send)?),
-            None => Err(ContractError::NoRewardsToClaim),
-        }
-    })?;
 
     let balance = deps
         .querier
         .query_balance(env.contract.address, config.denom.clone())?;
 
-    // Make sure we have something to send, if its false, funds are stuck in consumer and needed admin.
-    if rewards_to_send > balance.amount {
+    // Make sure we have something to send, if its false, funds might be stuck in consumer and need admin. (or we messed up badly)
+    if delegator_stake.rewards.pending > balance.amount {
         return Err(ContractError::WrongBalance {
             balance: balance.amount,
-            rewards: rewards_to_send,
+            rewards: delegator_stake.rewards.pending,
         });
     }
 
     let msg = BankMsg::Send {
         to_address: delegator.to_string(),
-        amount: vec![coin(rewards_to_send.u128(), config.denom)],
+        amount: vec![coin(delegator_stake.rewards.pending.u128(), config.denom)],
     };
 
     Ok(Response::new().add_message(msg))

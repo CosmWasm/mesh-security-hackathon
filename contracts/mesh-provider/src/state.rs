@@ -8,8 +8,6 @@ use cw_storage_plus::{Item, Map};
 use crate::msg::ConsumerInfo;
 use crate::ContractError;
 
-const UINT_100: Uint128 = Uint128::new(100_u128);
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub consumer: ConsumerInfo,
@@ -29,16 +27,10 @@ pub const PORT: Item<String> = Item::new("port");
 // info on each validator, including voting and slashing
 pub const VALIDATORS: Map<&str, Validator> = Map::new("validators");
 
-// STAKED and STAKED_BY_VALIDATOR *MUST* be synced.
 // map from (delgator, validator) to current stake - stored as shares, previously multiplied
 pub const STAKED: Map<(&Addr, &str), Stake> = Map::new("staked");
-// map from (validator, delgator) to current stake - kept sync to STAKED
-pub const STAKED_BY_VALIDATOR: Map<(&str, &Addr), Stake> = Map::new("staked_by_validator");
 
 pub const CLAIMS: Claims = Claims::new("claims");
-
-// map from validator to rewards amount
-pub const VALIDATOR_REWARDS: Map<&str, Uint128> = Map::new("validator_rewards");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
 pub struct Stake {
@@ -48,6 +40,15 @@ pub struct Stake {
     /// Note: if current value of these shares is less than locked, we have been slashed
     /// and act accordingly
     pub shares: Uint128,
+    pub rewards: DelegatorRewards
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+pub struct DelegatorRewards {
+    pub last_height: u64,
+    pub pending: Uint128,
+    // Total staked funds, cannot stake more than available funds
+    pub last_rptpb: Uint128,
 }
 
 impl Stake {
@@ -61,16 +62,36 @@ impl Stake {
     }
 
     /// Calculate rewards
-    pub fn calc_rewards(
-        &self,
+    pub fn calc_pending_rewards(
+        &mut self,
+        new_rptpb: Uint128,
         staked: Uint128,
-        total_rewards: Uint128,
-    ) -> Result<Uint128, ContractError> {
-        let perc = self.shares.checked_div(staked)?.checked_mul(UINT_100)?;
+        height: u64
+    ) -> Result<(), ContractError> {
+        if staked.is_zero() || self.rewards.last_height == 0 {
+            self.rewards.last_rptpb = new_rptpb;
+            self.rewards.last_height = height;
+            return Ok(());
+        }
 
-        let rewards_to_send = perc.checked_mul(total_rewards)?.checked_div(UINT_100)?;
+        let rptpb_to_pay = new_rptpb - self.rewards.last_rptpb;
+        let block_to_pay = height - self.rewards.last_height;
 
-        Ok(rewards_to_send)
+        if rptpb_to_pay.is_zero() || block_to_pay == 0 {
+            self.rewards.last_rptpb = new_rptpb;
+            self.rewards.last_height = height;
+            return Err(ContractError::ZeroRewardsToSend {})
+        }
+
+        let pending_rewards = rptpb_to_pay
+            .checked_mul(staked)?
+            .checked_mul(Uint128::from(block_to_pay))?;
+
+        self.rewards.pending += pending_rewards;
+        self.rewards.last_height += height;
+        self.rewards.last_rptpb += new_rptpb;
+
+        Ok(())
     }
 
     /// Check if a slash has occurred. If so, reduced my locked balance and
@@ -123,6 +144,43 @@ pub struct Validator {
     pub multiplier: Decimal,
     // how active is it
     pub status: ValStatus,
+    pub rewards: ValidatorRewards
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct ValidatorRewards {
+    /// Last height we withdrew rewards and calculated them
+    pub last_height: u64,
+    /// rewards_per_token_per_block, total of rewards to be paid, per staked token per block.
+    pub total_rptpb: Uint128,
+}
+
+impl ValidatorRewards {
+    pub fn new(height: u64) -> Self {
+        ValidatorRewards {
+            last_height: height,
+            total_rptpb: Uint128::zero(),
+        }
+    }
+
+    pub fn calc_rewards(
+        &mut self,
+        rewards: Uint128,
+        total_tokens: Uint128,
+        curr_height: u64,
+    ) -> Result<(), ContractError> {
+        let height_diff = curr_height - self.last_height;
+
+        if height_diff == 0 {
+            return Err(ContractError::ValidatorRewardsCalculationWrong {});
+        }
+
+        self.total_rptpb = rewards
+            .checked_div(total_tokens)?
+            .checked_div(Uint128::from(height_diff))?
+            .checked_add(self.total_rptpb)?;
+        Ok(())
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -132,18 +190,19 @@ pub enum ValStatus {
     Tombstoned,
 }
 
-impl Default for Validator {
-    fn default() -> Self {
-        Validator::new()
-    }
-}
+// impl Default for Validator {
+//     fn default() -> Self {
+//         Validator::new()
+//     }
+// }
 
 impl Validator {
-    pub fn new() -> Self {
+    pub fn new(height: u64) -> Self {
         Validator {
             stake: Uint128::zero(),
             multiplier: Decimal::one(),
             status: ValStatus::Active,
+            rewards: ValidatorRewards::new(height)
         }
     }
 
@@ -191,11 +250,11 @@ impl Validator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::Decimal;
+    use cosmwasm_std::{Decimal, testing::mock_env};
 
     #[test]
     fn validator_stake_unstake() {
-        let mut val = Validator::new();
+        let mut val = Validator::new(mock_env().block.height);
         val.stake_tokens(500u128);
         assert_eq!(val.stake_value().u128(), 500u128);
         val.unstake_tokens(100u128).unwrap();
@@ -207,7 +266,7 @@ mod tests {
 
     #[test]
     fn validator_slashing() {
-        let mut val = Validator::new();
+        let mut val = Validator::new(mock_env().block.height);
         val.stake_tokens(500u128);
         val.slash(Decimal::percent(20));
         assert_eq!(val.stake_value().u128(), 400u128);
@@ -220,7 +279,7 @@ mod tests {
 
     #[test]
     fn normal_stake_unstake() {
-        let mut val = Validator::new();
+        let mut val = Validator::new(mock_env().block.height);
         let mut stake = Stake::new();
         stake.stake_validator(&mut val, 500u128);
         let slashed = stake.take_slash(&val);
@@ -236,7 +295,7 @@ mod tests {
 
     #[test]
     fn stake_with_slashing() {
-        let mut val = Validator::new();
+        let mut val = Validator::new(mock_env().block.height);
         let mut stake = Stake::new();
         stake.stake_validator(&mut val, 500u128);
         // slash by 20%

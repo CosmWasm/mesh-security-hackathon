@@ -395,7 +395,8 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   const rewardsTosend = subCoins(preSendMetabalance, preMetabalance);
 
   // withdraw from meta-staking to consumer to provider
-  const resWithdrawToConsumer = await metaStakingClient.withdrawAllToCostumer({
+  const resWithdrawToConsumer = await metaStakingClient.withdrawToCostumer({
+    validator: validatorAddr,
     consumer: wasmMeshConsumer,
   });
 
