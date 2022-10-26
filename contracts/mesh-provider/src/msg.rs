@@ -63,7 +63,7 @@ pub enum ExecuteMsg {
     /// Called after unbonding_period has passed from Unstake. Releases claim on lockup contract
     Unbond {/* ??? */},
     ClaimRewards {
-        validator: String
+        validator: String,
     },
 }
 

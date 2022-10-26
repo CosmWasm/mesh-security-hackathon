@@ -37,7 +37,7 @@ pub fn instantiate(
         slasher: None,
         lockup: deps.api.addr_validate(&msg.lockup)?,
         unbonding_period: msg.unbonding_period,
-        denom: msg.rewards_ibc_denom,
+        rewards_ibc_denom: msg.rewards_ibc_denom,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &state)?;
@@ -126,9 +126,8 @@ pub fn execute_receive_claim(
 
     // First calculate rewards with old stake (or set default if first delegation)
     stake.calc_pending_rewards(
-        val.rewards.total_rptpb,
+        val.rewards.rewards_per_token,
         val.shares_to_tokens(stake.shares),
-        env.block.height,
     )?;
 
     stake.stake_validator(&mut val, amount);
@@ -199,9 +198,8 @@ pub fn execute_unstake(
 
     // Calculate rewards with old stake
     stake.calc_pending_rewards(
-        val.rewards.total_rptpb,
+        val.rewards.rewards_per_token,
         val.shares_to_tokens(stake.shares),
-        env.block.height,
     )?;
 
     stake.unstake_validator(&mut val, amount)?;
@@ -279,18 +277,16 @@ pub fn execute_claim_rewards(
     info: MessageInfo,
     validator: String,
 ) -> Result<Response, ContractError> {
-    let delegator = deps.api.addr_validate(info.sender.as_str())?;
     let config = CONFIG.load(deps.storage)?;
 
     // calculate rewards
     let validator_info = VALIDATORS.load(deps.storage, &validator)?;
-    let mut delegator_stake = STAKED.load(deps.storage, (&delegator, &validator))?;
+    let mut delegator_stake = STAKED.load(deps.storage, (&info.sender, &validator))?;
 
     // We calculate the rewards
     delegator_stake.calc_pending_rewards(
-        validator_info.rewards.total_rptpb,
+        validator_info.rewards.rewards_per_token,
         delegator_stake.shares,
-        env.block.height,
     )?;
 
     if delegator_stake.rewards.pending.is_zero() {
@@ -299,24 +295,26 @@ pub fn execute_claim_rewards(
 
     let balance = deps
         .querier
-        .query_balance(env.contract.address, config.denom.clone())?;
+        .query_balance(env.contract.address, config.rewards_ibc_denom.clone())?;
 
     // Make sure we have something to send, if its false, funds might be stuck in consumer and need admin. (or we messed up badly)
-    if delegator_stake.rewards.pending > balance.amount {
+    if delegator_stake.rewards.pending > Decimal::new(balance.amount) {
         return Err(ContractError::WrongBalance {
             balance: balance.amount,
             rewards: delegator_stake.rewards.pending,
         });
     }
 
+    let send_amount = delegator_stake.pending_to_u128()?;
+
     let msg = BankMsg::Send {
-        to_address: delegator.to_string(),
-        amount: vec![coin(delegator_stake.rewards.pending.u128(), config.denom)],
+        to_address: info.sender.to_string(),
+        amount: vec![coin(send_amount, config.rewards_ibc_denom)],
     };
 
     // Save new rewards
     delegator_stake.reset_pending();
-    STAKED.save(deps.storage, (&delegator, &validator), &delegator_stake)?;
+    STAKED.save(deps.storage, (&info.sender, &validator), &delegator_stake)?;
 
     Ok(Response::new().add_message(msg))
 }

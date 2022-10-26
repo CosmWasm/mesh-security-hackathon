@@ -1,6 +1,8 @@
 use thiserror::Error;
 
-use cosmwasm_std::{StdError, Uint128, OverflowError, DivideByZeroError};
+use cosmwasm_std::{
+    CheckedFromRatioError, Decimal, DivideByZeroError, OverflowError, StdError, Uint128,
+};
 use cw_utils::ParseReplyError;
 
 use mesh_ibc::MeshSecurityError;
@@ -15,6 +17,9 @@ pub enum ContractError {
 
     #[error("{0}")]
     DivideByZeroError(#[from] DivideByZeroError),
+
+    #[error("{0}")]
+    CheckedFromRatioError(#[from] CheckedFromRatioError),
 
     #[error("{0}")]
     Parse(#[from] ParseReplyError),
@@ -53,7 +58,7 @@ pub enum ContractError {
     NoRewardsToClaim,
 
     #[error("Balance is too low: {rewards:?} > {balance:?}")]
-    WrongBalance { balance: Uint128, rewards: Uint128 },
+    WrongBalance { balance: Uint128, rewards: Decimal },
 
     #[error("Validator was never registered: {0}")]
     UnknownValidator(String),

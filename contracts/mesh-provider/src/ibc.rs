@@ -130,41 +130,39 @@ pub fn ibc_packet_receive(
 
 pub fn receive_rewards(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     validator: String,
     total_funds: Coin,
 ) -> Result<IbcReceiveResponse, ContractError> {
     // Update the rewards of this validator
     // This will fail if we didn't add the validator before it, we cannot init the validator and calculate rewards in the same msg. (same block)
-    let res = VALIDATORS.update::<_, ContractError>(deps.storage, &validator, |val| {
+    VALIDATORS.update::<_, ContractError>(deps.storage, &validator, |val| {
         let mut val = match val {
             Some(val) => val,
             None => return Err(ContractError::ValidatorRewardsCalculationWrong {}),
         };
 
-        val.rewards.calc_rewards(total_funds.amount, val.shares_to_tokens(val.stake), env.block.height)?;
+        val.rewards
+            .calc_rewards(total_funds.amount, val.shares_to_tokens(val.stake))?;
 
         Ok(val)
-    });
+    })?;
 
     // TODO: if calculation failed, we want to handle it as leftover funds? or send funds back to consumer and handle it there?
-    let ack = match res {
-        Ok(_) => to_binary(&StdAck::success(&RewardsResponse {}))?,
-        Err(err) => to_binary(&StdAck::Error(err.to_string()))?,
-    };
+    let ack = to_binary(&StdAck::success(&RewardsResponse {}))?;
 
     Ok(IbcReceiveResponse::new().set_ack(ack))
 }
 
 pub fn receive_update_validators(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     added: Vec<String>,
     removed: Vec<String>,
 ) -> Result<IbcReceiveResponse, ContractError> {
     for add in added {
         if !VALIDATORS.has(deps.storage, &add) {
-            VALIDATORS.save(deps.storage, &add, &Validator::new(env.block.height))?;
+            VALIDATORS.save(deps.storage, &add, &Validator::new())?;
         }
     }
     for remove in removed {
@@ -242,11 +240,11 @@ pub fn ibc_packet_timeout(
 
 pub fn ack_list_validators(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     res: ListValidatorsResponse,
 ) -> Result<IbcBasicResponse, ContractError> {
     for val in res.validators {
-        VALIDATORS.save(deps.storage, &val, &Validator::new(env.block.height))?;
+        VALIDATORS.save(deps.storage, &val, &Validator::new())?;
     }
     Ok(IbcBasicResponse::new())
 }
