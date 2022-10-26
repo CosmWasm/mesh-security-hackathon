@@ -1,6 +1,6 @@
 use crate::ContractError;
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{ensure, Addr, Uint128};
+use cosmwasm_std::{ensure, Addr, Decimal, Uint128};
 use cw_storage_plus::{Item, Map};
 
 #[cw_serde]
@@ -26,10 +26,8 @@ pub struct ConsumerInfo {
 
 #[cw_serde]
 pub struct ConsumerRewards {
-    pub last_height: u64,
-    pub pending: Uint128,
-    // Total staked funds, cannot stake more than available funds
-    pub last_rptpb: Uint128,
+    pub pending: Decimal,
+    pub paid_rewards_per_token: Decimal,
 }
 
 impl ConsumerInfo {
@@ -38,9 +36,8 @@ impl ConsumerInfo {
             available_funds: funds.into(),
             total_staked: Uint128::zero(),
             rewards: ConsumerRewards {
-                last_height: 0,
-                pending: Uint128::zero(),
-                last_rptpb: Uint128::zero(),
+                pending: Decimal::zero(),
+                paid_rewards_per_token: Decimal::zero(),
             },
         }
     }
@@ -65,40 +62,41 @@ impl ConsumerInfo {
 
     pub fn calc_pending_rewards(
         &mut self,
-        new_rptpb: Uint128,
+        new_rewards_per_token: Decimal,
         staked: Uint128,
-        height: u64,
     ) -> Result<(), ContractError> {
-        // If height is 0, its first time we calc (on first delegate)
         // No stack, so no rewards for him
-        if staked.is_zero() || self.rewards.last_height == 0 {
-            self.rewards.last_rptpb = new_rptpb;
-            self.rewards.last_height = height;
+        if staked.is_zero() {
+            self.rewards.paid_rewards_per_token = new_rewards_per_token;
             return Ok(());
         }
 
-        let rptpb_to_pay = new_rptpb - self.rewards.last_rptpb;
-        let block_to_pay = height - self.rewards.last_height;
+        let rewards_per_token_to_pay = new_rewards_per_token - self.rewards.paid_rewards_per_token;
 
-        if rptpb_to_pay.is_zero() || block_to_pay == 0 {
-            self.rewards.last_rptpb = new_rptpb;
-            self.rewards.last_height = height;
-            return Err(ContractError::ZeroRewardsToSend {})
+        // We don't need to update anything, nothing to calculate
+        if rewards_per_token_to_pay.is_zero() {
+            return Ok(());
         }
 
-        let pending_rewards = rptpb_to_pay
-            .checked_mul(staked)?
-            .checked_mul(Uint128::from(block_to_pay))?;
+        self.rewards.pending += rewards_per_token_to_pay.checked_mul(Decimal::new(staked))?;
 
-        self.rewards.pending += pending_rewards;
-        self.rewards.last_height += height;
-        self.rewards.last_rptpb += new_rptpb;
+        self.rewards.paid_rewards_per_token = new_rewards_per_token;
 
         Ok(())
     }
 
     pub fn reset_pending_rewards(&mut self) {
-        self.rewards.pending = Uint128::zero();
+        self.rewards.pending -= self.rewards.pending.floor();
+    }
+
+    // TODO: Find a better way of doing this?
+    /// Turn pending decimal to u128 to send tokens
+    pub fn pending_to_u128(&self) -> Result<u128, ContractError> {
+        let full_num = self.rewards.pending.floor().atomics();
+        let to_send = full_num.checked_div(Uint128::from(
+            10_u32.pow(self.rewards.pending.decimal_places()),
+        ))?;
+        Ok(to_send.u128())
     }
 }
 
@@ -109,17 +107,20 @@ pub const VALIDATORS_REWARDS: Map<&str, ValidatorRewards> = Map::new("validators
 
 #[cw_serde]
 pub struct ValidatorRewards {
-    /// Last height we withdrew rewards and calculated them
-    pub last_height: u64,
-    /// rewards_per_token_per_block, total of rewards to be paid, per staked token per block.
-    pub total_rptpb: Uint128,
+    /// rewards_per_token, total of rewards to be paid per staked token.
+    pub rewards_per_token: Decimal,
+}
+
+impl Default for ValidatorRewards {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ValidatorRewards {
-    pub fn new(height: u64) -> Self {
+    pub fn new() -> Self {
         ValidatorRewards {
-            last_height: height,
-            total_rptpb: Uint128::zero(),
+            rewards_per_token: Decimal::zero(),
         }
     }
 
@@ -127,18 +128,10 @@ impl ValidatorRewards {
         &mut self,
         rewards: Uint128,
         total_tokens: Uint128,
-        curr_height: u64,
     ) -> Result<(), ContractError> {
-        let height_diff = curr_height - self.last_height;
+        let rewards_dec = Decimal::checked_from_ratio(rewards, total_tokens)?;
 
-        if height_diff == 0 {
-            return Err(ContractError::ValidatorRewardsCalculationWrong {});
-        }
-
-        self.total_rptpb = rewards
-            .checked_div(total_tokens)?
-            .checked_div(Uint128::from(height_diff))?
-            .checked_add(self.total_rptpb)?;
+        self.rewards_per_token = rewards_dec.checked_add(self.rewards_per_token)?;
         Ok(())
     }
 }

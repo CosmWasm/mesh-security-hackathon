@@ -92,7 +92,7 @@ mod execute {
 
     pub fn delegate(
         mut deps: DepsMut,
-        env: Env,
+        _env: Env,
         info: MessageInfo,
         validator: String,
         amount: Uint128,
@@ -105,7 +105,7 @@ mod execute {
         let validator_rewards = match validator_rewards {
             Some(val_rewards) => val_rewards,
             None => {
-                let val = ValidatorRewards::new(env.block.height);
+                let val = ValidatorRewards::new();
 
                 VALIDATORS_REWARDS.save(deps.storage, &validator, &val)?;
                 val
@@ -121,11 +121,7 @@ mod execute {
                 // fail if consumer was never registered
                 let mut cons = cons.ok_or(ContractError::Unauthorized {})?;
                 // calculate consumer rewards till now (with old stake)
-                cons.calc_pending_rewards(
-                    validator_rewards.total_rptpb,
-                    delegations,
-                    env.block.height,
-                )?;
+                cons.calc_pending_rewards(validator_rewards.rewards_per_token, delegations)?;
                 // HACK temporary work around for proof of concept. Real implementation
                 // would use something like a generic Superfluid module to mint or burn
                 // synthetic tokens.
@@ -152,7 +148,7 @@ mod execute {
 
     pub fn undelegate(
         mut deps: DepsMut,
-        env: Env,
+        _env: Env,
         info: MessageInfo,
         validator: String,
         amount: Uint128,
@@ -171,11 +167,7 @@ mod execute {
                 // fail if consumer was never registered
                 let mut cons = cons.ok_or(ContractError::Unauthorized {})?;
                 // calculate consumer rewards till now (with old stake)
-                cons.calc_pending_rewards(
-                    validator_rewards.total_rptpb,
-                    delegations,
-                    env.block.height,
-                )?;
+                cons.calc_pending_rewards(validator_rewards.rewards_per_token, delegations)?;
 
                 // HACK temporary work around for proof of concept. Real implementation
                 // would use something like a generic Superfluid module to mint or burn
@@ -270,11 +262,8 @@ mod execute {
             |rewards: Option<ValidatorRewards>| -> Result<_, ContractError> {
                 let mut validator_rewards = rewards.unwrap();
 
-                validator_rewards.calc_rewards(
-                    total_accumulated_rewards.amount,
-                    total_delegations,
-                    env.block.height,
-                )?;
+                validator_rewards
+                    .calc_rewards(total_accumulated_rewards.amount, total_delegations)?;
                 Ok(validator_rewards)
             },
         )?;
@@ -288,7 +277,7 @@ mod execute {
 
     pub fn withdraw_to_customer(
         deps: DepsMut,
-        env: Env,
+        _env: Env,
         consumer: String,
         validator: String,
     ) -> Result<Response, ContractError> {
@@ -306,22 +295,19 @@ mod execute {
             VALIDATORS_BY_CONSUMER.load(deps.storage, (&consumer_addr, &validator))?;
 
         // Do the rewards calculation and update for future calculations
-        consumer.calc_pending_rewards(
-            validators_rewards.total_rptpb,
-            delegations,
-            env.block.height,
-        )?;
+        consumer.calc_pending_rewards(validators_rewards.rewards_per_token, delegations)?;
 
-        if consumer.rewards.pending.is_zero() {
+        if consumer.rewards.pending.floor().is_zero() {
             return Err(ContractError::ZeroRewardsToSend {});
         }
 
         let rewards_denom = REWARDS_DENOM.load(deps.storage)?;
+        let send_amount = consumer.pending_to_u128()?;
 
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: consumer_addr.to_string(),
             msg: to_binary(&ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg { validator })?,
-            funds: vec![coin(consumer.rewards.pending.u128(), rewards_denom)],
+            funds: vec![coin(send_amount, rewards_denom)],
         });
 
         // Save new rewards
