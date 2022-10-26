@@ -94,7 +94,7 @@ impl Stake {
     pub fn pending_to_u128(&self) -> Result<u128, ContractError> {
         let full_num = self.rewards.pending.floor().atomics();
         let to_send = full_num.checked_div(Uint128::from(
-            10_u128.pow(self.rewards.pending.decimal_places()),
+            10_u32.pow(self.rewards.pending.decimal_places()),
         ))?;
         Ok(to_send.u128())
     }

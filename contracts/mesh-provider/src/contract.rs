@@ -289,7 +289,7 @@ pub fn execute_claim_rewards(
         delegator_stake.shares,
     )?;
 
-    if delegator_stake.rewards.pending.is_zero() {
+    if delegator_stake.rewards.pending.floor().is_zero() {
         return Err(ContractError::NoRewardsToClaim {});
     }
 
