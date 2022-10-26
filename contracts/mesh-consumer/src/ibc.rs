@@ -195,6 +195,8 @@ pub fn ibc_packet_ack(
     }
 }
 
+// The provder received our update packet, send the ics20 tokens.
+// NOTE: This is required because ibcMsg::sendPacket can't we sent with other IbcMsgs in the same call.
 pub fn acknowledge_rewards(
     deps: DepsMut,
     env: Env,

@@ -46,9 +46,9 @@ pub fn execute(
     msg: ConsumerExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg {
-            validator
-        } => execute_receive_rewards(deps, env, info, validator),
+        ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg { validator } => {
+            execute_receive_rewards(deps, env, info, validator)
+        }
     }
 }
 
