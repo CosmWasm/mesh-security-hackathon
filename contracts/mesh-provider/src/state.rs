@@ -62,24 +62,24 @@ impl Stake {
     /// Calculate rewards
     pub fn calc_pending_rewards(
         &mut self,
-        new_rewards_per_tokens: Decimal,
+        new_rewards_per_token: Decimal,
         staked: Uint128,
     ) -> Result<(), ContractError> {
         if staked.is_zero() {
-            self.rewards.paid_rewards_per_token = new_rewards_per_tokens;
+            self.rewards.paid_rewards_per_token = new_rewards_per_token;
             return Ok(());
         }
 
-        let rewards_per_token_to_pay = new_rewards_per_tokens - self.rewards.paid_rewards_per_token;
+        let rewards_per_token_to_pay = new_rewards_per_token - self.rewards.paid_rewards_per_token;
 
         if rewards_per_token_to_pay.is_zero() {
             // Got nothing to calculate, move on
             return Ok(());
         }
 
-        self.rewards.pending += new_rewards_per_tokens.checked_mul(Decimal::new(staked))?;
+        self.rewards.pending += rewards_per_token_to_pay.checked_mul(Decimal::new(staked))?;
 
-        self.rewards.paid_rewards_per_token = new_rewards_per_tokens;
+        self.rewards.paid_rewards_per_token = new_rewards_per_token;
 
         Ok(())
     }
