@@ -63,6 +63,7 @@ mod tests {
             },
             lockup: "lockup_contract".to_string(),
             unbonding_period: 86400 * 14,
+            rewards_ibc_denom: "".to_string(),
         };
         let provider_addr = app
             .instantiate_contract(

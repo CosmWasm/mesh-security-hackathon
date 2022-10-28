@@ -1,11 +1,16 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{
+    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult,
+};
 use cw2::set_contract_version;
 
+use mesh_apis::ConsumerExecuteMsg;
+use mesh_ibc::ConsumerMsg;
+
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, CONFIG};
+use crate::msg::{InstantiateMsg, QueryMsg};
+use crate::state::{Config, CHANNEL, CONFIG};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-consumer";
@@ -25,6 +30,7 @@ pub fn instantiate(
         meta_staking_contract_address,
         provider: msg.provider,
         remote_to_local_exchange_rate: msg.remote_to_local_exchange_rate,
+        ics20_channel: msg.ics20_channel,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &config)?;
@@ -34,12 +40,40 @@ pub fn instantiate(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    _deps: DepsMut,
-    _env: Env,
-    _info: MessageInfo,
-    _msg: ExecuteMsg,
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: ConsumerExecuteMsg,
 ) -> Result<Response, ContractError> {
-    unimplemented!();
+    match msg {
+        ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg { validator } => {
+            execute_receive_rewards(deps, env, info, validator)
+        }
+    }
+}
+
+// We receive the rewards as funds from meta-stacking, and send it over IBC to mesh-provider
+pub fn execute_receive_rewards(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    validator: String,
+) -> Result<Response, ContractError> {
+    let channel_id = CHANNEL.load(deps.storage)?;
+    let timeout: IbcTimeout = env.block.time.plus_seconds(300).into();
+
+    let coin = info.funds[0].clone();
+
+    let msg = IbcMsg::SendPacket {
+        channel_id,
+        data: to_binary(&ConsumerMsg::Rewards {
+            validator,
+            total_funds: coin,
+        })?,
+        timeout,
+    };
+
+    Ok(Response::default().add_message(msg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -69,6 +103,7 @@ mod tests {
             meta_staking_contract_address: "meta_staking".to_string(),
             provider: provider_info(),
             remote_to_local_exchange_rate: Decimal::percent(10),
+            ics20_channel: "channel-10".to_string(),
         };
         let info = mock_info("creator", &coins(1000, "earth"));
 

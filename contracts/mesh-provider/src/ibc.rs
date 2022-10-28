@@ -2,18 +2,18 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_slice, to_binary, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    from_slice, to_binary, Coin, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128,
 };
 
 use mesh_ibc::{
-    check_order, check_version, ConsumerMsg, ListValidatorsResponse, ProviderMsg, StdAck,
-    UpdateValidatorsResponse,
+    check_order, check_version, ConsumerMsg, ListValidatorsResponse, ProviderMsg, RewardsResponse,
+    StdAck, UpdateValidatorsResponse,
 };
 
 use crate::error::ContractError;
-use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, VALIDATORS};
+use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PORT, VALIDATORS};
 
 // TODO: make configurable?
 /// packets live one hour
@@ -60,11 +60,18 @@ pub fn ibc_channel_connect(
 ) -> Result<IbcBasicResponse, ContractError> {
     let channel = msg.channel();
     let channel_id = &channel.endpoint.channel_id;
+    let port_id = &channel.endpoint.port_id;
 
     // save the channel id for future use
     match CHANNEL.may_load(deps.storage)? {
         Some(chan) => return Err(ContractError::ChannelExists(chan)),
         None => CHANNEL.save(deps.storage, channel_id)?,
+    };
+
+    // save the port id for future use
+    match PORT.may_load(deps.storage)? {
+        Some(port) => return Err(ContractError::PortExists(port)),
+        None => PORT.save(deps.storage, port_id)?,
     };
 
     let packet = ProviderMsg::ListValidators {};
@@ -100,7 +107,7 @@ pub fn ibc_channel_close(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_receive(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, ContractError> {
     // paranoia: ensure it was sent on proper channel
@@ -111,20 +118,45 @@ pub fn ibc_packet_receive(
 
     let msg: ConsumerMsg = from_slice(&msg.packet.data)?;
     match msg {
-        ConsumerMsg::Rewards {} => receive_rewards(deps),
+        ConsumerMsg::Rewards {
+            validator,
+            total_funds,
+        } => receive_rewards(deps, env, validator, total_funds),
         ConsumerMsg::UpdateValidators { added, removed } => {
-            receive_update_validators(deps, added, removed)
+            receive_update_validators(deps, env, added, removed)
         }
     }
 }
 
-pub fn receive_rewards(_deps: DepsMut) -> Result<IbcReceiveResponse, ContractError> {
-    // TODO
-    unimplemented!();
+pub fn receive_rewards(
+    deps: DepsMut,
+    _env: Env,
+    validator: String,
+    total_funds: Coin,
+) -> Result<IbcReceiveResponse, ContractError> {
+    // Update the rewards of this validator
+    // This will fail if we didn't add the validator before it, we cannot init the validator and calculate rewards in the same msg. (same block)
+    VALIDATORS.update::<_, ContractError>(deps.storage, &validator, |val| {
+        let mut val = match val {
+            Some(val) => val,
+            None => return Err(ContractError::ValidatorRewardsCalculationWrong {}),
+        };
+
+        val.rewards
+            .calc_rewards(total_funds.amount, val.shares_to_tokens(val.stake))?;
+
+        Ok(val)
+    })?;
+
+    // TODO: if calculation failed, we want to handle it as leftover funds? or send funds back to consumer and handle it there?
+    let ack = to_binary(&StdAck::success(&RewardsResponse {}))?;
+
+    Ok(IbcReceiveResponse::new().set_ack(ack))
 }
 
 pub fn receive_update_validators(
     deps: DepsMut,
+    _env: Env,
     added: Vec<String>,
     removed: Vec<String>,
 ) -> Result<IbcReceiveResponse, ContractError> {
@@ -146,7 +178,7 @@ pub fn receive_update_validators(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     let res: StdAck = from_slice(&msg.acknowledgement.data)?;
@@ -161,7 +193,7 @@ pub fn ibc_packet_ack(
     match (original_packet, res.is_ok()) {
         (ProviderMsg::ListValidators {}, true) => {
             let val: ListValidatorsResponse = from_slice(&res.unwrap())?;
-            ack_list_validators(deps, val)
+            ack_list_validators(deps, env, val)
         }
         (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps),
         (
@@ -208,6 +240,7 @@ pub fn ibc_packet_timeout(
 
 pub fn ack_list_validators(
     deps: DepsMut,
+    _env: Env,
     res: ListValidatorsResponse,
 ) -> Result<IbcBasicResponse, ContractError> {
     for val in res.validators {

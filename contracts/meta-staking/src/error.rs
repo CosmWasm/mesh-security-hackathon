@@ -1,4 +1,4 @@
-use cosmwasm_std::StdError;
+use cosmwasm_std::{CheckedFromRatioError, DivideByZeroError, OverflowError, StdError};
 use cw_utils::ParseReplyError;
 use thiserror::Error;
 
@@ -7,8 +7,17 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
+    #[error("{0}")]
+    OverflowErr(#[from] OverflowError),
+
     #[error(transparent)]
     ParseReplyError(#[from] ParseReplyError),
+
+    #[error(transparent)]
+    DivideByZeroError(#[from] DivideByZeroError),
+
+    #[error(transparent)]
+    CheckedFromRatioError(#[from] CheckedFromRatioError),
 
     #[error("Unauthorized")]
     Unauthorized {},
@@ -33,6 +42,15 @@ pub enum ContractError {
 
     #[error("Consumer does not exists")]
     NoConsumer {},
+
+    #[error("Rewards amount is 0")]
+    ZeroRewardsToSend {},
+
+    #[error("Something went wrong in the rewards calculation of the validator")]
+    ValidatorRewardsCalculationWrong {},
+
+    #[error("We are missing the validator rewards info")]
+    ValidatorRewardsIsMissing {},
 
     #[error("An unknown reply ID was received.")]
     UnknownReplyID {},

@@ -14,6 +14,9 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("Couldn't parse provider from port_id")]
+    ProviderAddrParsing {},
+
     #[error("Contract already has a bound channel: {0}")]
     ChannelExists(String),
 
@@ -28,4 +31,13 @@ pub enum ContractError {
 
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
+
+    #[error("Acknowledgement failed")]
+    AckFailed {},
+
+    #[error("Rewards acknowledgement failed")]
+    RewardsFailed {},
+
+    #[error("Update validators acknowledgement failed")]
+    UpdateValidatorsFailed {},
 }

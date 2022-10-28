@@ -15,6 +15,7 @@
   "globals": { "BigInt": true, "console": true, "WebAssembly": true },
   "rules": {
     "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-empty-pattern": "off",
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "eslint-comments/disable-enable-pair": [
       "error",
@@ -30,6 +31,15 @@
       { "ignoreDeclarationSort": true, "ignoreCase": true }
     ],
     "@typescript-eslint/no-unused-vars": ["off", { "argsIgnorePattern": "^_" }],
-    "object-shorthand": ["error", "always"]
+    "object-shorthand": ["error", "always"],
+    "@typescript-eslint/ban-types": [
+      "error",
+      {
+        "types": {
+          // un-ban a type that's banned by default
+          "{}": false
+        }
+      }
+    ]
   }
 }

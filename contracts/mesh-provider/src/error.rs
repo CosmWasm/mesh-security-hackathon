@@ -1,6 +1,8 @@
 use thiserror::Error;
 
-use cosmwasm_std::StdError;
+use cosmwasm_std::{
+    CheckedFromRatioError, Decimal, DivideByZeroError, OverflowError, StdError, Uint128,
+};
 use cw_utils::ParseReplyError;
 
 use mesh_ibc::MeshSecurityError;
@@ -9,6 +11,15 @@ use mesh_ibc::MeshSecurityError;
 pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
+
+    #[error("{0}")]
+    OverflowError(#[from] OverflowError),
+
+    #[error("{0}")]
+    DivideByZeroError(#[from] DivideByZeroError),
+
+    #[error("{0}")]
+    CheckedFromRatioError(#[from] CheckedFromRatioError),
 
     #[error("{0}")]
     Parse(#[from] ParseReplyError),
@@ -21,6 +32,9 @@ pub enum ContractError {
 
     #[error("Contract already has a bound channel: {0}")]
     ChannelExists(String),
+
+    #[error("Contract already has a bound port: {0}")]
+    PortExists(String),
 
     #[error("Unauthorized counterparty chain, awaiting connection '{0}'")]
     WrongConnection(String),
@@ -40,11 +54,23 @@ pub enum ContractError {
     #[error("No tokens are ready to be unbonded")]
     NothingToClaim,
 
+    #[error("No rewards to be claimed")]
+    NoRewardsToClaim,
+
+    #[error("Balance is too low: {rewards:?} > {balance:?}")]
+    WrongBalance { balance: Uint128, rewards: Decimal },
+
     #[error("Validator was never registered: {0}")]
     UnknownValidator(String),
 
     #[error("Validator was removed from valset: {0}")]
     RemovedValidator(String),
+
+    #[error("Something went wrong in the rewards calculation of the validator")]
+    ValidatorRewardsCalculationWrong {},
+
+    #[error("Rewards amount is 0")]
+    ZeroRewardsToSend {},
 
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },

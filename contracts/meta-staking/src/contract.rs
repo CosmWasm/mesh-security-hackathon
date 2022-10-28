@@ -57,8 +57,12 @@ pub fn execute(
             execute::undelegate(deps, env, info, validator, amount)
         }
         ExecuteMsg::WithdrawDelegatorReward { validator } => {
-            execute::withdraw_delegator_reward(deps, env, info, validator)
+            execute::withdraw_delegator_reward(deps, env, validator)
         }
+        ExecuteMsg::WithdrawToCostumer {
+            consumer,
+            validator,
+        } => execute::withdraw_to_customer(deps, env, consumer, validator),
         ExecuteMsg::Sudo(sudo_msg) => {
             ensure_eq!(
                 CONFIG.load(deps.storage)?.admin,
@@ -71,14 +75,23 @@ pub fn execute(
 }
 
 mod execute {
-    use cosmwasm_std::{Coin, DistributionMsg, StakingMsg, SubMsg, Uint128};
+    use std::vec;
 
-    use crate::state::{CONSUMERS, VALIDATORS_BY_CONSUMER};
+    use mesh_apis::ConsumerExecuteMsg;
+
+    use cosmwasm_std::{
+        coin, Coin, CosmosMsg, DistributionMsg, Order, StakingMsg, Uint128, WasmMsg,
+    };
+
+    use crate::state::{
+        ValidatorRewards, CONSUMERS, CONSUMERS_BY_VALIDATOR, REWARDS_DENOM, VALIDATORS_BY_CONSUMER,
+        VALIDATORS_REWARDS,
+    };
 
     use super::*;
 
     pub fn delegate(
-        deps: DepsMut,
+        mut deps: DepsMut,
         _env: Env,
         info: MessageInfo,
         validator: String,
@@ -86,12 +99,29 @@ mod execute {
     ) -> Result<Response, ContractError> {
         // TODO Validate validator valoper address
 
+        // If its a first delegation to a validator, we set validator rewards to 0
+        let validator_rewards = VALIDATORS_REWARDS.may_load(deps.storage, &validator)?;
+
+        let validator_rewards = match validator_rewards {
+            Some(val_rewards) => val_rewards,
+            None => {
+                let val = ValidatorRewards::new();
+
+                VALIDATORS_REWARDS.save(deps.storage, &validator, &val)?;
+                val
+            }
+        };
+
+        let delegations = VALIDATORS_BY_CONSUMER.load(deps.storage, (&info.sender, &validator))?;
+
         CONSUMERS.update(
             deps.storage,
             &info.sender,
             |cons| -> Result<_, ContractError> {
                 // fail if consumer was never registered
                 let mut cons = cons.ok_or(ContractError::Unauthorized {})?;
+                // calculate consumer rewards till now (with old stake)
+                cons.calc_pending_rewards(validator_rewards.rewards_per_token, delegations)?;
                 // HACK temporary work around for proof of concept. Real implementation
                 // would use something like a generic Superfluid module to mint or burn
                 // synthetic tokens.
@@ -102,13 +132,7 @@ mod execute {
 
         // Update info for the (consumer, validator) map
         // We add the amount delegated to the validator.
-        VALIDATORS_BY_CONSUMER.update(
-            deps.storage,
-            (&info.sender, &validator),
-            |validator_info| -> Result<_, ContractError> {
-                Ok(validator_info.unwrap_or_default() + amount)
-            },
-        )?;
+        deps = update_delegations(deps, info, &validator, amount, Method::Add)?;
 
         // Get local denom
         let denom = deps.querier.query_bonded_denom()?;
@@ -123,7 +147,7 @@ mod execute {
     }
 
     pub fn undelegate(
-        deps: DepsMut,
+        mut deps: DepsMut,
         _env: Env,
         info: MessageInfo,
         validator: String,
@@ -131,18 +155,25 @@ mod execute {
     ) -> Result<Response, ContractError> {
         // TODO Validate validator valoper address
 
+        let validator_rewards = VALIDATORS_REWARDS.load(deps.storage, &validator)?;
+
+        let delegations = VALIDATORS_BY_CONSUMER.load(deps.storage, (&info.sender, &validator))?;
+
         // Increase the amount of available funds for that consumer
         CONSUMERS.update(
             deps.storage,
             &info.sender,
-            |current| -> Result<_, ContractError> {
+            |cons| -> Result<_, ContractError> {
                 // fail if consumer was never registered
-                let mut cur = current.ok_or(ContractError::Unauthorized {})?;
+                let mut cons = cons.ok_or(ContractError::Unauthorized {})?;
+                // calculate consumer rewards till now (with old stake)
+                cons.calc_pending_rewards(validator_rewards.rewards_per_token, delegations)?;
+
                 // HACK temporary work around for proof of concept. Real implementation
                 // would use something like a generic Superfluid module to mint or burn
                 // synthetic tokens.
-                cur.decrease_stake(amount)?;
-                Ok(cur)
+                cons.decrease_stake(amount)?;
+                Ok(cons)
             },
         )?;
 
@@ -152,15 +183,7 @@ mod execute {
 
         // Update info for the (consumer, validator) map
         // We subtract the amount delegated to the validator.
-        VALIDATORS_BY_CONSUMER.update(
-            deps.storage,
-            (&info.sender, &validator),
-            |validator_info| -> Result<_, ContractError> {
-                let val = validator_info.ok_or(ContractError::NoDelegationsForValidator {})?;
-                val.checked_sub(amount)
-                    .map_err(|_| ContractError::InsufficientDelegation {})
-            },
-        )?;
+        deps = update_delegations(deps, info, &validator, amount, Method::Sub)?;
 
         // Get local denom
         let denom = deps.querier.query_bonded_denom()?;
@@ -174,32 +197,127 @@ mod execute {
         Ok(Response::default().add_message(msg))
     }
 
-    // TODO finish me
+    enum Method {
+        Add,
+        Sub,
+    }
+
+    fn update_delegations<'a>(
+        deps: DepsMut<'a>,
+        info: MessageInfo,
+        validator: &str,
+        amount: Uint128,
+        method: Method,
+    ) -> Result<DepsMut<'a>, ContractError> {
+        let action = |validator_info: Option<Uint128>| -> Result<_, ContractError> {
+            match method {
+                Method::Sub => {
+                    let val = validator_info.ok_or(ContractError::NoDelegationsForValidator {})?;
+                    val.checked_sub(amount)
+                        .map_err(|_| ContractError::InsufficientDelegation {})
+                }
+                Method::Add => Ok(validator_info.unwrap_or_default() + amount),
+            }
+        };
+
+        VALIDATORS_BY_CONSUMER.update(deps.storage, (&info.sender, validator), action)?;
+
+        CONSUMERS_BY_VALIDATOR.update(deps.storage, (validator, &info.sender), action)?;
+
+        Ok(deps)
+    }
+
     pub fn withdraw_delegator_reward(
         deps: DepsMut,
-        _env: Env,
-        info: MessageInfo,
+        env: Env,
         validator: String,
     ) -> Result<Response, ContractError> {
-        // Check this is a consumer calling this, fails if no consumer loads
-        CONSUMERS.has(deps.storage, &info.sender);
+        // Query fullDelegation to get the total rewards amount
+        let delegation_query = deps
+            .querier
+            .query_delegation(env.contract.address, validator.clone())?;
 
-        // TODO Need to figure out how many rewards we got, so can send them
-        // to the consumer contract
+        // Total rewards we have from this validator
+        let total_accumulated_rewards = &match delegation_query {
+            Some(delegation) => delegation.accumulated_rewards,
+            None => return Err(ContractError::NoDelegationsForValidator {}),
+        }[0];
 
-        // Withdraw rewards as a submessage
-        let withdraw_msg = SubMsg::reply_on_success(
-            DistributionMsg::WithdrawDelegatorReward { validator },
-            WITHDRAW_REWARDS_REPLY_ID,
-        );
+        if total_accumulated_rewards.amount.is_zero() {
+            return Err(ContractError::ZeroRewardsToSend {});
+        }
 
-        // TODO On reply, send funds to consumer contract
+        let total_delegations = CONSUMERS_BY_VALIDATOR
+            .prefix(&validator)
+            .range(deps.storage, None, None, Order::Ascending)
+            .map(|res| -> StdResult<Uint128> { Ok(res?.1) })
+            .sum::<StdResult<Uint128>>()?;
 
-        Ok(Response::default().add_submessage(withdraw_msg))
+        // HACK - better way of saving the denom of rewards?
+        REWARDS_DENOM.save(deps.storage, &total_accumulated_rewards.denom)?;
+
+        VALIDATORS_REWARDS.update(
+            deps.storage,
+            &validator,
+            |rewards: Option<ValidatorRewards>| -> Result<_, ContractError> {
+                let mut validator_rewards = rewards.unwrap();
+
+                validator_rewards
+                    .calc_rewards(total_accumulated_rewards.amount, total_delegations)?;
+                Ok(validator_rewards)
+            },
+        )?;
+
+        // Withdraw rewards from validator
+        let withdraw_msg =
+            CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward { validator });
+
+        Ok(Response::default().add_message(withdraw_msg))
+    }
+
+    pub fn withdraw_to_customer(
+        deps: DepsMut,
+        _env: Env,
+        consumer: String,
+        validator: String,
+    ) -> Result<Response, ContractError> {
+        let consumer_addr = deps.api.addr_validate(&consumer)?;
+
+        if !CONSUMERS.has(deps.storage, &consumer_addr) {
+            return Err(ContractError::NoConsumer {});
+        };
+
+        let mut consumer = CONSUMERS.load(deps.storage, &consumer_addr)?;
+        let validators_rewards = VALIDATORS_REWARDS.load(deps.storage, &validator)?;
+
+        // consumer delegations to this validator
+        let delegations =
+            VALIDATORS_BY_CONSUMER.load(deps.storage, (&consumer_addr, &validator))?;
+
+        // Do the rewards calculation and update for future calculations
+        consumer.calc_pending_rewards(validators_rewards.rewards_per_token, delegations)?;
+
+        if consumer.rewards.pending.floor().is_zero() {
+            return Err(ContractError::ZeroRewardsToSend {});
+        }
+
+        let rewards_denom = REWARDS_DENOM.load(deps.storage)?;
+        let send_amount = consumer.pending_to_u128()?;
+
+        let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: consumer_addr.to_string(),
+            msg: to_binary(&ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg { validator })?,
+            funds: vec![coin(send_amount, rewards_denom)],
+        });
+
+        // Save new rewards
+        consumer.reset_pending_rewards();
+        CONSUMERS.save(deps.storage, &consumer_addr, &consumer)?;
+
+        Ok(Response::default().add_message(msg))
     }
 }
 
-// TODO query this info by consumer...
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {

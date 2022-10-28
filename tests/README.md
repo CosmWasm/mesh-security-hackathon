@@ -106,4 +106,11 @@ cosmwasm-ts-codegen generate \
           --name CallbackCapturer
 ```
 
+cosmwasm-ts-codegen generate \
+ --plugin client \
+ --schema ls ../contracts/meta-staking/schema \
+ --out ./src/bindings \
+ --name MetaStaking \
+ --no-bundle
+
 (You can safely say "no" for "enable bundle")

@@ -2,9 +2,9 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_slice, to_binary, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Uint128, WasmMsg,
+    from_slice, to_binary, Coin, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128, WasmMsg,
 };
 
 use mesh_ibc::{check_order, check_version, ConsumerMsg, ProviderMsg, StdAck};
@@ -173,23 +173,53 @@ pub fn receive_unstake(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // we only care if there was an error...
     let res: StdAck = from_slice(&msg.acknowledgement.data)?;
-    if res.is_ok() {
-        return Ok(IbcBasicResponse::new());
+    if res.is_err() {
+        return Err(ContractError::AckFailed {});
     }
 
-    // we need to parse the ack based on our request
+    // We need to parse the ack based on our request
     let original_packet: ConsumerMsg = from_slice(&msg.original_packet.data)?;
     match original_packet {
-        ConsumerMsg::Rewards {} => fail_rewards(deps),
-        ConsumerMsg::UpdateValidators { added, removed } => {
-            fail_update_validators(deps, added, removed)
-        }
+        ConsumerMsg::Rewards {
+            validator: _,
+            total_funds,
+        } => acknowledge_rewards(deps, env, total_funds),
+        ConsumerMsg::UpdateValidators {
+            added: _,
+            removed: _,
+        } => Ok(IbcBasicResponse::new()),
     }
+}
+
+// The provder received our update packet, send the ics20 tokens.
+// NOTE: This is required because ibcMsg::sendPacket can't we sent with other IbcMsgs in the same call.
+pub fn acknowledge_rewards(
+    deps: DepsMut,
+    env: Env,
+    amount: Coin,
+) -> Result<IbcBasicResponse, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let timeout: IbcTimeout = env.block.time.plus_seconds(300).into();
+
+    // NOTE We try to split the addr from the port_id, maybe better to set the addr in init?
+    let provider_addr = config.provider.port_id.split('.').last();
+    let provider_addr = match provider_addr {
+        Some(addr) => addr,
+        None => return Err(ContractError::ProviderAddrParsing {}),
+    };
+
+    let msg = IbcMsg::Transfer {
+        channel_id: config.ics20_channel.clone(),
+        to_address: provider_addr.to_string(),
+        amount,
+        timeout,
+    };
+
+    Ok(IbcBasicResponse::new().add_message(msg))
 }
 
 /// Handle timeout like ack errors
@@ -202,7 +232,10 @@ pub fn ibc_packet_timeout(
     // we need to parse the ack based on our request
     let original_packet: ConsumerMsg = from_slice(&msg.packet.data)?;
     match original_packet {
-        ConsumerMsg::Rewards {} => fail_rewards(deps),
+        ConsumerMsg::Rewards {
+            validator: _,
+            total_funds: _,
+        } => fail_rewards(deps),
         ConsumerMsg::UpdateValidators { added, removed } => {
             fail_update_validators(deps, added, removed)
         }
@@ -210,8 +243,8 @@ pub fn ibc_packet_timeout(
 }
 
 pub fn fail_rewards(_deps: DepsMut) -> Result<IbcBasicResponse, ContractError> {
-    // TODO
-    unimplemented!();
+    // TODO what should we do on failure to withdraw rewards?
+    Err(ContractError::RewardsFailed {})
 }
 
 pub fn fail_update_validators(
@@ -219,6 +252,5 @@ pub fn fail_update_validators(
     _added: Vec<String>,
     _removed: Vec<String>,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // TODO
-    unimplemented!();
+    Err(ContractError::UpdateValidatorsFailed {})
 }

@@ -9,6 +9,7 @@ pub struct Config {
     pub provider: ProviderInfo,
     pub remote_to_local_exchange_rate: Decimal,
     pub meta_staking_contract_address: Addr,
+    pub ics20_channel: String,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

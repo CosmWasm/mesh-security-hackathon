@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
 
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Coin, Uint128};
 
 /// These are messages sent from the provider to the consumer
 #[cw_serde]
@@ -39,7 +39,8 @@ pub enum ConsumerMsg {
         removed: Vec<String>,
     },
     Rewards {
-        // TODO: what info do we sent??
+        validator: String,
+        total_funds: Coin,
     },
 }
 
