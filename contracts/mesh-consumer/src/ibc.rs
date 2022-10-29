@@ -4,18 +4,20 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_slice, to_binary, Coin, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128, WasmMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128, WasmMsg, Deps,
 };
 
 use mesh_ibc::{check_order, check_version, ConsumerMsg, ProviderMsg, StdAck};
 use meta_staking::msg::ExecuteMsg as MetaStakingExecuteMsg;
 
 use crate::error::ContractError;
-use crate::state::{CHANNEL, CONFIG};
+use crate::state::{CHANNEL, CONFIG, PACKET_LIFETIME};
 
-// TODO: make configurable?
-/// packets live one hour
-pub const PACKET_LIFETIME: u64 = 60 * 60;
+pub fn build_timeout(deps: Deps, env: &Env) -> Result<IbcTimeout, ContractError> {
+    let packet_time = PACKET_LIFETIME.load(deps.storage)?;
+    let time = env.block.time.plus_seconds(packet_time);
+    Ok(IbcTimeout::with_timestamp(time))
+}
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 /// enforces ordering and versioning constraints
@@ -203,7 +205,6 @@ pub fn acknowledge_rewards(
     amount: Coin,
 ) -> Result<IbcBasicResponse, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    let timeout: IbcTimeout = env.block.time.plus_seconds(300).into();
 
     // NOTE We try to split the addr from the port_id, maybe better to set the addr in init?
     let provider_addr = config.provider.port_id.split('.').last();
@@ -216,7 +217,7 @@ pub fn acknowledge_rewards(
         channel_id: config.ics20_channel.clone(),
         to_address: provider_addr.to_string(),
         amount,
-        timeout,
+        timeout: build_timeout(deps.as_ref(), &env)?,
     };
 
     Ok(IbcBasicResponse::new().add_message(msg))

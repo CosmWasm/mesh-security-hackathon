@@ -9,6 +9,7 @@ pub struct InstantiateMsg {
     pub remote_to_local_exchange_rate: Decimal,
     pub meta_staking_contract_address: String,
     pub ics20_channel: String,
+    pub packet_lifetime: Option<u64>,
 }
 
 #[cw_serde]

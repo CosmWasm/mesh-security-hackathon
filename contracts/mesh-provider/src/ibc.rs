@@ -4,7 +4,7 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_slice, to_binary, Coin, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128, Deps,
 };
 
 use mesh_ibc::{
@@ -13,15 +13,12 @@ use mesh_ibc::{
 };
 
 use crate::error::ContractError;
-use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PORT, VALIDATORS};
+use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PORT, VALIDATORS, PACKET_LIFETIME};
 
-// TODO: make configurable?
-/// packets live one hour
-const PACKET_LIFETIME: u64 = 60 * 60;
-
-pub fn build_timeout(env: &Env) -> IbcTimeout {
-    let time = env.block.time.plus_seconds(PACKET_LIFETIME);
-    IbcTimeout::with_timestamp(time)
+pub fn build_timeout(deps: Deps, env: &Env) -> Result<IbcTimeout, ContractError> {
+    let packet_time = PACKET_LIFETIME.load(deps.storage)?;
+    let time = env.block.time.plus_seconds(packet_time);
+    Ok(IbcTimeout::with_timestamp(time))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -78,7 +75,7 @@ pub fn ibc_channel_connect(
     let msg = IbcMsg::SendPacket {
         channel_id: channel_id.to_string(),
         data: to_binary(&packet)?,
-        timeout: build_timeout(&env),
+        timeout: build_timeout(deps.as_ref(), &env)?,
     };
     Ok(IbcBasicResponse::new().add_message(msg))
 }

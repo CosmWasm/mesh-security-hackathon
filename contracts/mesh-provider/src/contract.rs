@@ -16,7 +16,7 @@ use crate::msg::{
     AccountResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, ListValidatorsResponse, QueryMsg,
     StakeInfo, ValidatorResponse,
 };
-use crate::state::{Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, VALIDATORS};
+use crate::state::{Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, VALIDATORS, PACKET_LIFETIME};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
@@ -24,6 +24,9 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // for reply callbacks
 const INIT_CALLBACK_ID: u64 = 1;
+
+// Default packet life time = 1 hour
+const DEFAULT_PACKET_LIFETIME: u64 = 60 * 60;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -41,6 +44,9 @@ pub fn instantiate(
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &state)?;
+
+    // Set packet time from msg or set default
+    PACKET_LIFETIME.save(deps.storage, &msg.packet_lifetime.unwrap_or(DEFAULT_PACKET_LIFETIME))?;
 
     let label = format!("Slasher for {}", &env.contract.address);
     let msg = WasmMsg::Instantiate {
@@ -143,7 +149,7 @@ pub fn execute_receive_claim(
     let msg = IbcMsg::SendPacket {
         channel_id: CHANNEL.load(deps.storage)?,
         data: to_binary(&packet)?,
-        timeout: build_timeout(&env),
+        timeout: build_timeout(deps.as_ref(), &env)?,
     };
     Ok(Response::new().add_message(msg))
 }
@@ -227,7 +233,7 @@ pub fn execute_unstake(
     let msg = IbcMsg::SendPacket {
         channel_id: CHANNEL.load(deps.storage)?,
         data: to_binary(&packet)?,
-        timeout: build_timeout(&env),
+        timeout: build_timeout(deps.as_ref(), &env)?,
     };
     let mut res = Response::new().add_message(msg);
 
@@ -418,6 +424,7 @@ mod tests {
             lockup: "lockup_contract".to_string(),
             unbonding_period: 86400 * 14,
             rewards_ibc_denom: "".to_string(),
+            packet_lifetime: None
         };
         let info = mock_info("creator", &coins(1000, "earth"));
 
