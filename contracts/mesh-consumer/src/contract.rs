@@ -91,6 +91,7 @@ pub fn execute_update_packet_lifetime(
     deps: DepsMut,
     time: u64,
 ) -> Result<Response, ContractError> {
+    // TODO: do permissions check
     PACKET_LIFETIME.save(deps.storage, &time)?;
     Ok(Response::new()
     .add_attribute("method", "update_packet_lifetime"))
