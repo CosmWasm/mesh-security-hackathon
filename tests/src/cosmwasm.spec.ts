@@ -336,7 +336,7 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
     osmoClient.senderAddress,
     osmoMeshLockup,
     {
-      grant_claim: { leinholder: osmoMeshProvider, amount: "500000", validator: validatorAddr },
+      grant_claim: { provider: osmoMeshProvider, amount: "500000", validator: validatorAddr },
     },
     "auto"
   );

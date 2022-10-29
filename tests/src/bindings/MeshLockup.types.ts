@@ -19,7 +19,7 @@ export type ExecuteMsg =
   | {
       grant_claim: {
         amount: Uint128;
-        leinholder: string;
+        provider: string;
         validator: string;
       };
     }
@@ -48,5 +48,5 @@ export interface BalanceResponse {
 }
 export interface Lein {
   amount: Uint128;
-  leinholder: string;
+  provider: string;
 }

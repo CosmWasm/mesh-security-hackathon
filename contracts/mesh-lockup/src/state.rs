@@ -37,7 +37,7 @@ impl Default for Balance {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LeinAddr {
-    pub leinholder: Addr,
+    pub provider: Addr,
     pub amount: Uint128,
 }
 
@@ -53,11 +53,11 @@ impl Balance {
         self.bonded.saturating_sub(claimed)
     }
 
-    pub fn add_claim(&mut self, leinholder: &Addr, amount: Uint128) -> Result<(), ContractError> {
+    pub fn add_claim(&mut self, provider: &Addr, amount: Uint128) -> Result<(), ContractError> {
         if amount > self.bonded {
             return Err(ContractError::InsufficentBalance);
         }
-        let pos = self.claims.iter().position(|c| &c.leinholder == leinholder);
+        let pos = self.claims.iter().position(|c| &c.provider == provider);
         match pos {
             Some(idx) => {
                 let mut current = self.claims[idx].clone();
@@ -68,20 +68,16 @@ impl Balance {
                 self.claims[idx] = current;
             }
             None => self.claims.push(LeinAddr {
-                leinholder: leinholder.clone(),
+                provider: provider.clone(),
                 amount,
             }),
         };
         Ok(())
     }
 
-    pub fn release_claim(
-        &mut self,
-        leinholder: &Addr,
-        amount: Uint128,
-    ) -> Result<(), ContractError> {
-        let pos = self.claims.iter().position(|c| &c.leinholder == leinholder);
-        let pos = pos.ok_or(ContractError::UnknownLeinholder)?;
+    pub fn release_claim(&mut self, provider: &Addr, amount: Uint128) -> Result<(), ContractError> {
+        let pos = self.claims.iter().position(|c| &c.provider == provider);
+        let pos = pos.ok_or(ContractError::UnknownProvider)?;
         let after = self.claims[pos]
             .amount
             .checked_sub(amount)
@@ -94,9 +90,9 @@ impl Balance {
         Ok(())
     }
 
-    pub fn slash_claim(&mut self, leinholder: &Addr, amount: Uint128) -> Result<(), ContractError> {
-        let pos = self.claims.iter().position(|c| &c.leinholder == leinholder);
-        let pos = pos.ok_or(ContractError::UnknownLeinholder)?;
+    pub fn slash_claim(&mut self, provider: &Addr, amount: Uint128) -> Result<(), ContractError> {
+        let pos = self.claims.iter().position(|c| &c.provider == provider);
+        let pos = pos.ok_or(ContractError::UnknownProvider)?;
         self.claims[pos].amount = self.claims[pos]
             .amount
             .checked_sub(amount)
@@ -125,27 +121,23 @@ mod tests {
     #[test_case(123_000, &[5000, 6000, 23000], 89_000; "free deducts claims from one addr")]
     #[test_case(87_000, &[74_000, 13_000], 0; "can deduct all")]
     fn claims_add(bonded: u128, add_claims: &[u128], free: u128) {
-        let leinholder = Addr::unchecked("foo");
+        let provider = Addr::unchecked("foo");
         let mut balance = Balance::new(bonded);
         for claim in add_claims {
-            balance
-                .add_claim(&leinholder, Uint128::new(*claim))
-                .unwrap();
+            balance.add_claim(&provider, Uint128::new(*claim)).unwrap();
         }
         assert_eq!(balance.free().u128(), free);
         assert_eq!(balance.claims.len(), 1);
     }
 
-    #[test_case(123_000, &[&[12000], &[5000, 8000]], 110_000; "free takes max from one leinholder as claimed")]
+    #[test_case(123_000, &[&[12000], &[5000, 8000]], 110_000; "free takes max from one provider as claimed")]
     #[test_case(250_000, &[&[12000, 17000], &[5000, 8000, 1000], &[8000, 22000, 70000]], 150_000; "handles many holders")]
     fn max_from_multiple_clains(bonded: u128, add_claims: &[&[u128]], free: u128) {
         let mut balance = Balance::new(bonded);
         for (i, claims) in add_claims.iter().enumerate() {
-            let leinholder = Addr::unchecked(format! {"Owner {}", i});
+            let provider = Addr::unchecked(format! {"Owner {}", i});
             for claim in *claims {
-                balance
-                    .add_claim(&leinholder, Uint128::new(*claim))
-                    .unwrap();
+                balance.add_claim(&provider, Uint128::new(*claim)).unwrap();
             }
         }
         assert_eq!(balance.free().u128(), free);
@@ -159,11 +151,11 @@ mod tests {
         (add, release, slash): (u128, u128, u128),
         (bonded, free): (u128, u128),
     ) {
-        let leinholder = Addr::unchecked("foo");
+        let provider = Addr::unchecked("foo");
         let mut balance = Balance::new(init_bond);
-        balance.add_claim(&leinholder, add.into()).unwrap();
-        balance.release_claim(&leinholder, release.into()).unwrap();
-        balance.slash_claim(&leinholder, slash.into()).unwrap();
+        balance.add_claim(&provider, add.into()).unwrap();
+        balance.release_claim(&provider, release.into()).unwrap();
+        balance.slash_claim(&provider, slash.into()).unwrap();
         assert_eq!(balance.bonded.u128(), bonded);
         assert_eq!(balance.free().u128(), free);
         assert_eq!(balance.claims.len(), 1);
@@ -172,33 +164,33 @@ mod tests {
     #[test_case(1000, 1500)]
     #[test_case(0, 1)]
     fn cannot_claim_more_than_bonded(init: u128, add: u128) {
-        let leinholder = Addr::unchecked("foo");
+        let provider = Addr::unchecked("foo");
         let mut balance = Balance::new(init);
-        let err = balance.add_claim(&leinholder, add.into());
+        let err = balance.add_claim(&provider, add.into());
         assert!(err.is_err())
     }
 
     #[test_case(2000, 1000, 1500)]
     #[test_case(2000, 0, 1)]
     fn cannot_release_more_than_added(init: u128, add: u128, release: u128) {
-        let leinholder = Addr::unchecked("foo");
+        let provider = Addr::unchecked("foo");
         let mut balance = Balance::new(init);
         if add > 0 {
-            balance.add_claim(&leinholder, add.into()).unwrap();
+            balance.add_claim(&provider, add.into()).unwrap();
         }
-        let err = balance.release_claim(&leinholder, release.into());
+        let err = balance.release_claim(&provider, release.into());
         assert!(err.is_err())
     }
 
     #[test]
     fn delete_when_all_release() {
-        let leinholder = Addr::unchecked("foo");
+        let provider = Addr::unchecked("foo");
         let init = 12345;
         let mut balance = Balance::new(init);
-        balance.add_claim(&leinholder, init.into()).unwrap();
+        balance.add_claim(&provider, init.into()).unwrap();
         assert_eq!(balance.free().u128(), 0);
         assert_eq!(balance.claims.len(), 1);
-        balance.release_claim(&leinholder, init.into()).unwrap();
+        balance.release_claim(&provider, init.into()).unwrap();
         assert_eq!(balance.free().u128(), init);
         assert_eq!(balance.claims.len(), 0);
     }

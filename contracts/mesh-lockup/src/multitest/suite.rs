@@ -134,7 +134,7 @@ impl Suite {
             Addr::unchecked(executor),
             self.lockup_contract.clone(),
             &ExecuteMsg::GrantClaim {
-                leinholder: self.mock_contract.to_string(),
+                provider: self.mock_contract.to_string(),
                 amount: amount.into(),
                 validator: validator.to_string(),
             },
