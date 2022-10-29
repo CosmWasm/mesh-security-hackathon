@@ -47,11 +47,11 @@ export interface MeshLockupInterface extends MeshLockupReadOnlyInterface {
   grantClaim: (
     {
       amount,
-      leinholder,
+      provider,
       validator,
     }: {
       amount: Uint128;
-      leinholder: string;
+      provider: string;
       validator: string;
     },
     fee?: number | StdFee | "auto",
@@ -138,11 +138,11 @@ export class MeshLockupClient extends MeshLockupQueryClient implements MeshLocku
   grantClaim = async (
     {
       amount,
-      leinholder,
+      provider,
       validator,
     }: {
       amount: Uint128;
-      leinholder: string;
+      provider: string;
       validator: string;
     },
     fee: number | StdFee | "auto" = "auto",
@@ -155,7 +155,7 @@ export class MeshLockupClient extends MeshLockupQueryClient implements MeshLocku
       {
         grant_claim: {
           amount,
-          leinholder,
+          provider,
           validator,
         },
       },

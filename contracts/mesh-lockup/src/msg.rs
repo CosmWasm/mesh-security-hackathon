@@ -44,14 +44,14 @@ pub struct BalanceResponse {
 
 #[cw_serde]
 pub struct Lein {
-    pub leinholder: String,
+    pub provider: String,
     pub amount: Uint128,
 }
 
 impl From<LeinAddr> for Lein {
     fn from(lein: LeinAddr) -> Self {
         Lein {
-            leinholder: lein.leinholder.into_string(),
+            provider: lein.provider.into_string(),
             amount: lein.amount,
         }
     }

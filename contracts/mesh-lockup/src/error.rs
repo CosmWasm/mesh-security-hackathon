@@ -19,10 +19,10 @@ pub enum ContractError {
     #[error("The address doesn't have sufficient balance for this operation")]
     InsufficentBalance,
 
-    #[error("The leinholder doesn't have any claims")]
-    UnknownLeinholder,
+    #[error("The provider doesn't have any claims")]
+    UnknownProvider,
 
-    #[error("The leinholder doesn't have enough claims for the action")]
+    #[error("The provider doesn't have enough claims for the action")]
     InsufficientLein,
 
     #[error("Custom Error val: {val:?}")]
