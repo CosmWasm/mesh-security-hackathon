@@ -16,7 +16,9 @@ use crate::msg::{
     AccountResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, ListValidatorsResponse, QueryMsg,
     StakeInfo, ValidatorResponse,
 };
-use crate::state::{Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, VALIDATORS, PACKET_LIFETIME};
+use crate::state::{
+    Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, PACKET_LIFETIME, STAKED, VALIDATORS,
+};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
@@ -46,7 +48,10 @@ pub fn instantiate(
     CONFIG.save(deps.storage, &state)?;
 
     // Set packet time from msg or set default
-    PACKET_LIFETIME.save(deps.storage, &msg.packet_lifetime.unwrap_or(DEFAULT_PACKET_LIFETIME))?;
+    PACKET_LIFETIME.save(
+        deps.storage,
+        &msg.packet_lifetime.unwrap_or(DEFAULT_PACKET_LIFETIME),
+    )?;
 
     let label = format!("Slasher for {}", &env.contract.address);
     let msg = WasmMsg::Instantiate {
@@ -424,7 +429,7 @@ mod tests {
             lockup: "lockup_contract".to_string(),
             unbonding_period: 86400 * 14,
             rewards_ibc_denom: "".to_string(),
-            packet_lifetime: None
+            packet_lifetime: None,
         };
         let info = mock_info("creator", &coins(1000, "earth"));
 

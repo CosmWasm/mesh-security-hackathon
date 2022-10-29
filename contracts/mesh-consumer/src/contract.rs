@@ -59,7 +59,7 @@ pub fn execute(
     match msg {
         ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg { validator } => {
             execute_receive_rewards(deps, env, info, validator)
-        },
+        }
     }
 }
 
