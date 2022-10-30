@@ -1,17 +1,13 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, MessageInfo, Response, StdResult,
-};
+use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 
 use mesh_apis::ConsumerExecuteMsg;
-use mesh_ibc::ConsumerMsg;
 
 use crate::error::ContractError;
-use crate::ibc::build_timeout;
 use crate::msg::{InstantiateMsg, QueryMsg};
-use crate::state::{Config, CHANNEL, CONFIG, PACKET_LIFETIME};
+use crate::state::{Config, CONFIG, PACKET_LIFETIME, VALIDATORS};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-consumer";
@@ -59,42 +55,38 @@ pub fn execute(
     match msg {
         ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg { validator } => {
             execute_receive_rewards(deps, env, info, validator)
-        },
-        ConsumerExecuteMsg::UpdatePacketLifetime { time } => execute_update_packet_lifetime(deps, time),
+        }
+        ConsumerExecuteMsg::UpdatePacketLifetime { time } => {
+            execute_update_packet_lifetime(deps, time)
+        }
     }
 }
 
 // We receive the rewards as funds from meta-stacking, and send it over IBC to mesh-provider
 pub fn execute_receive_rewards(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     validator: String,
 ) -> Result<Response, ContractError> {
-    let channel_id = CHANNEL.load(deps.storage)?;
-
     let coin = info.funds[0].clone();
 
-    let msg = IbcMsg::SendPacket {
-        channel_id,
-        data: to_binary(&ConsumerMsg::Rewards {
-            validator,
-            total_funds: coin,
-        })?,
-        timeout: build_timeout(deps.as_ref(), &env)?,
-    };
+    // We got rewards, calculate rewards and save validator
+    VALIDATORS.update::<_, ContractError>(deps.storage, &validator, |val| {
+        let mut val = val.unwrap_or_default();
 
-    Ok(Response::default().add_message(msg))
+        val.calc_rewards(coin.amount)?;
+
+        Ok(val)
+    })?;
+
+    Ok(Response::default())
 }
 
-pub fn execute_update_packet_lifetime(
-    deps: DepsMut,
-    time: u64,
-) -> Result<Response, ContractError> {
+pub fn execute_update_packet_lifetime(deps: DepsMut, time: u64) -> Result<Response, ContractError> {
     // TODO: do permissions check
     PACKET_LIFETIME.save(deps.storage, &time)?;
-    Ok(Response::new()
-    .add_attribute("method", "update_packet_lifetime"))
+    Ok(Response::new().add_attribute("method", "update_packet_lifetime"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

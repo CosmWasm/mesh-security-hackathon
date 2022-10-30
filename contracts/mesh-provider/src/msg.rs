@@ -16,7 +16,7 @@ pub struct InstantiateMsg {
     /// IBC denom string - "port_id/channel_id/denom"
     pub rewards_ibc_denom: String,
     /// Packet time for ibc calls
-    pub packet_lifetime: Option<u64>
+    pub packet_lifetime: Option<u64>,
 }
 
 #[cw_serde]
@@ -68,8 +68,8 @@ pub enum ExecuteMsg {
         validator: String,
     },
     UpdatePacketLifetime {
-        time: u64
-    }
+        time: u64,
+    },
 }
 
 #[cw_serde]

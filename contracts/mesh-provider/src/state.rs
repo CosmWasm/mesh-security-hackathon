@@ -17,6 +17,8 @@ pub struct Config {
     /// Unbonding period of the remote chain in seconds
     pub unbonding_period: u64,
     /// IBC denom string - "port_id/channel_id/denom"
+    // TODO: maybe expose a msg to get this value? this way it will be easier to get their balance
+    // Or even expose a msg to get the balance of this denom.
     pub rewards_ibc_denom: String,
 }
 
@@ -41,13 +43,6 @@ pub struct Stake {
     /// Note: if current value of these shares is less than locked, we have been slashed
     /// and act accordingly
     pub shares: Uint128,
-    pub rewards: DelegatorRewards,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
-pub struct DelegatorRewards {
-    pub pending: Decimal,
-    pub paid_rewards_per_token: Decimal,
 }
 
 impl Stake {
@@ -58,46 +53,6 @@ impl Stake {
     /// How many tokens this is worth at current validator price
     pub fn current_value(&self, val: &Validator) -> Uint128 {
         val.shares_to_tokens(self.shares)
-    }
-
-    /// Calculate rewards
-    pub fn calc_pending_rewards(
-        &mut self,
-        new_rewards_per_token: Decimal,
-        staked: Uint128,
-    ) -> Result<(), ContractError> {
-        if staked.is_zero() {
-            self.rewards.paid_rewards_per_token = new_rewards_per_token;
-            return Ok(());
-        }
-
-        let rewards_per_token_to_pay = new_rewards_per_token - self.rewards.paid_rewards_per_token;
-
-        if rewards_per_token_to_pay.is_zero() {
-            // Got nothing to calculate, move on
-            return Ok(());
-        }
-
-        self.rewards.pending += rewards_per_token_to_pay.checked_mul(Decimal::new(staked))?;
-
-        self.rewards.paid_rewards_per_token = new_rewards_per_token;
-
-        Ok(())
-    }
-
-    /// Reset pending, keep leftover in pending.
-    pub fn reset_pending(&mut self) {
-        self.rewards.pending -= self.rewards.pending.floor();
-    }
-
-    // TODO: Find a better way of doing this?
-    /// Turn pending decimal to u128 to send tokens
-    pub fn pending_to_u128(&self) -> Result<u128, ContractError> {
-        let full_num = self.rewards.pending.floor().atomics();
-        let to_send = full_num.checked_div(Uint128::from(
-            10_u32.pow(self.rewards.pending.decimal_places()),
-        ))?;
-        Ok(to_send.u128())
     }
 
     /// Check if a slash has occurred. If so, reduced my locked balance and
@@ -150,38 +105,6 @@ pub struct Validator {
     pub multiplier: Decimal,
     // how active is it
     pub status: ValStatus,
-    pub rewards: ValidatorRewards,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct ValidatorRewards {
-    /// rewards_per_token, total of rewards to be paid per staked token
-    pub rewards_per_token: Decimal,
-}
-
-impl Default for ValidatorRewards {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ValidatorRewards {
-    pub fn new() -> Self {
-        ValidatorRewards {
-            rewards_per_token: Decimal::zero(),
-        }
-    }
-
-    pub fn calc_rewards(
-        &mut self,
-        rewards: Uint128,
-        total_tokens: Uint128,
-    ) -> Result<(), ContractError> {
-        let rewards_dec = Decimal::checked_from_ratio(rewards, total_tokens)?;
-
-        self.rewards_per_token = rewards_dec.checked_add(self.rewards_per_token)?;
-        Ok(())
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -203,7 +126,6 @@ impl Validator {
             stake: Uint128::zero(),
             multiplier: Decimal::one(),
             status: ValStatus::Active,
-            rewards: ValidatorRewards::new(),
         }
     }
 

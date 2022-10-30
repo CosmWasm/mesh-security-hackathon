@@ -4,28 +4,28 @@
  * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
  */
 
-export interface InstantiateMsg {}
+export interface InstantiateMsg {
+  rewards_denom: string;
+}
 export type ExecuteMsg =
   | {
       delegate: {
         amount: Uint128;
+        staker: string;
         validator: string;
       };
     }
   | {
       undelegate: {
         amount: Uint128;
-        validator: string;
-      };
-    }
-  | {
-      withdraw_delegator_reward: {
+        staker: string;
         validator: string;
       };
     }
   | {
       withdraw_to_costumer: {
-        consumer: string;
+        consumer: Addr;
+        staker: string;
         validator: string;
       };
     }
@@ -33,6 +33,7 @@ export type ExecuteMsg =
       sudo: SudoMsg;
     };
 export type Uint128 = string;
+export type Addr = string;
 export type SudoMsg =
   | {
       add_consumer: {
@@ -105,14 +106,12 @@ export interface ConsumerInfo {
   total_staked: Uint128;
 }
 export interface ConsumerRewards {
-  last_height: number;
-  last_rptpb: Uint128;
-  pending: Uint128;
+  paid_rewards_per_token: Decimal;
+  pending: Decimal;
 }
 export interface ConsumersResponse {
   consumers: ConsumerInfo[];
 }
-export type Addr = string;
 export interface DelegationResponse {
   delegation?: FullDelegation | null;
   [k: string]: unknown;

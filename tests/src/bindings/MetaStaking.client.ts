@@ -116,9 +116,11 @@ export interface MetaStakingInterface extends MetaStakingReadOnlyInterface {
   delegate: (
     {
       amount,
+      staker,
       validator,
     }: {
       amount: Uint128;
+      staker: string;
       validator: string;
     },
     fee?: number | StdFee | "auto",
@@ -128,19 +130,11 @@ export interface MetaStakingInterface extends MetaStakingReadOnlyInterface {
   undelegate: (
     {
       amount,
+      staker,
       validator,
     }: {
       amount: Uint128;
-      validator: string;
-    },
-    fee?: number | StdFee | "auto",
-    memo?: string,
-    funds?: Coin[]
-  ) => Promise<ExecuteResult>;
-  withdrawDelegatorReward: (
-    {
-      validator,
-    }: {
+      staker: string;
       validator: string;
     },
     fee?: number | StdFee | "auto",
@@ -150,9 +144,11 @@ export interface MetaStakingInterface extends MetaStakingReadOnlyInterface {
   withdrawToCostumer: (
     {
       consumer,
+      staker,
       validator,
     }: {
-      consumer: string;
+      consumer: Addr;
+      staker: string;
       validator: string;
     },
     fee?: number | StdFee | "auto",
@@ -173,7 +169,6 @@ export class MetaStakingClient extends MetaStakingQueryClient implements MetaSta
     this.contractAddress = contractAddress;
     this.delegate = this.delegate.bind(this);
     this.undelegate = this.undelegate.bind(this);
-    this.withdrawDelegatorReward = this.withdrawDelegatorReward.bind(this);
     this.withdrawToCostumer = this.withdrawToCostumer.bind(this);
     this.sudo = this.sudo.bind(this);
   }
@@ -181,9 +176,11 @@ export class MetaStakingClient extends MetaStakingQueryClient implements MetaSta
   delegate = async (
     {
       amount,
+      staker,
       validator,
     }: {
       amount: Uint128;
+      staker: string;
       validator: string;
     },
     fee: number | StdFee | "auto" = "auto",
@@ -196,6 +193,7 @@ export class MetaStakingClient extends MetaStakingQueryClient implements MetaSta
       {
         delegate: {
           amount,
+          staker,
           validator,
         },
       },
@@ -207,9 +205,11 @@ export class MetaStakingClient extends MetaStakingQueryClient implements MetaSta
   undelegate = async (
     {
       amount,
+      staker,
       validator,
     }: {
       amount: Uint128;
+      staker: string;
       validator: string;
     },
     fee: number | StdFee | "auto" = "auto",
@@ -222,29 +222,7 @@ export class MetaStakingClient extends MetaStakingQueryClient implements MetaSta
       {
         undelegate: {
           amount,
-          validator,
-        },
-      },
-      fee,
-      memo,
-      funds
-    );
-  };
-  withdrawDelegatorReward = async (
-    {
-      validator,
-    }: {
-      validator: string;
-    },
-    fee: number | StdFee | "auto" = "auto",
-    memo?: string,
-    funds?: Coin[]
-  ): Promise<ExecuteResult> => {
-    return await this.client.execute(
-      this.sender,
-      this.contractAddress,
-      {
-        withdraw_delegator_reward: {
+          staker,
           validator,
         },
       },
@@ -256,9 +234,11 @@ export class MetaStakingClient extends MetaStakingQueryClient implements MetaSta
   withdrawToCostumer = async (
     {
       consumer,
+      staker,
       validator,
     }: {
-      consumer: string;
+      consumer: Addr;
+      staker: string;
       validator: string;
     },
     fee: number | StdFee | "auto" = "auto",
@@ -271,6 +251,7 @@ export class MetaStakingClient extends MetaStakingQueryClient implements MetaSta
       {
         withdraw_to_costumer: {
           consumer,
+          staker,
           validator,
         },
       },

@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    coin, ensure_eq, to_binary, BankMsg, Binary, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo,
-    Order, Reply, Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    ensure_eq, to_binary, Binary, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo, Order, Reply,
+    Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
@@ -16,7 +16,9 @@ use crate::msg::{
     AccountResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, ListValidatorsResponse, QueryMsg,
     StakeInfo, ValidatorResponse,
 };
-use crate::state::{Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, VALIDATORS, PACKET_LIFETIME};
+use crate::state::{
+    Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, PACKET_LIFETIME, STAKED, VALIDATORS,
+};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-provider";
@@ -46,7 +48,10 @@ pub fn instantiate(
     CONFIG.save(deps.storage, &state)?;
 
     // Set packet time from msg or set default
-    PACKET_LIFETIME.save(deps.storage, &msg.packet_lifetime.unwrap_or(DEFAULT_PACKET_LIFETIME))?;
+    PACKET_LIFETIME.save(
+        deps.storage,
+        &msg.packet_lifetime.unwrap_or(DEFAULT_PACKET_LIFETIME),
+    )?;
 
     let label = format!("Slasher for {}", &env.contract.address);
     let msg = WasmMsg::Instantiate {
@@ -81,7 +86,7 @@ pub fn reply_init_callback(deps: DepsMut, resp: SubMsgResponse) -> Result<Respon
     Ok(Response::new())
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[entry_point]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -131,12 +136,6 @@ pub fn execute_receive_claim(
         .may_load(deps.storage, (&owner, &validator))?
         .unwrap_or_default();
 
-    // First calculate rewards with old stake (or set default if first delegation)
-    stake.calc_pending_rewards(
-        val.rewards.rewards_per_token,
-        val.shares_to_tokens(stake.shares),
-    )?;
-
     stake.stake_validator(&mut val, amount);
     STAKED.save(deps.storage, (&owner, &validator), &stake)?;
     VALIDATORS.save(deps.storage, &validator, &val)?;
@@ -145,7 +144,7 @@ pub fn execute_receive_claim(
     let packet = ProviderMsg::Stake {
         validator,
         amount,
-        key: owner.into_string(),
+        delegator_addr: owner.into_string(),
     };
     let msg = IbcMsg::SendPacket {
         channel_id: CHANNEL.load(deps.storage)?,
@@ -203,12 +202,6 @@ pub fn execute_unstake(
     }
     let mut stake = STAKED.load(deps.storage, (&info.sender, &validator))?;
 
-    // Calculate rewards with old stake
-    stake.calc_pending_rewards(
-        val.rewards.rewards_per_token,
-        val.shares_to_tokens(stake.shares),
-    )?;
-
     stake.unstake_validator(&mut val, amount)?;
     // check if we need to slash
     let slash = stake.take_slash(&val);
@@ -229,7 +222,7 @@ pub fn execute_unstake(
     let packet = ProviderMsg::Unstake {
         validator,
         amount,
-        key: info.sender.to_string(),
+        delegator_addr: info.sender.to_string(),
     };
     let msg = IbcMsg::SendPacket {
         channel_id: CHANNEL.load(deps.storage)?,
@@ -284,56 +277,24 @@ pub fn execute_claim_rewards(
     info: MessageInfo,
     validator: String,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-
-    // calculate rewards
-    let validator_info = VALIDATORS.load(deps.storage, &validator)?;
-    let mut delegator_stake = STAKED.load(deps.storage, (&info.sender, &validator))?;
-
-    // We calculate the rewards
-    delegator_stake.calc_pending_rewards(
-        validator_info.rewards.rewards_per_token,
-        delegator_stake.shares,
-    )?;
-
-    if delegator_stake.rewards.pending.floor().is_zero() {
-        return Err(ContractError::NoRewardsToClaim {});
-    }
-
-    let balance = deps
-        .querier
-        .query_balance(env.contract.address, config.rewards_ibc_denom.clone())?;
-
-    // Make sure we have something to send, if its false, funds might be stuck in consumer and need admin. (or we messed up badly)
-    if delegator_stake.rewards.pending > Decimal::new(balance.amount) {
-        return Err(ContractError::WrongBalance {
-            balance: balance.amount,
-            rewards: delegator_stake.rewards.pending,
-        });
-    }
-
-    let send_amount = delegator_stake.pending_to_u128()?;
-
-    let msg = BankMsg::Send {
-        to_address: info.sender.to_string(),
-        amount: vec![coin(send_amount, config.rewards_ibc_denom)],
+    // send out IBC packet for staking change
+    let packet = ProviderMsg::WithdrawRewards {
+        validator,
+        delegator_addr: info.sender.to_string(),
     };
-
-    // Save new rewards
-    delegator_stake.reset_pending();
-    STAKED.save(deps.storage, (&info.sender, &validator), &delegator_stake)?;
+    let msg = IbcMsg::SendPacket {
+        channel_id: CHANNEL.load(deps.storage)?,
+        data: to_binary(&packet)?,
+        timeout: build_timeout(deps.as_ref(), &env)?,
+    };
 
     Ok(Response::new().add_message(msg))
 }
 
-pub fn execute_update_packet_lifetime(
-    deps: DepsMut,
-    time: u64,
-) -> Result<Response, ContractError> {
+pub fn execute_update_packet_lifetime(deps: DepsMut, time: u64) -> Result<Response, ContractError> {
     // TODO: do permissions check
     PACKET_LIFETIME.save(deps.storage, &time)?;
-    Ok(Response::new()
-    .add_attribute("method", "update_packet_lifetime"))
+    Ok(Response::new().add_attribute("method", "update_packet_lifetime"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -435,7 +396,7 @@ mod tests {
             lockup: "lockup_contract".to_string(),
             unbonding_period: 86400 * 14,
             rewards_ibc_denom: "".to_string(),
-            packet_lifetime: None
+            packet_lifetime: None,
         };
         let info = mock_info("creator", &coins(1000, "earth"));
 

@@ -134,7 +134,9 @@ async function demoSetup(): Promise<SetupInfo> {
   const { slasher: osmoMeshSlasher } = await osmoClient.sign.queryContractSmart(osmoMeshProvider, { config: {} });
 
   // instantiate meta_staking on wasmd
-  const initMetaStaking = {};
+  const initMetaStaking = {
+    rewards_denom: "ucosm",
+  };
   const { contractAddress: wasmMetaStaking } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
     wasmIds.meta_staking,
@@ -227,7 +229,9 @@ test.serial("fail if connect from different connect or port", async (t) => {
   assert(meshProviderPort);
 
   // instantiate meta_staking on wasmd
-  const initMetaStaking = {};
+  const initMetaStaking = {
+    rewards_denom: "ucosm",
+  };
   const { contractAddress: wasmMetaStaking } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
     wasmIds.meta_staking,
@@ -310,7 +314,7 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   );
   console.log("Add consumer to wasmd meta-staking contract: ", add_consumer_res);
 
-  // Lockup 100 tokens on Osmosis
+  // Lockup 500000 tokens on Osmosis
   const lockedTokens = { amount: "500000", denom: "uosmo" };
   const lockupRes = await osmoClient.sign.execute(
     osmoClient.senderAddress,
@@ -384,23 +388,23 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   console.log("Meta:", preMetabalance, "Consumer:", preConsumerbalance, "Provider:", preProviderbalance);
 
   // Withdraw rewards from validator
-  const resWithdrawReward = await metaStakingClient.withdrawDelegatorReward({
-    validator: validatorAddr,
-  });
+  // const resWithdrawReward = await metaStakingClient.withdrawDelegatorReward({
+  //   validator: validatorAddr,
+  // });
   const preSendMetabalance = await wasmClient.sign.getBalance(wasmMetaStaking, "ucosm");
 
-  console.log("Withdraw amount:", resWithdrawReward.logs[0].events[5].attributes[0].value);
-  console.log("Pre-send meta balance:", preSendMetabalance);
+  // console.log("Withdraw amount:", resWithdrawReward.logs[0].events[5].attributes[0].value);
+  // console.log("Pre-send meta balance:", preSendMetabalance);
 
   const rewardsTosend = subCoins(preSendMetabalance, preMetabalance);
 
   // withdraw from meta-staking to consumer to provider
-  const resWithdrawToConsumer = await metaStakingClient.withdrawToCostumer({
-    validator: validatorAddr,
-    consumer: wasmMeshConsumer,
-  });
+  // const resWithdrawToConsumer = await metaStakingClient.withdrawToCostumer({
+  //   validator: validatorAddr,
+  //   consumer: wasmMeshConsumer,
+  // });
 
-  console.log("Withdraw to consumer response: ", resWithdrawToConsumer);
+  // console.log("Withdraw to consumer response: ", resWithdrawToConsumer);
 
   // Relay our packets to provider
   const relay_info_4 = await link.relayAll();
