@@ -8,6 +8,7 @@ export type Binary = string;
 export interface InstantiateMsg {
   consumer: ConsumerInfo;
   lockup: string;
+  packet_lifetime?: number | null;
   rewards_ibc_denom: string;
   slasher: SlasherInfo;
   unbonding_period: number;
@@ -44,7 +45,14 @@ export type ExecuteMsg =
       unbond: {};
     }
   | {
-      claim_rewards: {};
+      claim_rewards: {
+        validator: string;
+      };
+    }
+  | {
+      update_packet_lifetime: {
+        time: number;
+      };
     };
 export type Decimal = string;
 export type Uint128 = string;
