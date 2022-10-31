@@ -1,4 +1,5 @@
 use cosmwasm_std::{CheckedFromRatioError, Decimal, DivideByZeroError, OverflowError, StdError};
+use cw_utils::ParseReplyError;
 use thiserror::Error;
 
 use mesh_ibc::MeshSecurityError;
@@ -13,6 +14,9 @@ pub enum ContractError {
 
     #[error("{0}")]
     CheckedFromRatioError(#[from] CheckedFromRatioError),
+
+    #[error("{0}")]
+    ParseReplyError(#[from] ParseReplyError),
 
     #[error("{0}")]
     DivideByZeroError(#[from] DivideByZeroError),
@@ -49,6 +53,9 @@ pub enum ContractError {
 
     #[error("Acknowledgement failed")]
     AckFailed {},
+
+    #[error("Acknowledgement data response is None")]
+    AckDataIsNone {},
 
     #[error("Rewards acknowledgement failed")]
     RewardsFailed {},

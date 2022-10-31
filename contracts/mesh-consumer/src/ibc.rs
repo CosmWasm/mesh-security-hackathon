@@ -1,11 +1,12 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-
 use cosmwasm_std::{
     from_slice, to_binary, Coin, Deps, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128, WasmMsg,
 };
+
+use cw_utils::{parse_execute_response_data, parse_reply_execute_data, MsgExecuteContractResponse};
 
 use mesh_apis::CallbackDataResponse;
 use mesh_ibc::{check_order, check_version, ConsumerMsg, ProviderMsg, StdAck};
@@ -151,7 +152,7 @@ pub fn receive_stake(
     // Convert remote token to local token
     let amount = amount * config.remote_to_local_exchange_rate;
 
-    let msg = SubMsg::<Empty>::reply_on_success(
+    let msg = SubMsg::reply_on_success(
         WasmMsg::Execute {
             contract_addr: config.meta_staking_contract_address.to_string(),
             msg: to_binary(&MetaStakingExecuteMsg::Delegate {
@@ -178,7 +179,7 @@ pub fn receive_unstake(
     // Convert remote token to local token
     let amount = amount * config.remote_to_local_exchange_rate;
 
-    let msg = SubMsg::<Empty>::reply_on_success(
+    let msg = SubMsg::reply_on_success(
         WasmMsg::Execute {
             contract_addr: config.meta_staking_contract_address.to_string(),
             msg: to_binary(&MetaStakingExecuteMsg::Undelegate {
@@ -202,7 +203,7 @@ pub fn receive_withdraw_rewards(
 ) -> Result<IbcReceiveResponse, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    let msg = SubMsg::<Empty>::reply_on_success(
+    let msg = SubMsg::reply_on_success(
         WasmMsg::Execute {
             contract_addr: config.meta_staking_contract_address.to_string(),
             msg: to_binary(&MetaStakingExecuteMsg::WithdrawToCostumer {
@@ -218,24 +219,26 @@ pub fn receive_withdraw_rewards(
     Ok(IbcReceiveResponse::new().add_submessage(msg))
 }
 
-fn verify_callback_data(data: Option<Binary>) -> Result<CallbackDataResponse, StdError> {
-    let data = match data {
-        Some(data) => data,
-        None => return Err(StdError::generic_err("Failed to read data from reply")),
-    };
-
+fn verify_callback_data(data: Binary) -> Result<CallbackDataResponse, StdError> {
     from_slice(&data)
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
     // on reply, we calculate rewards based on recent rewards from validator, and old stake
     // then we update storage with new stake (after accurate rewards calculation)
+    let result = parse_reply_execute_data(reply.clone())?;
+
+    if result.data.is_none() {
+        return Err(ContractError::AckDataIsNone {});
+    }
+    let data = result.data.unwrap();
+
     match reply.id {
-        STAKE_CALLBACK_ID => reply_stake_callback(deps, reply.result.unwrap()),
-        UNSTAKE_CALLBACK_ID => reply_unstake_callback(deps, reply.result.unwrap()),
+        STAKE_CALLBACK_ID => reply_stake_callback(deps, data),
+        UNSTAKE_CALLBACK_ID => reply_unstake_callback(deps, data),
         WITHDRAW_REWARDS_CALLBACK_ID => {
-            reply_withdraw_rewards_callback(deps, env, reply.result.unwrap())
+            reply_withdraw_rewards_callback(deps, env, data)
         }
         _ => Err(ContractError::InvalidReplyId(reply.id)),
     }
@@ -243,14 +246,14 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
 
 pub fn reply_stake_callback(
     deps: DepsMut,
-    resp: SubMsgResponse,
+    data: Binary,
 ) -> Result<Response, ContractError> {
     let CallbackDataResponse {
         validator,
         staker,
         stake_amount,
         rewards,
-    } = verify_callback_data(resp.data)?;
+    } = verify_callback_data(data)?;
 
     // We trust provider tested validator exists, so we can safely load default validator if we
     // haven't staked for this validator before.
@@ -277,14 +280,14 @@ pub fn reply_stake_callback(
 
 pub fn reply_unstake_callback(
     deps: DepsMut,
-    resp: SubMsgResponse,
+    data: Binary,
 ) -> Result<Response, ContractError> {
     let CallbackDataResponse {
         validator,
         staker,
         stake_amount,
         rewards,
-    } = verify_callback_data(resp.data)?;
+    } = verify_callback_data(data)?;
 
     // We trust provider tested validator exists, so we can safely load default validator if we
     // haven't staked for this validator before.
@@ -312,14 +315,14 @@ pub fn reply_unstake_callback(
 pub fn reply_withdraw_rewards_callback(
     deps: DepsMut,
     env: Env,
-    resp: SubMsgResponse,
+    data: Binary,
 ) -> Result<Response, ContractError> {
     let CallbackDataResponse {
         validator,
         staker,
         stake_amount: _,
         rewards,
-    } = verify_callback_data(resp.data)?;
+    } = verify_callback_data(data)?;
     let channel = CHANNEL.load(deps.storage)?;
     // We trust provider tested validator exists, so we can safely load default validator if we
     // haven't staked for this validator before.

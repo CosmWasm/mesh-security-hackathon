@@ -1,4 +1,4 @@
-use cosmwasm_std::{CheckedFromRatioError, DivideByZeroError, OverflowError, StdError};
+use cosmwasm_std::{CheckedFromRatioError, DivideByZeroError, OverflowError, StdError, Uint128};
 use cw_utils::ParseReplyError;
 use thiserror::Error;
 
@@ -34,8 +34,8 @@ pub enum ContractError {
     #[error("Cannot undelegate from a a validator that does not have delegations")]
     NoDelegationsForValidator {},
 
-    #[error("Contract does not have enough funds for consumer")]
-    NotEnoughFunds {},
+    #[error("Contract does not have enough funds for consumer: {denom} | {balance} < {funds}")]
+    NotEnoughFunds {denom: String, balance: Uint128, funds: Uint128},
 
     #[error("Consumer already exists")]
     ConsumerAlreadyExists {},

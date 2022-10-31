@@ -105,7 +105,7 @@ mod execute {
             withdraw_validator_reward(deps, env, validator.clone())?;
 
         // We get delegations of this specific consumer to this specific validator.
-        let delegations = VALIDATORS_BY_CONSUMER.load(deps.storage, (&info.sender, &validator))?;
+        let delegations = (VALIDATORS_BY_CONSUMER.may_load(deps.storage, (&info.sender, &validator))?).unwrap_or_default();
         let mut consumer = CONSUMERS.load(deps.storage, &info.sender)?;
 
         // calculate consumer rewards till now (with old stake and rewards till now)
@@ -138,6 +138,8 @@ mod execute {
             gas_limit: None,
         };
 
+        response = response.add_submessage(sub_msg);
+
         // Send the rewards to consumer
         let mut send_rewards = Coin::new(0_u128, "".to_string());
 
@@ -147,10 +149,10 @@ mod execute {
                 denom: rewards_denom,
                 amount: Uint128::from(consumer.pending_to_u128()?),
             };
-            let msg = CosmosMsg::Bank(BankMsg::Send {
+            let msg = BankMsg::Send {
                 to_address: info.sender.to_string(),
                 amount: vec![send_rewards.clone()],
-            });
+            };
 
             // We add the bankMsg into response.
             response = response.add_message(msg);
@@ -170,7 +172,7 @@ mod execute {
             rewards: send_rewards,
         })?;
 
-        Ok(response.add_submessage(sub_msg).set_data(set_data))
+        Ok(response.set_data(set_data))
     }
 
     pub fn undelegate(
@@ -188,7 +190,7 @@ mod execute {
             withdraw_validator_reward(deps, env, validator.clone())?;
 
         // We get delegations of this specific consumer to this specific validator.
-        let delegations = VALIDATORS_BY_CONSUMER.load(deps.storage, (&info.sender, &validator))?;
+        let delegations = (VALIDATORS_BY_CONSUMER.may_load(deps.storage, (&info.sender, &validator))?).unwrap_or_default();
         let mut consumer = CONSUMERS.load(deps.storage, &info.sender)?;
 
         // calculate consumer rewards till now (with old stake and rewards till now)
@@ -223,6 +225,8 @@ mod execute {
             gas_limit: None,
         };
 
+        response = response.add_submessage(sub_msg);
+
         // Send the rewards to consumer
         let mut send_rewards = Coin::new(0_u128, "".to_string());
 
@@ -255,7 +259,7 @@ mod execute {
             rewards: send_rewards,
         })?;
 
-        Ok(response.add_submessage(sub_msg).set_data(set_data))
+        Ok(response.set_data(set_data))
     }
 
     fn withdraw_validator_reward(
@@ -333,7 +337,7 @@ mod execute {
         let mut consumer = CONSUMERS.load(deps.storage, consumer_addr)?;
 
         // consumer delegations to this validator
-        let delegations = VALIDATORS_BY_CONSUMER.load(deps.storage, (consumer_addr, &validator))?;
+        let delegations = (VALIDATORS_BY_CONSUMER.may_load(deps.storage, (consumer_addr, &validator))?).unwrap_or_default();
 
         // Do the consumer rewards calculation
         consumer.calc_pending_rewards(validator_rewards.rewards_per_token, delegations)?;
@@ -514,11 +518,11 @@ mod sudo {
         let contract_balance = deps
             .as_ref()
             .querier
-            .query_balance(env.contract.address, denom)?;
+            .query_balance(env.contract.address, denom.clone())?;
 
         ensure!(
             contract_balance.amount >= funds_available_for_staking.amount,
-            ContractError::NotEnoughFunds {}
+            ContractError::NotEnoughFunds {denom, balance: contract_balance.amount, funds: funds_available_for_staking.amount}
         );
 
         CONSUMERS.save(
@@ -583,9 +587,12 @@ mod reply {
 
 #[cfg(test)]
 mod tests {
+    use core::panic;
+
     use super::*;
-    use cosmwasm_std::coins;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::{coin, coins, Addr, Uint128, QueryRequest, StakingQuery, from_binary, BondedDenomResponse, Validator, Decimal, from_slice};
+    use mesh_apis::CallbackDataResponse;
 
     #[test]
     fn proper_initialization() {
@@ -594,10 +601,64 @@ mod tests {
         let msg = InstantiateMsg {
             rewards_denom: "wasm".to_string(),
         };
-        let info = mock_info("creator", &coins(1000, "earth"));
+        let info = mock_info("creator", &coins(1000, ""));
 
         // we can just call .unwrap() to assert this was a success
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
+    }
+
+    const ADMIN: &str = "admin_addr";
+    const DENOM: &str = "utest";
+    const REWARDS_DENOM: &str = "ucosm";
+    const VALIDATOR_ADDR: &str = "some_validator";
+    const STAKER_ADDR: &str = "some_staker";
+    const CONSUMER_ADDR: &str = "some_consumer";
+    const AMOUNT: Uint128 = Uint128::new(1000_u128);
+
+    #[test]
+    fn test_delegate() {
+        let validator = Validator {
+            address: VALIDATOR_ADDR.to_string(),
+            commission: Decimal::one(),
+            max_commission: Decimal::one(),
+            max_change_rate: Decimal::zero(),
+        };
+        let mut deps = mock_dependencies();
+
+        deps.querier.update_staking(DENOM, &[validator],&[]);
+
+        // Init the contract
+        let info = mock_info(ADMIN, &coins(10000, DENOM));
+        let msg = InstantiateMsg {
+            rewards_denom: REWARDS_DENOM.to_string(),
+        };
+
+        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        // Add consumer
+        let info = mock_info(ADMIN, &coins(1000, DENOM));
+        let env = mock_env();
+
+        deps.querier.update_balance(env.contract.address, coins(10000, DENOM));
+
+        let msg = ExecuteMsg::Sudo(SudoMsg::AddConsumer {
+            consumer_address: CONSUMER_ADDR.to_string(),
+            funds_available_for_staking: coin(1000, DENOM),
+        });
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        // Do delegate from consumer
+        let info = mock_info(CONSUMER_ADDR, &coins(10000, DENOM));
+
+        let msg = ExecuteMsg::Delegate {
+            validator: VALIDATOR_ADDR.to_string(),
+            staker: STAKER_ADDR.to_string(),
+            amount: AMOUNT,
+        };
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let binary = res.data.unwrap();
+        println!("{:?}", from_slice::<CallbackDataResponse>(&binary));
+        panic!();
     }
 }
