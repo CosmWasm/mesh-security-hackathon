@@ -67,9 +67,9 @@ pub enum ExecuteMsg {
     ClaimRewards {
         validator: String,
     },
-    UpdatePacketLifetime {
-        time: u64
-    }
+    // UpdatePacketLifetime {
+    //     time: u64
+    // }
 }
 
 #[cw_serde]

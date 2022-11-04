@@ -60,7 +60,7 @@ pub fn execute(
         ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg { validator } => {
             execute_receive_rewards(deps, env, info, validator)
         },
-        ConsumerExecuteMsg::UpdatePacketLifetime { time } => execute_update_packet_lifetime(deps, time),
+        // ConsumerExecuteMsg::UpdatePacketLifetime { time } => execute_update_packet_lifetime(deps, time),
     }
 }
 
@@ -87,15 +87,15 @@ pub fn execute_receive_rewards(
     Ok(Response::default().add_message(msg))
 }
 
-pub fn execute_update_packet_lifetime(
-    deps: DepsMut,
-    time: u64,
-) -> Result<Response, ContractError> {
-    // TODO: do permissions check
-    PACKET_LIFETIME.save(deps.storage, &time)?;
-    Ok(Response::new()
-    .add_attribute("method", "update_packet_lifetime"))
-}
+// pub fn execute_update_packet_lifetime(
+//     deps: DepsMut,
+//     time: u64,
+// ) -> Result<Response, ContractError> {
+//     // TODO: do permissions check
+//     PACKET_LIFETIME.save(deps.storage, &time)?;
+//     Ok(Response::new()
+//     .add_attribute("method", "update_packet_lifetime"))
+// }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
