@@ -131,16 +131,6 @@ export interface MeshProviderInterface extends MeshProviderReadOnlyInterface {
     memo?: string,
     funds?: Coin[]
   ) => Promise<ExecuteResult>;
-  updatePacketLifetime: (
-    {
-      time,
-    }: {
-      time: number;
-    },
-    fee?: number | StdFee | "auto",
-    memo?: string,
-    funds?: Coin[]
-  ) => Promise<ExecuteResult>;
 }
 export class MeshProviderClient extends MeshProviderQueryClient implements MeshProviderInterface {
   client: SigningCosmWasmClient;
@@ -157,7 +147,6 @@ export class MeshProviderClient extends MeshProviderQueryClient implements MeshP
     this.unstake = this.unstake.bind(this);
     this.unbond = this.unbond.bind(this);
     this.claimRewards = this.claimRewards.bind(this);
-    this.updatePacketLifetime = this.updatePacketLifetime.bind(this);
   }
 
   slash = async (
@@ -272,29 +261,6 @@ export class MeshProviderClient extends MeshProviderQueryClient implements MeshP
       {
         claim_rewards: {
           validator,
-        },
-      },
-      fee,
-      memo,
-      funds
-    );
-  };
-  updatePacketLifetime = async (
-    {
-      time,
-    }: {
-      time: number;
-    },
-    fee: number | StdFee | "auto" = "auto",
-    memo?: string,
-    funds?: Coin[]
-  ): Promise<ExecuteResult> => {
-    return await this.client.execute(
-      this.sender,
-      this.contractAddress,
-      {
-        update_packet_lifetime: {
-          time,
         },
       },
       fee,

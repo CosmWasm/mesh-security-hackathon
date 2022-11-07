@@ -16,17 +16,11 @@ export interface ProviderInfo {
   connection_id: string;
   port_id: string;
 }
-export type ExecuteMsg =
-  | {
-      mesh_consumer_recieve_rewards_msg: {
-        validator: string;
-      };
-    }
-  | {
-      update_packet_lifetime: {
-        time: number;
-      };
-    };
+export type ExecuteMsg = {
+  mesh_consumer_recieve_rewards_msg: {
+    validator: string;
+  };
+};
 export type QueryMsg = {
   config: {};
 };

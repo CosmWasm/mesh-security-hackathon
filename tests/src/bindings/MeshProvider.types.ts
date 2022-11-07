@@ -48,11 +48,6 @@ export type ExecuteMsg =
       claim_rewards: {
         validator: string;
       };
-    }
-  | {
-      update_packet_lifetime: {
-        time: number;
-      };
     };
 export type Decimal = string;
 export type Uint128 = string;

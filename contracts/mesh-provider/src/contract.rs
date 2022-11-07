@@ -109,7 +109,6 @@ pub fn execute(
         }
         ExecuteMsg::Unbond {} => execute_unbond(deps, info, env),
         ExecuteMsg::ClaimRewards { validator } => execute_claim_rewards(deps, env, info, validator),
-        ExecuteMsg::UpdatePacketLifetime { time } => execute_update_packet_lifetime(deps, time),
     }
 }
 
