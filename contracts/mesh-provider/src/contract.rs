@@ -104,7 +104,6 @@ pub fn execute(
         }
         ExecuteMsg::Unbond {} => execute_unbond(deps, info, env),
         ExecuteMsg::ClaimRewards { validator } => execute_claim_rewards(deps, env, info, validator),
-        // ExecuteMsg::UpdatePacketLifetime { time } => execute_update_packet_lifetime(deps, time),
     }
 }
 
@@ -325,16 +324,6 @@ pub fn execute_claim_rewards(
 
     Ok(Response::new().add_message(msg))
 }
-
-// pub fn execute_update_packet_lifetime(
-//     deps: DepsMut,
-//     time: u64,
-// ) -> Result<Response, ContractError> {
-//     // TODO: do permissions check
-//     PACKET_LIFETIME.save(deps.storage, &time)?;
-//     Ok(Response::new()
-//     .add_attribute("method", "update_packet_lifetime"))
-// }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
