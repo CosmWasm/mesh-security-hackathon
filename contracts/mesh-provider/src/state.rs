@@ -21,6 +21,7 @@ pub struct Config {
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
+pub const PACKET_LIFETIME: Item<u64> = Item::new("packet_time");
 pub const CHANNEL: Item<String> = Item::new("channel");
 pub const PORT: Item<String> = Item::new("port");
 

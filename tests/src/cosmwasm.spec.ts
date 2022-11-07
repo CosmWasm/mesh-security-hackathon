@@ -425,7 +425,7 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
 
   // Do rewards withdraw from provider to the sender
   const meshProviderClient = new MeshProviderClient(osmoClient.sign, osmoClient.senderAddress, osmoMeshProvider);
-  const withdrawToUser = await meshProviderClient.claimRewards();
+  const withdrawToUser = await meshProviderClient.claimRewards({ validator: validatorAddr });
 
   console.log("Withdraw to user:", withdrawToUser);
 

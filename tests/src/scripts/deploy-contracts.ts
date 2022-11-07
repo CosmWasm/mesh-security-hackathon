@@ -123,6 +123,7 @@ async function installConsumer(
     },
     remote_to_local_exchange_rate: "0.3",
     meta_staking_contract_address: metaStakingAddr,
+    ics20_channel: "",
   };
   const { contractAddress: meshConsumerAddr } = await client.instantiate(
     signer,

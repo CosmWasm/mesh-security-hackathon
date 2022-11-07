@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult,
+    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, MessageInfo, Response, StdResult,
 };
 use cw2::set_contract_version;
 
@@ -9,12 +9,16 @@ use mesh_apis::ConsumerExecuteMsg;
 use mesh_ibc::ConsumerMsg;
 
 use crate::error::ContractError;
+use crate::ibc::build_timeout;
 use crate::msg::{InstantiateMsg, QueryMsg};
-use crate::state::{Config, CHANNEL, CONFIG};
+use crate::state::{Config, CHANNEL, CONFIG, PACKET_LIFETIME};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:mesh-consumer";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// Default packet life time = 1 hour
+const DEFAULT_PACKET_LIFETIME: u64 = 60 * 60;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -32,6 +36,13 @@ pub fn instantiate(
         remote_to_local_exchange_rate: msg.remote_to_local_exchange_rate,
         ics20_channel: msg.ics20_channel,
     };
+
+    // Set packet lifetime from msg or set default
+    PACKET_LIFETIME.save(
+        deps.storage,
+        &msg.packet_lifetime.unwrap_or(DEFAULT_PACKET_LIFETIME),
+    )?;
+
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &config)?;
 
@@ -48,7 +59,7 @@ pub fn execute(
     match msg {
         ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg { validator } => {
             execute_receive_rewards(deps, env, info, validator)
-        }
+        },
     }
 }
 
@@ -60,7 +71,6 @@ pub fn execute_receive_rewards(
     validator: String,
 ) -> Result<Response, ContractError> {
     let channel_id = CHANNEL.load(deps.storage)?;
-    let timeout: IbcTimeout = env.block.time.plus_seconds(300).into();
 
     let coin = info.funds[0].clone();
 
@@ -70,7 +80,7 @@ pub fn execute_receive_rewards(
             validator,
             total_funds: coin,
         })?,
-        timeout,
+        timeout: build_timeout(deps.as_ref(), &env)?,
     };
 
     Ok(Response::default().add_message(msg))
@@ -104,6 +114,7 @@ mod tests {
             provider: provider_info(),
             remote_to_local_exchange_rate: Decimal::percent(10),
             ics20_channel: "channel-10".to_string(),
+            packet_lifetime: None,
         };
         let info = mock_info("creator", &coins(1000, "earth"));
 

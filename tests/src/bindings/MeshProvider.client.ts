@@ -121,7 +121,16 @@ export interface MeshProviderInterface extends MeshProviderReadOnlyInterface {
     funds?: Coin[]
   ) => Promise<ExecuteResult>;
   unbond: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-  claimRewards: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  claimRewards: (
+    {
+      validator,
+    }: {
+      validator: string;
+    },
+    fee?: number | StdFee | "auto",
+    memo?: string,
+    funds?: Coin[]
+  ) => Promise<ExecuteResult>;
 }
 export class MeshProviderClient extends MeshProviderQueryClient implements MeshProviderInterface {
   client: SigningCosmWasmClient;
@@ -237,6 +246,11 @@ export class MeshProviderClient extends MeshProviderQueryClient implements MeshP
     );
   };
   claimRewards = async (
+    {
+      validator,
+    }: {
+      validator: string;
+    },
     fee: number | StdFee | "auto" = "auto",
     memo?: string,
     funds?: Coin[]
@@ -245,7 +259,9 @@ export class MeshProviderClient extends MeshProviderQueryClient implements MeshP
       this.sender,
       this.contractAddress,
       {
-        claim_rewards: {},
+        claim_rewards: {
+          validator,
+        },
       },
       fee,
       memo,
