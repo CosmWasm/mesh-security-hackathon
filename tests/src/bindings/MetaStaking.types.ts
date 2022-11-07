@@ -105,9 +105,8 @@ export interface ConsumerInfo {
   total_staked: Uint128;
 }
 export interface ConsumerRewards {
-  last_height: number;
-  last_rptpb: Uint128;
-  pending: Uint128;
+  paid_rewards_per_token: Decimal;
+  pending: Decimal;
 }
 export interface ConsumersResponse {
   consumers: ConsumerInfo[];

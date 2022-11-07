@@ -41,16 +41,6 @@ export interface MeshConsumerInterface extends MeshConsumerReadOnlyInterface {
     memo?: string,
     funds?: Coin[]
   ) => Promise<ExecuteResult>;
-  updatePacketLifetime: (
-    {
-      time,
-    }: {
-      time: number;
-    },
-    fee?: number | StdFee | "auto",
-    memo?: string,
-    funds?: Coin[]
-  ) => Promise<ExecuteResult>;
 }
 export class MeshConsumerClient extends MeshConsumerQueryClient implements MeshConsumerInterface {
   client: SigningCosmWasmClient;
@@ -63,7 +53,6 @@ export class MeshConsumerClient extends MeshConsumerQueryClient implements MeshC
     this.sender = sender;
     this.contractAddress = contractAddress;
     this.meshConsumerRecieveRewardsMsg = this.meshConsumerRecieveRewardsMsg.bind(this);
-    this.updatePacketLifetime = this.updatePacketLifetime.bind(this);
   }
 
   meshConsumerRecieveRewardsMsg = async (
@@ -82,29 +71,6 @@ export class MeshConsumerClient extends MeshConsumerQueryClient implements MeshC
       {
         mesh_consumer_recieve_rewards_msg: {
           validator,
-        },
-      },
-      fee,
-      memo,
-      funds
-    );
-  };
-  updatePacketLifetime = async (
-    {
-      time,
-    }: {
-      time: number;
-    },
-    fee: number | StdFee | "auto" = "auto",
-    memo?: string,
-    funds?: Coin[]
-  ): Promise<ExecuteResult> => {
-    return await this.client.execute(
-      this.sender,
-      this.contractAddress,
-      {
-        update_packet_lifetime: {
-          time,
         },
       },
       fee,
