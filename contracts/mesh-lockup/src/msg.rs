@@ -16,6 +16,7 @@ pub enum ExecuteMsg {
     /// Only works if the account has sufficient funds that is not backing open claims
     Unbond { amount: Uint128 },
     /// This gives a claim on my balance to leinholder, granting it to a given validator
+    /// In the case of granting a claim, the leinholder is the mesh-provider contract
     GrantClaim {
         leinholder: String,
         amount: Uint128,
