@@ -1,10 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use crate::msg::InstantiateMsg;
+    use crate::msg::{ExecuteMsg, InstantiateMsg};
     use crate::{helpers::MetaStakingContract, msg::SudoMsg as MetaStakingSudoMsg};
-    use cosmwasm_std::{to_binary, Addr, Coin, Empty, Uint128};
+    use cosmwasm_std::testing::mock_env;
+    use cosmwasm_std::{to_binary, Addr, Coin, Decimal, Empty, Uint128, Validator};
     use cw_multi_test::{
-        App, AppBuilder, BankSudo, Contract, ContractWrapper, Executor, SudoMsg, WasmSudo,
+        next_block, App, AppBuilder, BankSudo, Contract, ContractWrapper, Executor, SudoMsg,
+        WasmSudo,
     };
 
     pub fn meta_staking_contract() -> Box<dyn Contract<Empty>> {
@@ -19,11 +21,27 @@ mod tests {
 
     const USER: &str = "USER";
     const ADMIN: &str = "ADMIN";
-    const NATIVE_DENOM: &str = "ujuno";
+    const NATIVE_DENOM: &str = "TOKEN";
+    const VALIDATOR: &str = "validator";
 
-    /// TODO: setup app so staking doesn't fail
     fn mock_app() -> App {
-        AppBuilder::new().build(|router, _, storage| {
+        let env = mock_env();
+        AppBuilder::new().build(|router, api, storage| {
+            router
+                .staking
+                .add_validator(
+                    api,
+                    storage,
+                    &env.block,
+                    Validator {
+                        address: VALIDATOR.to_string(),
+                        commission: Decimal::zero(),
+                        max_commission: Decimal::one(),
+                        max_change_rate: Decimal::one(),
+                    },
+                )
+                .unwrap();
+
             router
                 .bank
                 .init_balance(
@@ -70,10 +88,12 @@ mod tests {
             to_address: meta_staking_addr.addr().to_string(),
             amount: vec![Coin {
                 amount: Uint128::new(100000000),
-                denom: "ujuno".to_string(),
+                denom: NATIVE_DENOM.to_string(),
             }],
         }))
         .unwrap();
+
+        app.update_block(next_block);
 
         // Gov adds consumer
         app.sudo(SudoMsg::Wasm(WasmSudo {
@@ -92,81 +112,75 @@ mod tests {
         (app, meta_staking_addr, consumer)
     }
 
-    // // TODO fix test setup so staking messages and queries don't fail
-    // #[test]
-    // fn happy_path() {
-    //     let (mut app, meta_staking_addr, consumer) = add_and_fund_consumer();
+    #[test]
+    fn happy_path() {
+        let (mut app, meta_staking_addr, consumer) = add_and_fund_consumer();
 
-    //     let validator_addr = Addr::unchecked("validator");
+        let validator_addr = Addr::unchecked(VALIDATOR);
 
-    //     let balance = app
-    //         .wrap()
-    //         .query_all_balances(meta_staking_addr.addr())
-    //         .unwrap();
-    //     println!("{:?}, {:?}", meta_staking_addr.addr(), balance);
+        let balance = app
+            .wrap()
+            .query_all_balances(meta_staking_addr.addr())
+            .unwrap();
+        println!("{:?}, {:?}", meta_staking_addr.addr(), balance);
 
-    //     // Consumer delegates funds
-    //     app.execute_contract(
-    //         consumer.clone(),
-    //         meta_staking_addr.addr(),
-    //         &ExecuteMsg::Delegate {
-    //             validator: validator_addr.to_string(),
-    //             amount: Coin {
-    //                 denom: NATIVE_DENOM.to_string(),
-    //                 amount: Uint128::new(100000),
-    //             },
-    //         },
-    //         &[],
-    //     )
-    //     .unwrap();
+        // Consumer delegates funds
+        app.execute_contract(
+            consumer.clone(),
+            meta_staking_addr.addr(),
+            &ExecuteMsg::Delegate {
+                validator: validator_addr.to_string(),
+                amount: Uint128::new(100000),
+            },
+            &[],
+        )
+        .unwrap();
 
-    //     // Consumer claims rewards
-    //     app.execute_contract(
-    //         consumer.clone(),
-    //         meta_staking_addr.addr(),
-    //         &ExecuteMsg::WithdrawDelegatorReward {
-    //             validator: validator_addr.to_string(),
-    //         },
-    //         &[],
-    //     )
-    //     .unwrap();
+        // Update block
+        app.update_block(next_block);
 
-    //     // Consumer unbonds funds
-    //     app.execute_contract(
-    //         consumer,
-    //         meta_staking_addr.addr(),
-    //         &ExecuteMsg::Undelegate {
-    //             validator: validator_addr.to_string(),
-    //             amount: Coin {
-    //                 denom: NATIVE_DENOM.to_string(),
-    //                 amount: Uint128::new(100000),
-    //             },
-    //         },
-    //         &[],
-    //     )
-    //     .unwrap();
-    // }
+        // Consumer claims rewards
+        // Errors because there are no rewards to claim
+        app.execute_contract(
+            consumer.clone(),
+            meta_staking_addr.addr(),
+            &ExecuteMsg::WithdrawDelegatorReward {
+                validator: validator_addr.to_string(),
+            },
+            &[],
+        )
+        .unwrap_err();
 
-    // #[test]
-    // fn only_consumer_can_preform_actions() {
-    //     let (mut app, meta_staking_addr, _) = add_and_fund_consumer();
+        // Consumer unbonds funds
+        app.execute_contract(
+            consumer,
+            meta_staking_addr.addr(),
+            &ExecuteMsg::Undelegate {
+                validator: validator_addr.to_string(),
+                amount: Uint128::new(100000),
+            },
+            &[],
+        )
+        .unwrap();
+    }
 
-    //     let validator_addr = Addr::unchecked("validator");
-    //     let random = Addr::unchecked("random");
+    #[test]
+    fn only_consumer_can_preform_actions() {
+        let (mut app, meta_staking_addr, _) = add_and_fund_consumer();
 
-    //     // Random address fails to delegates funds
-    //     app.execute_contract(
-    //         random,
-    //         meta_staking_addr.addr(),
-    //         &ExecuteMsg::Delegate {
-    //             validator: validator_addr.to_string(),
-    //             amount: Coin {
-    //                 denom: NATIVE_DENOM.to_string(),
-    //                 amount: Uint128::new(100000),
-    //             },
-    //         },
-    //         &[],
-    //     )
-    //     .unwrap_err();
-    // }
+        let validator_addr = Addr::unchecked("validator");
+        let random = Addr::unchecked("random");
+
+        // Random address fails to delegates funds
+        app.execute_contract(
+            random,
+            meta_staking_addr.addr(),
+            &ExecuteMsg::Delegate {
+                validator: validator_addr.to_string(),
+                amount: Uint128::new(100000),
+            },
+            &[],
+        )
+        .unwrap_err();
+    }
 }

@@ -112,7 +112,9 @@ mod execute {
             }
         };
 
-        let delegations = VALIDATORS_BY_CONSUMER.load(deps.storage, (&info.sender, &validator))?;
+        let delegations = VALIDATORS_BY_CONSUMER
+            .load(deps.storage, (&info.sender, &validator))
+            .unwrap_or(Uint128::zero());
 
         CONSUMERS.update(
             deps.storage,
@@ -241,11 +243,14 @@ mod execute {
         let total_accumulated_rewards = &match delegation_query {
             Some(delegation) => delegation.accumulated_rewards,
             None => return Err(ContractError::NoDelegationsForValidator {}),
-        }[0];
+        };
 
-        if total_accumulated_rewards.amount.is_zero() {
+        // Check to make sure there are rewards
+        if total_accumulated_rewards.len() == 0 || total_accumulated_rewards[0].amount.is_zero() {
             return Err(ContractError::ZeroRewardsToSend {});
         }
+
+        let total_accumulated_rewards = &total_accumulated_rewards[0];
 
         let total_delegations = CONSUMERS_BY_VALIDATOR
             .prefix(&validator)
