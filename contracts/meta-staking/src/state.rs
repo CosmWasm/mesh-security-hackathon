@@ -168,17 +168,17 @@ mod tests {
             self.consumer_one += amount;
         }
 
-        fn add_stake_to_consumer_two(&mut self, amount: Uint128) {
+        fn _add_stake_to_consumer_two(&mut self, amount: Uint128) {
             self.total += amount;
             self.consumer_two += amount;
         }
 
-        fn reduce_stake_to_consumer_one(&mut self, amount: Uint128) {
+        fn _reduce_stake_to_consumer_one(&mut self, amount: Uint128) {
             self.total -= amount;
             self.consumer_one -= amount;
         }
 
-        fn reduce_stake_to_consumer_two(&mut self, amount: Uint128) {
+        fn _reduce_stake_to_consumer_two(&mut self, amount: Uint128) {
             self.total -= amount;
             self.consumer_two -= amount;
         }
@@ -221,35 +221,74 @@ mod tests {
         };
 
         // add 100 tokens as rewards
-        validator_rewards = add_validator_rewards(validator_rewards, Uint128::from(100_u128), staked.total).unwrap();
+        validator_rewards =
+            add_validator_rewards(validator_rewards, Uint128::from(100_u128), staked.total)
+                .unwrap();
 
         // calc consumer rewards and add stake
-        consumer_one_rewards = calc_consumer_rewards(&validator_rewards, consumer_one_rewards, staked.consumer_one).unwrap();
+        consumer_one_rewards = calc_consumer_rewards(
+            &validator_rewards,
+            consumer_one_rewards,
+            staked.consumer_one,
+        )
+        .unwrap();
         staked.add_stake_to_consumer_one(Uint128::from(100_u128));
 
         // We have 100 in rewards, so now in pending we should have 50 tokens (50% stake)
-        assert_eq!(consumer_one_rewards.paid_rewards_per_token, validator_rewards.rewards_per_token);
-        assert_eq!(consumer_one_rewards.pending, Decimal::from_atomics(Uint128::from(50_u128), 18).unwrap());
+        assert_eq!(
+            consumer_one_rewards.paid_rewards_per_token,
+            validator_rewards.rewards_per_token
+        );
+        assert_eq!(
+            consumer_one_rewards.pending,
+            Decimal::from_atomics(Uint128::from(50_u128), 18).unwrap()
+        );
 
         // add 300 tokens as rewards
-        validator_rewards = add_validator_rewards(validator_rewards, Uint128::from(300_u128), staked.total).unwrap();
+        validator_rewards =
+            add_validator_rewards(validator_rewards, Uint128::from(300_u128), staked.total)
+                .unwrap();
 
         // calc consumer rewards and add stake
-        consumer_one_rewards = calc_consumer_rewards(&validator_rewards, consumer_one_rewards, staked.consumer_one).unwrap();
+        consumer_one_rewards = calc_consumer_rewards(
+            &validator_rewards,
+            consumer_one_rewards,
+            staked.consumer_one,
+        )
+        .unwrap();
         staked.add_stake_to_consumer_one(Uint128::from(100_u128));
 
         // We make sure that rewards_per_token is updated
-        assert_eq!(consumer_one_rewards.paid_rewards_per_token, validator_rewards.rewards_per_token);
+        assert_eq!(
+            consumer_one_rewards.paid_rewards_per_token,
+            validator_rewards.rewards_per_token
+        );
         // We now should have 50 tokens from before + 200 from now.
-        assert_eq!(consumer_one_rewards.pending, Decimal::from_atomics(Uint128::from(250_u128), 18).unwrap());
+        assert_eq!(
+            consumer_one_rewards.pending,
+            Decimal::from_atomics(Uint128::from(250_u128), 18).unwrap()
+        );
 
         // Calculate rewards for consumer 2 for the first time.
-        consumer_two_rewards = calc_consumer_rewards(&validator_rewards, consumer_two_rewards, staked.consumer_two).unwrap();
+        consumer_two_rewards = calc_consumer_rewards(
+            &validator_rewards,
+            consumer_two_rewards,
+            staked.consumer_two,
+        )
+        .unwrap();
 
         // Consumer 2 should have 50 from first rewards, and 100 from second rewards
-        assert_eq!(consumer_two_rewards.pending, Decimal::from_atomics(Uint128::from(150_u128), 18).unwrap());
+        assert_eq!(
+            consumer_two_rewards.pending,
+            Decimal::from_atomics(Uint128::from(150_u128), 18).unwrap()
+        );
         // We make sure that the total rewards pending are exactly the rewards we gave (400 u128)
-        assert_eq!(consumer_one_rewards.pending.checked_add(consumer_two_rewards.pending).unwrap(), Decimal::from_atomics(Uint128::from(400_u128), 18).unwrap());
-
+        assert_eq!(
+            consumer_one_rewards
+                .pending
+                .checked_add(consumer_two_rewards.pending)
+                .unwrap(),
+            Decimal::from_atomics(Uint128::from(400_u128), 18).unwrap()
+        );
     }
 }

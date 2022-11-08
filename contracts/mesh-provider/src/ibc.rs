@@ -2,9 +2,9 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_slice, to_binary, Coin, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    from_slice, to_binary, Coin, Deps, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128, Deps,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128,
 };
 
 use mesh_ibc::{
@@ -13,7 +13,7 @@ use mesh_ibc::{
 };
 
 use crate::error::ContractError;
-use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PORT, VALIDATORS, PACKET_LIFETIME};
+use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PACKET_LIFETIME, PORT, VALIDATORS};
 
 pub fn build_timeout(deps: Deps, env: &Env) -> Result<IbcTimeout, ContractError> {
     let packet_time = PACKET_LIFETIME.load(deps.storage)?;
@@ -179,11 +179,6 @@ pub fn ibc_packet_ack(
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     let res: StdAck = from_slice(&msg.acknowledgement.data)?;
-
-    // TODO remove, but temporarily useful for debugging
-    if res.is_err() {
-        panic!("ack: {:?}", res.unwrap_err());
-    }
 
     // we need to handle the ack based on our request
     let original_packet: ProviderMsg = from_slice(&msg.original_packet.data)?;

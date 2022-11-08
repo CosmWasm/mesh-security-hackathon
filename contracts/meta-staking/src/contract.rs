@@ -112,7 +112,9 @@ mod execute {
             }
         };
 
-        let delegations = VALIDATORS_BY_CONSUMER.load(deps.storage, (&info.sender, &validator))?;
+        let delegations = VALIDATORS_BY_CONSUMER
+            .load(deps.storage, (&info.sender, &validator))
+            .unwrap_or_else(|_| Uint128::zero());
 
         CONSUMERS.update(
             deps.storage,
@@ -241,11 +243,14 @@ mod execute {
         let total_accumulated_rewards = &match delegation_query {
             Some(delegation) => delegation.accumulated_rewards,
             None => return Err(ContractError::NoDelegationsForValidator {}),
-        }[0];
+        };
 
-        if total_accumulated_rewards.amount.is_zero() {
+        // Check to make sure there are rewards
+        if total_accumulated_rewards.is_empty() || total_accumulated_rewards[0].amount.is_zero() {
             return Err(ContractError::ZeroRewardsToSend {});
         }
+
+        let total_accumulated_rewards = &total_accumulated_rewards[0];
 
         let total_delegations = CONSUMERS_BY_VALIDATOR
             .prefix(&validator)
@@ -513,7 +518,6 @@ mod reply {
         msg: Reply,
     ) -> Result<Response, ContractError> {
         // Send funds to consumer
-        // TODO add explicit method to mesh consumer that will fire off
         // IbcMsg to provider
         let res = parse_reply_execute_data(msg)?;
         println!("{:?}", res);

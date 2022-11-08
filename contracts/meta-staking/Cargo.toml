@@ -33,12 +33,12 @@ mesh-apis = { path = "../../packages/mesh-apis", version = "0.1.0" }
 cosmwasm-schema = "1.1.4"
 cosmwasm-std = "1.1.4"
 cosmwasm-storage = "1.1.4"
-cw-storage-plus = "0.15.1"
-cw-utils = "0.15.1"
-cw2 = "0.15.1"
+cw-storage-plus = "0.16"
+cw-utils = "0.16"
+cw2 = "0.16"
 schemars = "0.8.11"
 serde = { version = "1.0.145", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.37" }
 
 [dev-dependencies]
-cw-multi-test = "0.15.1"
+cw-multi-test = "0.16"
