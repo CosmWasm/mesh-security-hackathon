@@ -24,6 +24,7 @@ import {
   setupOsmoStargateClient,
   setupWasmClient,
   setupWasmStargateClient,
+  sleepBlocks,
   subCoins,
 } from "./utils";
 
@@ -393,6 +394,9 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   console.log("Pre-send meta balance:", preSendMetabalance);
 
   const rewardsTosend = subCoins(preSendMetabalance, preMetabalance);
+
+  // Sleep 20 blocks
+  await sleepBlocks(20, wasmStargateClient);
 
   // withdraw from meta-staking to consumer to provider
   const resWithdrawToConsumer = await metaStakingClient.withdrawToCostumer({
