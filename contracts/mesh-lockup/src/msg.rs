@@ -17,13 +17,11 @@ pub enum ExecuteMsg {
     Unbond { amount: Uint128 },
     /// This gives a claim on my balance to leinholder, granting it to a given validator
     GrantClaim {
-        // TODO maybe rename this to provider?
         leinholder: String,
         amount: Uint128,
         validator: String,
     },
     /// This releases a previously received claim without slashing it
-    /// TODO this is also confusing naming. Who / what is the owner here?
     ReleaseClaim { owner: String, amount: Uint128 },
     /// This slashes a previously provided claim
     SlashClaim { owner: String, amount: Uint128 },
