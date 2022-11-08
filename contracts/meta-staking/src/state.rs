@@ -168,17 +168,17 @@ mod tests {
             self.consumer_one += amount;
         }
 
-        fn add_stake_to_consumer_two(&mut self, amount: Uint128) {
+        fn _add_stake_to_consumer_two(&mut self, amount: Uint128) {
             self.total += amount;
             self.consumer_two += amount;
         }
 
-        fn reduce_stake_to_consumer_one(&mut self, amount: Uint128) {
+        fn _reduce_stake_to_consumer_one(&mut self, amount: Uint128) {
             self.total -= amount;
             self.consumer_one -= amount;
         }
 
-        fn reduce_stake_to_consumer_two(&mut self, amount: Uint128) {
+        fn _reduce_stake_to_consumer_two(&mut self, amount: Uint128) {
             self.total -= amount;
             self.consumer_two -= amount;
         }
