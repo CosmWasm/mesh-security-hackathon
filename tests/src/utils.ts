@@ -44,6 +44,15 @@ export interface FundingOpts {
   };
 }
 
+export async function sleepBlocks(blocksToSleep: number, client: StargateClient): Promise<void> {
+  console.log(`Sleeping for ${blocksToSleep} blocks...`);
+  let currentHeight = await client.getHeight();
+  const endHeight = currentHeight + blocksToSleep;
+  while (currentHeight < endHeight) {
+    currentHeight = await client.getHeight();
+  }
+}
+
 export async function fundStakingAccount(opts: FundingOpts, rcpt: string, amount: string): Promise<void> {
   const client = await signingClient(opts, opts.faucet.mnemonic);
   const stakeTokens = { amount, denom: opts.denomStaking };
