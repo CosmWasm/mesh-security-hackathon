@@ -1,12 +1,11 @@
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{to_binary, Addr, CosmosMsg, StdResult, WasmMsg};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 use crate::msg::ExecuteMsg;
 
 /// CwTemplateContract is a wrapper around Addr that provides a lot of helpers
 /// for working with this.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[cw_serde]
 pub struct MetaStakingContract(pub Addr);
 
 impl MetaStakingContract {
