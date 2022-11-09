@@ -106,7 +106,9 @@ async function installConsumer(
   const wasmIds = await setupContracts(client, signer, consumerContracts);
 
   console.log("instantiate meta_staking on wasmd");
-  const initMetaStaking: StakingInitMsg = {};
+  const initMetaStaking: StakingInitMsg = {
+    rewards_denom: "ucosm",
+  };
   const { contractAddress: metaStakingAddr } = await client.instantiate(
     signer,
     wasmIds.meta_staking,
