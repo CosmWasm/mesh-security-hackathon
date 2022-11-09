@@ -8,6 +8,7 @@ license       = { workspace = true }
 repository    = { workspace = true }
 homepage      = { workspace = true }
 documentation = { workspace = true }
+exclude       = { workspace = true }
 
 [lib]
 crate-type = ["cdylib", "rlib"]
