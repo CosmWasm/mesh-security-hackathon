@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
 
-use cosmwasm_std::{Coin, Uint128};
+use cosmwasm_std::Uint128;
 
 /// These are messages sent from the provider to the consumer
 #[cw_serde]
@@ -13,18 +13,24 @@ pub enum ProviderMsg {
         validator: String,
         /// How much to stake with this validator
         amount: Uint128,
-        /// A unique key for this request set by the caller, to be used to
-        /// properly handle ack and timeout messages (not used by consumer)
-        key: String,
+        /// The delegator address used as a unique key to save stake on consumer, and to
+        /// properly handle ack and timeout messages
+        delegator_addr: String,
     },
     Unstake {
         /// Which validator to unstake from
         validator: String,
         /// How much to unstake from this validator
         amount: Uint128,
-        /// A unique key for this request set by the caller, to be used to
-        /// properly handle ack and timeout messages (not used by consumer)
-        key: String,
+        /// The delegator address used as a unique key to save stake on consumer, and to
+        /// properly handle ack and timeout messages
+        delegator_addr: String,
+    },
+    WithdrawRewards {
+        /// Which validator to withdraw from
+        validator: String,
+        /// The address to send rewards to on the other chain (IbcMsg::Transfer)
+        delegator_addr: String,
     },
 }
 
@@ -37,10 +43,6 @@ pub enum ConsumerMsg {
     UpdateValidators {
         added: Vec<String>,
         removed: Vec<String>,
-    },
-    Rewards {
-        validator: String,
-        total_funds: Coin,
     },
 }
 

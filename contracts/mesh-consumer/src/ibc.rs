@@ -7,11 +7,16 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128, WasmMsg,
 };
 
+use mesh_apis::CallbackDataResponse;
 use mesh_ibc::{check_order, check_version, ConsumerMsg, ProviderMsg, StdAck};
 use meta_staking::msg::ExecuteMsg as MetaStakingExecuteMsg;
 
 use crate::error::ContractError;
-use crate::state::{CHANNEL, CONFIG, PACKET_LIFETIME};
+use crate::state::{CHANNEL, CONFIG, PACKET_LIFETIME, STAKED, VALIDATORS};
+
+const STAKE_CALLBACK_ID: u64 = 1;
+const UNSTAKE_CALLBACK_ID: u64 = 2;
+const WITHDRAW_REWARDS_CALLBACK_ID: u64 = 3;
 
 pub fn build_timeout(deps: Deps, env: &Env) -> Result<IbcTimeout, ContractError> {
     let packet_time = PACKET_LIFETIME.load(deps.storage)?;
@@ -94,7 +99,7 @@ pub fn ibc_channel_close(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_receive(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, ContractError> {
     // paranoia: ensure it was sent on proper channel
@@ -109,13 +114,17 @@ pub fn ibc_packet_receive(
         ProviderMsg::Stake {
             validator,
             amount,
-            key: _,
-        } => receive_stake(deps, validator, amount),
+            delegator_addr,
+        } => receive_stake(deps, validator, amount, delegator_addr),
         ProviderMsg::Unstake {
             validator,
             amount,
-            key: _,
-        } => receive_unstake(deps, validator, amount),
+            delegator_addr,
+        } => receive_unstake(deps, validator, amount, delegator_addr),
+        ProviderMsg::WithdrawRewards {
+            validator,
+            delegator_addr,
+        } => receive_withdraw_rewards(deps, env, validator, delegator_addr),
     }
 }
 
@@ -135,47 +144,243 @@ pub fn receive_stake(
     deps: DepsMut,
     validator: String,
     amount: Uint128,
+    staker: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
     // Convert remote token to local token
     let amount = amount * config.remote_to_local_exchange_rate;
 
-    let msg = WasmMsg::Execute {
-        contract_addr: config.meta_staking_contract_address.to_string(),
-        msg: to_binary(&MetaStakingExecuteMsg::Delegate { validator, amount })?,
-        funds: vec![],
-    };
+    let msg = SubMsg::<Empty>::reply_on_success(
+        WasmMsg::Execute {
+            contract_addr: config.meta_staking_contract_address.to_string(),
+            msg: to_binary(&MetaStakingExecuteMsg::Delegate {
+                validator,
+                staker,
+                amount,
+            })?,
+            funds: vec![],
+        },
+        STAKE_CALLBACK_ID,
+    );
 
-    let ack = StdAck::success(mesh_ibc::StakeResponse {});
-    Ok(IbcReceiveResponse::new().add_message(msg).set_ack(ack))
+    Ok(IbcReceiveResponse::new().add_submessage(msg).set_ack(StdAck::success("1")))
 }
 
 pub fn receive_unstake(
     deps: DepsMut,
     validator: String,
     amount: Uint128,
+    staker: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
     // Convert remote token to local token
     let amount = amount * config.remote_to_local_exchange_rate;
 
-    let msg = WasmMsg::Execute {
-        contract_addr: config.meta_staking_contract_address.to_string(),
-        msg: to_binary(&MetaStakingExecuteMsg::Undelegate { validator, amount })?,
-        funds: vec![],
+    let msg = SubMsg::<Empty>::reply_on_success(
+        WasmMsg::Execute {
+            contract_addr: config.meta_staking_contract_address.to_string(),
+            msg: to_binary(&MetaStakingExecuteMsg::Undelegate {
+                validator,
+                staker,
+                amount,
+            })?,
+            funds: vec![],
+        },
+        UNSTAKE_CALLBACK_ID,
+    );
+
+    Ok(IbcReceiveResponse::new().add_submessage(msg))
+}
+
+pub fn receive_withdraw_rewards(
+    deps: DepsMut,
+    env: Env,
+    validator: String,
+    staker: String,
+) -> Result<IbcReceiveResponse, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
+    let msg = SubMsg::<Empty>::reply_on_success(
+        WasmMsg::Execute {
+            contract_addr: config.meta_staking_contract_address.to_string(),
+            msg: to_binary(&MetaStakingExecuteMsg::WithdrawToCostumer {
+                consumer: env.contract.address,
+                staker,
+                validator,
+            })?,
+            funds: vec![],
+        },
+        WITHDRAW_REWARDS_CALLBACK_ID,
+    );
+
+    Ok(IbcReceiveResponse::new().add_submessage(msg))
+}
+
+fn verify_callback_data(data: Option<Binary>) -> Result<CallbackDataResponse, StdError> {
+    let data = match data {
+        Some(data) => data,
+        None => return Err(StdError::generic_err("Failed to read data from reply")),
     };
 
-    let ack = StdAck::success(mesh_ibc::UnstakeResponse {});
-    Ok(IbcReceiveResponse::new().add_message(msg).set_ack(ack))
+    from_slice(&data)
+}
+
+#[entry_point]
+pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
+    // on reply, we calculate rewards based on recent rewards from validator, and old stake
+    // then we update storage with new stake (after accurate rewards calculation)
+    match reply.id {
+        STAKE_CALLBACK_ID => reply_stake_callback(deps, reply.result.unwrap()),
+        UNSTAKE_CALLBACK_ID => reply_unstake_callback(deps, reply.result.unwrap()),
+        WITHDRAW_REWARDS_CALLBACK_ID => {
+            reply_withdraw_rewards_callback(deps, env, reply.result.unwrap())
+        }
+        _ => Err(ContractError::InvalidReplyId(reply.id)),
+    }
+}
+
+pub fn reply_stake_callback(
+    deps: DepsMut,
+    resp: SubMsgResponse,
+) -> Result<Response, ContractError> {
+    let CallbackDataResponse {
+        validator,
+        staker,
+        stake_amount,
+        rewards,
+    } = verify_callback_data(resp.data)?;
+
+    // We trust provider tested validator exists, so we can safely load default validator if we
+    // haven't staked for this validator before.
+    let mut val = VALIDATORS
+        .may_load(deps.storage, &validator)?
+        .unwrap_or_default();
+    let mut stake = STAKED
+        .may_load(deps.storage, (&staker, &validator))?
+        .unwrap_or_default();
+
+    // calculate validator rewards and save.
+    val.calc_rewards(rewards.amount)?;
+
+    // update Stake and calculate rewards of delegator (key)
+    stake.calc_pending_rewards(val.rewards_per_token, val.shares_to_tokens(val.stake))?;
+
+    stake.stake_validator(&mut val, stake_amount);
+    STAKED.save(deps.storage, (&staker, &validator), &stake)?;
+    VALIDATORS.save(deps.storage, &validator, &val)?;
+
+    // set ack as data
+    Ok(Response::new().set_data(StdAck::success("1")))
+}
+
+pub fn reply_unstake_callback(
+    deps: DepsMut,
+    resp: SubMsgResponse,
+) -> Result<Response, ContractError> {
+    let CallbackDataResponse {
+        validator,
+        staker,
+        stake_amount,
+        rewards,
+    } = verify_callback_data(resp.data)?;
+
+    // We trust provider tested validator exists, so we can safely load default validator if we
+    // haven't staked for this validator before.
+    let mut val = VALIDATORS
+        .may_load(deps.storage, &validator)?
+        .unwrap_or_default();
+    let mut stake = STAKED
+        .may_load(deps.storage, (&staker, &validator))?
+        .unwrap_or_default();
+
+    // calculate validator rewards and save.
+    val.calc_rewards(rewards.amount)?;
+
+    // calculate rewards of delegator
+    stake.calc_pending_rewards(val.rewards_per_token, val.shares_to_tokens(val.stake))?;
+
+    stake.unstake_validator(&mut val, stake_amount)?;
+    STAKED.save(deps.storage, (&staker, &validator), &stake)?;
+    VALIDATORS.save(deps.storage, &validator, &val)?;
+
+    // set ack as data
+    Ok(Response::new().set_data(StdAck::success("1")))
+}
+
+pub fn reply_withdraw_rewards_callback(
+    deps: DepsMut,
+    env: Env,
+    resp: SubMsgResponse,
+) -> Result<Response, ContractError> {
+    let CallbackDataResponse {
+        validator,
+        staker,
+        stake_amount: _,
+        rewards,
+    } = verify_callback_data(resp.data)?;
+    let channel = CHANNEL.load(deps.storage)?;
+    // We trust provider tested validator exists, so we can safely load default validator if we
+    // haven't staked for this validator before.
+    let mut val = VALIDATORS
+        .may_load(deps.storage, &validator)?
+        .unwrap_or_default();
+    let mut stake = STAKED
+        .may_load(deps.storage, (&staker, &validator))?
+        .unwrap_or_default();
+
+    // calculate validator rewards and save.
+    val.calc_rewards(rewards.amount)?;
+
+    // calculate rewards of delegator
+    stake.calc_pending_rewards(val.rewards_per_token, val.shares_to_tokens(val.stake))?;
+
+    let mut response = Response::new();
+
+    if !stake.rewards.pending.floor().is_zero() {
+        // if its not zero, we can send something, else just return an empty response, no error.
+        let denom = deps.querier.query_bonded_denom()?;
+
+        let consumer_balance = deps
+            .querier
+            .query_balance(env.contract.address.clone(), denom.clone())?;
+
+        // Can we return error here and it will be acknoledged as ack::error?
+        // Because reply response should be the last response read, so it should really be ibcResponse.
+        if stake.rewards.pending.floor() > Decimal::new(consumer_balance.amount) {
+            return Err(ContractError::WrongBalance {
+                balance: Decimal::new(consumer_balance.amount),
+                rewards: stake.rewards.pending,
+            });
+        }
+
+        let send_amount = stake.pending_to_u128()?;
+
+        // Send ibc coin directly to delegator
+        let msg = IbcMsg::Transfer {
+            to_address: staker.clone(),
+            amount: coin(send_amount, denom),
+            channel_id: channel,
+            timeout: build_timeout(deps.as_ref(), &env)?,
+        };
+
+        // Save new rewards
+        stake.reset_pending();
+        STAKED.save(deps.storage, (&staker, &validator), &stake)?;
+
+        response = response.add_message(msg);
+    }
+
+    // set success, if something errored above, it should send ack::error???
+    Ok(response.set_data(StdAck::success("1")))
 }
 
 /// Only handle errors in send
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
-    deps: DepsMut,
-    env: Env,
+    _deps: DepsMut,
+    _env: Env,
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     let res: StdAck = from_slice(&msg.acknowledgement.data)?;
@@ -186,10 +391,6 @@ pub fn ibc_packet_ack(
     // We need to parse the ack based on our request
     let original_packet: ConsumerMsg = from_slice(&msg.original_packet.data)?;
     match original_packet {
-        ConsumerMsg::Rewards {
-            validator: _,
-            total_funds,
-        } => acknowledge_rewards(deps, env, total_funds),
         ConsumerMsg::UpdateValidators {
             added: _,
             removed: _,
@@ -233,10 +434,6 @@ pub fn ibc_packet_timeout(
     // we need to parse the ack based on our request
     let original_packet: ConsumerMsg = from_slice(&msg.packet.data)?;
     match original_packet {
-        ConsumerMsg::Rewards {
-            validator: _,
-            total_funds: _,
-        } => fail_rewards(deps),
         ConsumerMsg::UpdateValidators { added, removed } => {
             fail_update_validators(deps, added, removed)
         }

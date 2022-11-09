@@ -8,8 +8,8 @@ use cosmwasm_std::{
 };
 
 use mesh_ibc::{
-    check_order, check_version, ConsumerMsg, ListValidatorsResponse, ProviderMsg, RewardsResponse,
-    StdAck, UpdateValidatorsResponse,
+    check_order, check_version, ConsumerMsg, ListValidatorsResponse, ProviderMsg, StdAck,
+    UpdateValidatorsResponse,
 };
 
 use crate::error::ContractError;
@@ -115,40 +115,10 @@ pub fn ibc_packet_receive(
 
     let msg: ConsumerMsg = from_slice(&msg.packet.data)?;
     match msg {
-        ConsumerMsg::Rewards {
-            validator,
-            total_funds,
-        } => receive_rewards(deps, env, validator, total_funds),
         ConsumerMsg::UpdateValidators { added, removed } => {
             receive_update_validators(deps, env, added, removed)
         }
     }
-}
-
-pub fn receive_rewards(
-    deps: DepsMut,
-    _env: Env,
-    validator: String,
-    total_funds: Coin,
-) -> Result<IbcReceiveResponse, ContractError> {
-    // Update the rewards of this validator
-    // This will fail if we didn't add the validator before it, we cannot init the validator and calculate rewards in the same msg. (same block)
-    VALIDATORS.update::<_, ContractError>(deps.storage, &validator, |val| {
-        let mut val = match val {
-            Some(val) => val,
-            None => return Err(ContractError::ValidatorRewardsCalculationWrong {}),
-        };
-
-        val.rewards
-            .calc_rewards(total_funds.amount, val.shares_to_tokens(val.stake))?;
-
-        Ok(val)
-    })?;
-
-    // TODO: if calculation failed, we want to handle it as leftover funds? or send funds back to consumer and handle it there?
-    let ack = to_binary(&StdAck::success(&RewardsResponse {}))?;
-
-    Ok(IbcReceiveResponse::new().set_ack(ack))
 }
 
 pub fn receive_update_validators(
@@ -190,21 +160,28 @@ pub fn ibc_packet_ack(
         (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps),
         (
             ProviderMsg::Stake {
-                key,
+                delegator_addr,
                 validator,
                 amount,
             },
             false,
-        ) => fail_stake(deps, key, validator, amount),
+        ) => fail_stake(deps, delegator_addr, validator, amount),
         (
             ProviderMsg::Unstake {
-                key,
+                delegator_addr,
                 validator,
                 amount,
             },
             false,
-        ) => fail_unstake(deps, key, validator, amount),
+        ) => fail_unstake(deps, delegator_addr, validator, amount),
         (_, true) => Ok(IbcBasicResponse::new()),
+        (
+            ProviderMsg::WithdrawRewards {
+                validator,
+                delegator_addr,
+            },
+            false,
+        ) => fail_withdraw_rewards(deps, validator, delegator_addr),
     }
 }
 
@@ -218,15 +195,19 @@ pub fn ibc_packet_timeout(
     match original_packet {
         ProviderMsg::ListValidators {} => fail_list_validators(deps),
         ProviderMsg::Stake {
-            key,
+            delegator_addr,
             validator,
             amount,
-        } => fail_stake(deps, key, validator, amount),
+        } => fail_stake(deps, delegator_addr, validator, amount),
         ProviderMsg::Unstake {
-            key,
+            delegator_addr,
             validator,
             amount,
-        } => fail_unstake(deps, key, validator, amount),
+        } => fail_unstake(deps, delegator_addr, validator, amount),
+        ProviderMsg::WithdrawRewards {
+            validator,
+            delegator_addr,
+        } => fail_withdraw_rewards(deps, validator, delegator_addr),
     }
 }
 
@@ -248,7 +229,7 @@ pub fn fail_list_validators(_deps: DepsMut) -> Result<IbcBasicResponse, Contract
 
 pub fn fail_stake(
     _deps: DepsMut,
-    // _staker is the staker Addr, not used by consumer
+    // _staker is the staker Addr
     _staker: String,
     _validator: String,
     _amount: Uint128,
@@ -259,12 +240,23 @@ pub fn fail_stake(
 
 pub fn fail_unstake(
     _deps: DepsMut,
-    // _staker is the staker Addr, not used by consumer
+    // _staker is the staker Addr
     _staker: String,
     _validator: String,
     _amount: Uint128,
 ) -> Result<IbcBasicResponse, ContractError> {
     // TODO: unrelease the bonded stake, remove claim
     // Maybe we only make Claim on ack?
+    unimplemented!();
+}
+
+pub fn fail_withdraw_rewards(
+    _deps: DepsMut,
+    // _staker is the staker Addr
+    _validator: String,
+    _staker: String,
+) -> Result<IbcBasicResponse, ContractError> {
+    // TODO: We don't save rewards data on provider, so probably nothing needs to be done?
+    // Just let the staker know we failed to withdraw his rewards, but they are safe.
     unimplemented!();
 }
