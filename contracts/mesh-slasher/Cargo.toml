@@ -32,11 +32,11 @@ optimize = """docker run --rm -v "$(pwd)":/code \
 cosmwasm-schema = "1.1.5"
 cosmwasm-std = "1.1.5"
 cosmwasm-storage = "1.1.5"
-cw-storage-plus = "0.16.0"
-cw2 = "0.16.0"
-schemars = "0.8.11"
-serde = { version = "1.0.147", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.37" }
+cw-storage-plus = "0.15.1"
+cw2 = "0.15.1"
+schemars = "0.8.8"
+serde = { version = "1.0.137", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.32" }
 
 [dev-dependencies]
 cw-multi-test = "0.16.0"

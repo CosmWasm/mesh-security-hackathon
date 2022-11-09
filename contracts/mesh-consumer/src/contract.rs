@@ -55,7 +55,7 @@ pub fn execute(
     match msg {
         ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg { validator } => {
             execute_receive_rewards(deps, env, info, validator)
-        },
+        }
     }
 }
 
@@ -73,7 +73,6 @@ pub fn execute_receive_rewards(
         let mut val = val.unwrap_or_default();
 
         val.calc_rewards(coin.amount)?;
-
         Ok(val)
     })?;
 

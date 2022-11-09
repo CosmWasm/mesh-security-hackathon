@@ -69,7 +69,7 @@ pub fn instantiate(
         .add_attribute("owner", info.sender))
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, ContractError> {
     match reply.id {
         INIT_CALLBACK_ID => reply_init_callback(deps, reply.result.unwrap()),
@@ -86,7 +86,7 @@ pub fn reply_init_callback(deps: DepsMut, resp: SubMsgResponse) -> Result<Respon
     Ok(Response::new())
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -288,6 +288,12 @@ pub fn execute_claim_rewards(
     };
 
     Ok(Response::new().add_message(msg))
+}
+
+pub fn execute_update_packet_lifetime(deps: DepsMut, time: u64) -> Result<Response, ContractError> {
+    // TODO: do permissions check
+    PACKET_LIFETIME.save(deps.storage, &time)?;
+    Ok(Response::new().add_attribute("method", "update_packet_lifetime"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
