@@ -27,8 +27,6 @@ pub const UNSTAKE_MAX_RETRIES: u32 = 5;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct RetryState {
     pub list_validators_retries_remaining: u32,
-    pub stake_retries_remaining: u32,
-    pub unstake_retries_remaining: u32,
 }
 
 impl RetryState {
@@ -37,26 +35,8 @@ impl RetryState {
         0 < self.list_validators_retries_remaining
     }
 
-    pub fn stake_should_retry(&mut self) -> bool {
-        self.stake_retries_remaining -= 1;
-        0 < self.stake_retries_remaining
-    }
-
-    pub fn unstake_should_retry(&mut self) -> bool {
-        self.unstake_retries_remaining -= 1;
-        0 < self.unstake_retries_remaining
-    }
-
     pub fn list_validators_reset(&mut self) {
         self.list_validators_retries_remaining = LIST_VALIDATORS_MAX_RETRIES;
-    }
-
-    pub fn stake_reset(&mut self) {
-        self.stake_retries_remaining = STAKE_MAX_RETRIES;
-    }
-
-    pub fn unstake_reset(&mut self) {
-        self.unstake_retries_remaining = UNSTAKE_MAX_RETRIES;
     }
 }
 

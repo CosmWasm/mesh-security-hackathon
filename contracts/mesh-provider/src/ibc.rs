@@ -297,10 +297,6 @@ fn ack_stake(deps: DepsMut, staker: String, validator: String, amount: Uint128) 
     stake.stake_validator(&mut val, amount);
     STAKED.save(deps.storage, (&staker, &validator), &stake)?;
     VALIDATORS.save(deps.storage, &validator, &val)?;
-    RETRIES.update(deps.storage, |mut r| -> Result<crate::state::RetryState, StdError> {
-        r.stake_reset();
-        Ok(r)
-    })?;
 
     Ok(IbcBasicResponse::new()
         .add_event(Event::new("ack_stake")))
@@ -314,13 +310,6 @@ pub fn fail_stake(
     amount: Uint128,
 ) -> Result<IbcBasicResponse, ContractError> {
     let mut retries = RETRIES.load(deps.storage)?;
-    if !retries.stake_should_retry() {
-        retries.stake_reset();
-        RETRIES.save(deps.storage, &retries)?;
-        return Ok(IbcBasicResponse::new().add_event(Event::new("fail_stake")))
-    }
-    RETRIES.save(deps.storage, &retries)?;
-
     let packet = ProviderMsg::Stake {
         validator,
         amount,
@@ -339,10 +328,6 @@ pub fn fail_stake(
 pub fn ack_unstake(
     deps: DepsMut,
 ) -> Result<IbcBasicResponse , ContractError> {
-    RETRIES.update(deps.storage, |mut r| -> Result<crate::state::RetryState, StdError> {
-        r.unstake_reset();
-        Ok(r)
-    })?;
     Ok(IbcBasicResponse::new().add_event(Event::new("ack_unstake")))
 }
 
@@ -353,16 +338,6 @@ pub fn fail_unstake(
     validator: String,
     amount: Uint128,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // check if we should retry
-    let mut retries = RETRIES.load(deps.storage)?;
-    if !retries.unstake_should_retry() {
-        retries.unstake_reset();
-        RETRIES.save(deps.storage, &retries)?;
-        return Ok(IbcBasicResponse::new().add_event(Event::new("fail_unstake")))
-    }
-    RETRIES.save(deps.storage, &retries)?;
-
-    // retry
     let packet = ProviderMsg::Unstake {
         validator,
         amount,

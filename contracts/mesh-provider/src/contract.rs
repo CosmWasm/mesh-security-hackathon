@@ -47,8 +47,6 @@ pub fn instantiate(
     CONFIG.save(deps.storage, &state)?;
     RETRIES.save(deps.storage, &RetryState {
         list_validators_retries_remaining: LIST_VALIDATORS_MAX_RETRIES,
-        stake_retries_remaining: STAKE_MAX_RETRIES,
-        unstake_retries_remaining: UNSTAKE_MAX_RETRIES,
     })?;
 
     // Set packet time from msg or set default
