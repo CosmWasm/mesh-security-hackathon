@@ -4,7 +4,7 @@ members = ["packages/*", "contracts/*"]
 [workspace.package]
 edition       = "2021"
 version       = "0.1.0"
-license       = "TODO"
+license       = "Apache-2.0"
 repository    = "https://github.com/CosmWasm/mesh-security"
 homepage      = "https://cosmwasm.com"
 documentation = "https://docs.cosmwasm.com"
@@ -59,7 +59,7 @@ incremental   = false
 [profile.release]
 rpath            = false
 lto              = true
-overflow-checks  = true
+overflow-checks   = true
 opt-level        = 3
 debug            = false
 debug-assertions = false
