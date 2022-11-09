@@ -1,16 +1,13 @@
 [package]
-name = "mesh-consumer"
-version = "0.1.0"
+name    = "mesh-consumer"
 authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>", "Jake Hartnell <jakehartnell@users.noreply.github.com>"]
-edition = "2021"
 
-exclude = [
-  # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
-  "contract.wasm",
-  "hash.txt",
-]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+edition       = { workspace = true }
+version       = { workspace = true }
+license       = { workspace = true }
+repository    = { workspace = true }
+homepage      = { workspace = true }
+documentation = { workspace = true }
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -23,23 +20,23 @@ library = []
 
 [package.metadata.scripts]
 optimize = """docker run --rm -v "$(pwd)":/code \
-  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
-  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/rust-optimizer:0.12.6
+--mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+cosmwasm/rust-optimizer:0.12.9
 """
 
 [dependencies]
-mesh-ibc = { path = "../../packages/mesh-ibc", version = "0.1.0" }
-mesh-apis = { path = "../../packages/mesh-apis", version = "0.1.0" }
-meta-staking = { path = "../meta-staking", version = "0.1.0", features = ["library"] }
-cosmwasm-schema = "1.1.2"
-cosmwasm-std = "1.1.2"
-cosmwasm-storage = "1.1.2"
-cw-storage-plus = "0.15.1"
-cw2 = "0.15.1"
-schemars = "0.8.8"
-serde = { version = "1.0.137", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.31" }
+cosmwasm-schema  = { workspace = true }
+cosmwasm-std     = { workspace = true }
+cosmwasm-storage = { workspace = true }
+cw-storage-plus  = { workspace = true }
+cw2              = { workspace = true }
+mesh-apis        = { workspace = true }
+mesh-ibc         = { workspace = true }
+meta-staking     = { workspace = true }
+schemars         = { workspace = true }
+serde            = { workspace = true }
+thiserror        = { workspace = true }
 
 [dev-dependencies]
-cw-multi-test = "0.15.1"
+cw-multi-test = { workspace = true }
