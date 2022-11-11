@@ -246,7 +246,7 @@ mod tests {
         );
         assert_eq!(
             consumer_one_rewards.pending,
-            Decimal::from_atomics(Uint128::from(50_u128), 18).unwrap()
+            Decimal::from_atomics(Uint128::from(50_u128), 0).unwrap()
         );
 
         // add 300 tokens as rewards
@@ -271,7 +271,7 @@ mod tests {
         // We now should have 50 tokens from before + 200 from now.
         assert_eq!(
             consumer_one_rewards.pending,
-            Decimal::from_atomics(Uint128::from(250_u128), 18).unwrap()
+            Decimal::from_atomics(Uint128::from(250_u128), 0).unwrap()
         );
 
         // Calculate rewards for consumer 2 for the first time.
@@ -285,7 +285,7 @@ mod tests {
         // Consumer 2 should have 50 from first rewards, and 100 from second rewards
         assert_eq!(
             consumer_two_rewards.pending,
-            Decimal::from_atomics(Uint128::from(150_u128), 18).unwrap()
+            Decimal::from_atomics(Uint128::from(150_u128), 0).unwrap()
         );
         // We make sure that the total rewards pending are exactly the rewards we gave (400 u128)
         assert_eq!(
@@ -293,7 +293,7 @@ mod tests {
                 .pending
                 .checked_add(consumer_two_rewards.pending)
                 .unwrap(),
-            Decimal::from_atomics(Uint128::from(400_u128), 18).unwrap()
+            Decimal::from_atomics(Uint128::from(400_u128), 0).unwrap()
         );
     }
 }

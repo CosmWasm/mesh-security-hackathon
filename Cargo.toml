@@ -19,6 +19,7 @@ exclude = [
 mesh-ibc         = { path = "./packages/mesh-ibc", version = "0.1.0" }
 mesh-apis        = { path = "./packages/mesh-apis", version = "0.1.0" }
 meta-staking     = { path = "./contracts/meta-staking", version = "0.1.0", features = ["library"] }
+mesh-consumer    = { path = "./contracts/mesh-consumer", version = "0.1.0", features = ["library"] }
 mesh-slasher     = { path = "./contracts/mesh-slasher", version = "0.1.0", features = ["library"] }
 cosmwasm-schema  = "1.1"
 cosmwasm-std     = "1.1"
@@ -59,7 +60,7 @@ incremental   = false
 [profile.release]
 rpath            = false
 lto              = true
-overflow-checks   = true
+overflow-checks  = true
 opt-level        = 3
 debug            = false
 debug-assertions = false

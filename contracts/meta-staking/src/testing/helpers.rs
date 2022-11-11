@@ -1,9 +1,9 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{testing::mock_env, to_binary, Addr, Coin, Decimal, Uint128, Validator};
-use cw_multi_test::{next_block, App, AppBuilder, BankSudo, SudoMsg, WasmSudo, StakingInfo};
+use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, Uint128, Validator};
+use cw_multi_test::{next_block, App, AppBuilder, BankSudo, SudoMsg, StakingInfo};
 
-use super::{instantiate::instantiate_meta_staking, CONSUMER, NATIVE_DENOM, USER, VALIDATOR, CONSUMER2};
-use crate::msg::SudoMsg as MetaStakingSudoMsg;
+use super::{instantiate::instantiate_meta_staking, NATIVE_DENOM, USER, VALIDATOR};
+
 
 #[cw_serde]
 pub struct AddrHelper<'a>(pub &'a str);
@@ -78,33 +78,6 @@ pub fn instantiate_setup() -> (App, Addr) {
     .unwrap();
 
     app.update_block(next_block);
-
-    // Gov adds consumer
-    app.sudo(SudoMsg::Wasm(WasmSudo {
-        contract_addr: meta_staking_addr.clone(),
-        msg: to_binary(&MetaStakingSudoMsg::AddConsumer {
-            consumer_address: CONSUMER.addr().to_string(),
-            funds_available_for_staking: Coin {
-                denom: NATIVE_DENOM.to_string(),
-                amount: Uint128::new(100000000),
-            },
-        })
-        .unwrap(),
-    }))
-    .unwrap();
-
-    app.sudo(SudoMsg::Wasm(WasmSudo {
-        contract_addr: meta_staking_addr.clone(),
-        msg: to_binary(&MetaStakingSudoMsg::AddConsumer {
-            consumer_address: CONSUMER2.addr().to_string(),
-            funds_available_for_staking: Coin {
-                denom: NATIVE_DENOM.to_string(),
-                amount: Uint128::new(100000000),
-            },
-        })
-        .unwrap(),
-    }))
-    .unwrap();
 
     (app, meta_staking_addr)
 }
