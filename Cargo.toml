@@ -1,30 +1,65 @@
 [workspace]
 members = ["packages/*", "contracts/*"]
 
+[workspace.package]
+edition       = "2021"
+version       = "0.1.0"
+license       = "Apache-2.0"
+repository    = "https://github.com/CosmWasm/mesh-security"
+homepage      = "https://cosmwasm.com"
+documentation = "https://docs.cosmwasm.com"
+
+exclude = [
+  # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+  "contract.wasm",
+  "hash.txt",
+]
+
+[workspace.dependencies]
+mesh-ibc         = { path = "./packages/mesh-ibc", version = "0.1.0" }
+mesh-apis        = { path = "./packages/mesh-apis", version = "0.1.0" }
+meta-staking     = { path = "./contracts/meta-staking", version = "0.1.0", features = ["library"] }
+mesh-slasher     = { path = "./contracts/mesh-slasher", version = "0.1.0", features = ["library"] }
+cosmwasm-schema  = "1.1"
+cosmwasm-std     = "1.1"
+cosmwasm-storage = "1.1"
+cw-storage-plus  = "0.16"
+cw-utils         = "0.16"
+cw-controllers   = "0.16"
+cw2              = "0.16"
+schemars         = "0.8.11"
+serde            = { version = "1.0.147", default-features = false, features = ["derive"] }
+thiserror        = "1.0.37"
+# dev deps
+cw-multi-test = "0.16"
+test-case     = "2.1.0"
+derivative    = "2"
+anyhow        = "1"
+
 [profile.release.package.mesh-consumer]
 codegen-units = 1
-incremental = false
+incremental   = false
 
 [profile.release.package.mesh-lockup]
 codegen-units = 1
-incremental = false
+incremental   = false
 
 [profile.release.package.mesh-provider]
 codegen-units = 1
-incremental = false
+incremental   = false
 
 [profile.release.package.mesh-slasher]
 codegen-units = 1
-incremental = false
+incremental   = false
 
 [profile.release.package.meta-staking]
 codegen-units = 1
-incremental = false
+incremental   = false
 
 [profile.release]
-rpath = false
-lto = true
-overflow-checks = true
-opt-level = 3
-debug = false
+rpath            = false
+lto              = true
+overflow-checks   = true
+opt-level        = 3
+debug            = false
 debug-assertions = false
