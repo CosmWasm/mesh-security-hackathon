@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    ensure_eq, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
@@ -63,14 +63,6 @@ pub fn execute(
             consumer,
             validator,
         } => execute::withdraw_to_customer(deps, env, consumer, validator),
-        ExecuteMsg::Sudo(sudo_msg) => {
-            ensure_eq!(
-                CONFIG.load(deps.storage)?.admin,
-                info.sender,
-                ContractError::Unauthorized {}
-            );
-            sudo(deps, env, sudo_msg)
-        }
     }
 }
 
@@ -105,7 +97,7 @@ mod execute {
         let validator_rewards = match validator_rewards {
             Some(val_rewards) => val_rewards,
             None => {
-                let val = ValidatorRewards::new();
+                let val = ValidatorRewards::default();
 
                 VALIDATORS_REWARDS.save(deps.storage, &validator, &val)?;
                 val
