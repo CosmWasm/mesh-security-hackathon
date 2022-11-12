@@ -1,19 +1,18 @@
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Addr, Uint128};
 use cw_multi_test::next_block;
 
-use crate::{
-    error::ContractError,
-    testing::{
-        execute::{
-            execute_delegate, execute_undelegate, execute_withdraw_rewards,
-            execute_withdraw_rewards_should_fail,
-        },
-        instantiate::instantiate_and_add_consumer,
-        queries::{query_consumer, query_delegation, query_module_rewards},
-    },
-};
+use crate::error::ContractError;
 
-use super::{helpers::instantiate_setup, VALIDATOR};
+use super::helpers::{
+    execute::{
+        execute_delegate, execute_delegate_should_fail, execute_undelegate,
+        execute_withdraw_rewards, execute_withdraw_rewards_should_fail,
+    },
+    instantiate::instantiate_and_add_consumer,
+    queries::{query_consumer, query_delegation, query_module_rewards},
+    utils::instantiate_setup,
+    VALIDATOR,
+};
 
 #[test]
 fn proper_path() {
@@ -68,6 +67,7 @@ fn proper_path() {
         module_delegation.amount.amount
     );
 
+    // Try to withdraw, but we have 0 rewards
     let err = execute_withdraw_rewards_should_fail(&mut app, &meta_staking_addr, &VALIDATOR.addr());
     assert!(matches!(err, ContractError::ZeroRewardsToSend {}));
 
@@ -110,7 +110,7 @@ fn proper_path() {
     let rewards_2 = consumer_2.pending_to_u128().unwrap();
 
     assert_ne!(rewards_1, rewards_2); // make sure rewards not equal, so we confirm its not false positive test.
-    assert_eq!(rewards_1 + rewards_2, total_rewards.amount.u128() - 1); // -1 is for leftover from rounding (floor())
+    assert_eq!(rewards_1 + rewards_2, total_rewards.amount.u128() - 1); // -1 is for leftover from rounding (left as pending)
 
     // Verify delegation is 0
     let module_delegation = app
@@ -135,4 +135,25 @@ fn proper_path() {
 
     assert!(meta_staking_delegation_1.is_zero());
     assert!(meta_staking_delegation_2.is_zero());
+
+    // Vefiry fails with NoDelegationsForValidator error
+    let err = execute_withdraw_rewards_should_fail(&mut app, &meta_staking_addr, &VALIDATOR.addr());
+    assert!(matches!(err, ContractError::NoDelegationsForValidator {}));
+}
+
+#[test]
+fn malicious_consumer() {
+    let (mut app, meta_staking_addr) = instantiate_setup();
+
+    let malicious_consumer = Addr::unchecked("malicious_consumer");
+
+    let err = execute_delegate_should_fail(
+        &mut app,
+        &meta_staking_addr,
+        &malicious_consumer,
+        &VALIDATOR.addr(),
+        Uint128::from(100_u128),
+    );
+
+    assert!(matches!(err, ContractError::Unauthorized {}));
 }
