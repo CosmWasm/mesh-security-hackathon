@@ -577,6 +577,7 @@ mod reply {
         msg: Reply,
     ) -> Result<Response, ContractError> {
         // Send funds to consumer
+        // TODO add explicit method to mesh consumer that will fire off
         // IbcMsg to provider
         let res = parse_reply_execute_data(msg)?;
         println!("{:?}", res);
