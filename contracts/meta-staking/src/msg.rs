@@ -3,12 +3,6 @@ use cosmwasm_std::{AllValidatorsResponse, Coin, DelegationResponse, Uint128};
 
 use crate::state::ConsumerInfo;
 
-// mesh-consumer msg to receive rewards
-#[cw_serde]
-pub struct MeshConsumerRecieveRewardsMsg {
-    pub rewards_by_validator: Vec<(String, Vec<Coin>)>,
-}
-
 #[cw_serde]
 pub struct InstantiateMsg {}
 
@@ -55,7 +49,7 @@ pub enum QueryMsg {
     },
     /// Delegation will return more detailed info on a particular
     /// delegation, defined by delegator/validator pair
-    #[returns(DelegationResponse)]
+    #[returns(Uint128)]
     Delegation { consumer: String, validator: String },
     /// Returns all validators the consumer delegates to.
     ///
