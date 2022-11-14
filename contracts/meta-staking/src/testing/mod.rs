@@ -6,5 +6,8 @@ mod withdraw_to_consumer;
 
 // test add/remove consumer sudo msgs
 mod consumer;
-// test delegate and undelegate
+// Test delegate and undelegate
 mod delegations;
+
+// Test rewards
+mod rewards;
