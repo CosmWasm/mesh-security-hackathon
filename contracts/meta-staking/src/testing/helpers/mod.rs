@@ -4,6 +4,7 @@ pub mod utils;
 pub mod instantiate;
 pub mod execute;
 pub mod queries;
+
 pub mod contract_wrapper;
 pub mod setup;
 
