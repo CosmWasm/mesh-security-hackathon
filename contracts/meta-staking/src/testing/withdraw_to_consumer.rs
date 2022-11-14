@@ -1,14 +1,14 @@
 use cosmwasm_std::{
     coin, coins,
     testing::{mock_dependencies_with_balances, mock_env, mock_info},
-    Addr, CosmosMsg, Decimal, FullDelegation, Uint128, Validator, to_binary, WasmMsg, Empty,
+    to_binary, Addr, CosmosMsg, Decimal, Empty, FullDelegation, Uint128, Validator, WasmMsg,
 };
-use cw_multi_test::Wasm;
 use mesh_apis::ConsumerExecuteMsg;
 
 use crate::{
     contract::{execute, instantiate, sudo},
-    msg::{ExecuteMsg, InstantiateMsg}, error::ContractError,
+    error::ContractError,
+    msg::{ExecuteMsg, InstantiateMsg},
 };
 
 use super::helpers::{ADMIN, NATIVE_DENOM, VALIDATOR};
@@ -112,7 +112,10 @@ fn withdraw_to_customer() {
         res.messages[0].msg,
         CosmosMsg::Wasm::<Empty>(WasmMsg::Execute {
             contract_addr: consumer_addr.to_string(),
-            msg: to_binary(&ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg { validator: VALIDATOR.to_string() }).unwrap(),
+            msg: to_binary(&ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg {
+                validator: VALIDATOR.to_string()
+            })
+            .unwrap(),
             funds: coins(1000, NATIVE_DENOM)
         })
     );
