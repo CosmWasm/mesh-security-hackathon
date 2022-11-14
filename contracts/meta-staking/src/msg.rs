@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{AllValidatorsResponse, Coin, DelegationResponse, Uint128};
+use cosmwasm_std::{AllValidatorsResponse, Coin, Uint128};
 
 use crate::state::ConsumerInfo;
 
