@@ -151,7 +151,12 @@ mod execute {
 
         let validator_rewards = VALIDATORS_REWARDS.load(deps.storage, &validator)?;
 
-        let delegations = VALIDATORS_BY_CONSUMER.load(deps.storage, (&info.sender, &validator))?;
+        // TODO: We check if we have delegation before we check if we have consumer
+        // If we don't consumer is not registered, we shouldn't have delegation by default
+        // so we return a wrong error to the problem in that case.
+        let delegations = VALIDATORS_BY_CONSUMER
+            .may_load(deps.storage, (&info.sender, &validator))?
+            .ok_or(ContractError::NoDelegationsForValidator {})?;
 
         // Increase the amount of available funds for that consumer
         CONSUMERS.update(
@@ -191,12 +196,12 @@ mod execute {
         Ok(Response::default().add_message(msg))
     }
 
-    enum Method {
+    pub(crate) enum Method {
         Add,
         Sub,
     }
 
-    fn update_delegations<'a>(
+    pub(crate) fn update_delegations<'a>(
         deps: DepsMut<'a>,
         info: MessageInfo,
         validator: &str,
