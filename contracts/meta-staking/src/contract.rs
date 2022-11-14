@@ -591,7 +591,7 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{coin, coins, Addr, Uint128, QueryRequest, StakingQuery, from_binary, BondedDenomResponse, Validator, Decimal, from_slice};
+    use cosmwasm_std::{coin, coins, Uint128, Validator, Decimal, from_slice};
     use mesh_apis::CallbackDataResponse;
 
     #[test]

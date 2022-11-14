@@ -32,6 +32,7 @@ cosmwasm-std     = { workspace = true }
 cosmwasm-storage = { workspace = true }
 cw-storage-plus  = { workspace = true }
 cw2              = { workspace = true }
+cw-utils         = { workspace = true }
 mesh-apis        = { workspace = true }
 mesh-ibc         = { workspace = true }
 meta-staking     = { workspace = true }
