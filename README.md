@@ -6,7 +6,13 @@ This should run on any CosmWasm enabled chain. This is MVP design and gives peop
 hands on use, that should work on a testnet. Open questions that need
 to be resolved before we can use this in production are listed below.
 
-[This flipboard](https://docs.google.com/presentation/d/13JrSdzodhAGRj59-P5e9sxyoDPvVm7ZVvw1GzR8OilQ/edit#slide=id.g15d37737ae2_0_885) gives a nice visual overview of the various flows and components involved.
+## Architecture
+
+Please check out this overview of all contratcs in a deployed state.
+
+![Overview](./docs/MeshSecurity.png)
+
+You can also look at [Sunny's original flipboard](https://docs.google.com/presentation/d/13JrSdzodhAGRj59-P5e9sxyoDPvVm7ZVvw1GzR8OilQ/edit#slide=id.g15d37737ae2_0_885) to get view of the various flows involved.
 
 ## Contracts
 
