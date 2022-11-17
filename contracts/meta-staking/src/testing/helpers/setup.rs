@@ -1,27 +1,47 @@
 use cosmwasm_std::{coin, coins, testing::mock_dependencies, Uint128};
-
-use crate::msg::{ExecuteMsg, SudoMsg};
-
-use super::{
-    contract_wrapper::{ContractWrapper, Execute, Sudo},
-    CONSUMER_1, NATIVE_DENOM, VALIDATOR,
+use mesh_testing::{
+    unit_wrapper::{ContractEntryPoints, ContractWrapper, UnitExecute, UnitSudo},
+    NATIVE_DENOM,
 };
 
-pub fn setup_contract() -> ContractWrapper {
+use crate::{
+    contract::{execute, instantiate, query, sudo},
+    error::ContractError,
+    msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg},
+};
+
+use super::{CONSUMER_1, VALIDATOR};
+
+pub const CONTRACT_ENTRY_POINTS: ContractEntryPoints<
+    ContractError,
+    InstantiateMsg,
+    ExecuteMsg,
+    QueryMsg,
+    SudoMsg,
+> = ContractEntryPoints {
+    instantiate,
+    execute,
+    query,
+    sudo,
+};
+
+pub fn setup_contract(
+) -> ContractWrapper<ContractError, InstantiateMsg, ExecuteMsg, QueryMsg, SudoMsg> {
     let mut deps = mock_dependencies();
 
-    // Set the bonded denom
-    deps.querier.update_staking(NATIVE_DENOM, &[], &[]);
-
     // init meta-staking contract
-    let mut contract = ContractWrapper::init(deps);
+    let mut contract = ContractWrapper::init(CONTRACT_ENTRY_POINTS, InstantiateMsg {});
+
+    // Set the bonded denom
+    contract.deps.querier.update_staking(NATIVE_DENOM, &[], &[]);
 
     // fund the contract
     contract.fund_contract(coins(100000, NATIVE_DENOM));
     contract
 }
 
-pub fn setup_contract_with_consumer() -> ContractWrapper {
+pub fn setup_contract_with_consumer(
+) -> ContractWrapper<ContractError, InstantiateMsg, ExecuteMsg, QueryMsg, SudoMsg> {
     let mut contract_wrapper = setup_contract();
 
     // Add consumer
@@ -35,7 +55,8 @@ pub fn setup_contract_with_consumer() -> ContractWrapper {
     contract_wrapper
 }
 
-pub fn setup_contract_with_delegation() -> ContractWrapper {
+pub fn setup_contract_with_delegation(
+) -> ContractWrapper<ContractError, InstantiateMsg, ExecuteMsg, QueryMsg, SudoMsg> {
     let mut contract_wrapper = setup_contract_with_consumer();
 
     // Add delegation

@@ -1,0 +1,29 @@
+[package]
+name = "mesh-testing"
+authors = ["Art3mix Art3mix@withoutdoing.com"]
+repository = "https://github.com/CosmWasm/mesh-security"
+description = "Testing wrappers for unit and integration tests"
+
+version = { workspace = true }
+edition = { workspace = true }
+
+[features]
+defualt = ["unit", "multi"]
+unit = []
+multi = []
+
+# This crate depends on multi-test and rand. These are not features in
+# wasm builds of cosmwasm. Despite this crate only being used as a dev
+# dependency, because it is part of the workspace it will always be
+# compiled. There is no good way to remove a member from a workspace
+# conditionally. As such, we don't compile anything here if we're
+# targeting wasm.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+cosmwasm-schema = { workspace = true }
+cosmwasm-std    = { workspace = true, features = ["ibc3"] }
+schemars        = { workspace = true }
+serde           = { workspace = true }
+thiserror       = { workspace = true }
+
+cw-multi-test = { workspace = true }
+anyhow        = { workspace = true }

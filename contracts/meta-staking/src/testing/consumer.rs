@@ -1,13 +1,11 @@
 use cosmwasm_std::{coin, Decimal, StdError, Uint128};
+use mesh_testing::unit_wrapper::{UnitQuery, UnitSudo};
 
 use crate::{
     error::ContractError,
     msg::{QueryMsg, SudoMsg},
     state::ConsumerInfo,
-    testing::helpers::{
-        contract_wrapper::{Query, Sudo},
-        setup::setup_contract,
-    },
+    testing::helpers::setup::setup_contract,
 };
 
 use super::helpers::{CONSUMER_1, NATIVE_DENOM};
