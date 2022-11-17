@@ -11,7 +11,7 @@ use crate::{
     msg::{ExecuteMsg, InstantiateMsg},
 };
 
-use super::helpers::{ADMIN, NATIVE_DENOM, VALIDATOR};
+use super::utils::{ADMIN, NATIVE_DENOM, VALIDATOR};
 
 #[test]
 fn withdraw_to_customer() {

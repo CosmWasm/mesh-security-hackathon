@@ -4,10 +4,10 @@ use mesh_testing::unit_wrapper::{UnitExecute, UnitQuery};
 use crate::{
     error::ContractError,
     msg::{ExecuteMsg, QueryMsg},
-    testing::helpers::setup::setup_contract_with_consumer,
+    testing::utils::setup::setup_contract_with_consumer,
 };
 
-use super::helpers::{
+use super::utils::{
     setup::{setup_contract, setup_contract_with_delegation},
     CONSUMER_1, VALIDATOR,
 };
