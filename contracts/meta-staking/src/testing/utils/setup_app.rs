@@ -1,20 +1,20 @@
-use std::str::FromStr;
-
-use cosmwasm_std::{testing::mock_env, Decimal, Empty, Validator};
+use cosmwasm_std::{coin, testing::mock_env, Addr, Decimal, Empty, Validator, Uint128};
 use cw_multi_test::{Contract, ContractWrapper, StakingInfo};
 
-use mesh_consumer::msg::{InstantiateMsg as ConsumerInstantiateMsg, ProviderInfo};
+// use mesh_consumer::msg::{InstantiateMsg as ConsumerInstantiateMsg, ProviderInfo};
 use mesh_testing::{
-    app_wrapper::{AppWrapper, StoreContract, AppInit},
-    ADMIN, NATIVE_DENOM, enum_str,
+    app_wrapper::{AppInit, AppSudo, AppWrapper, StoreContract, AppExecute},
+    enum_str, ADMIN, NATIVE_DENOM,
 };
 
 use crate::{
     error::ContractError,
-    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg},
 };
 
-use super::VALIDATOR;
+use super::{CONSUMER_1, VALIDATOR, CONSUMER_2};
+
+pub type AppWrapperType = AppWrapper<ContractError, InstantiateMsg, ExecuteMsg, QueryMsg, SudoMsg>;
 
 // Enum to hold all contract names we gonna use in our testing
 // Can be omitted and get the addr from the init msg instead of app_wrapper
@@ -36,7 +36,7 @@ fn meta_staking_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-fn mesh_consumer_contract() -> Box<dyn Contract<Empty>> {
+fn _mesh_consumer_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
         mesh_consumer::contract::execute,
         mesh_consumer::contract::instantiate,
@@ -46,7 +46,7 @@ fn mesh_consumer_contract() -> Box<dyn Contract<Empty>> {
 }
 
 /// Basic app wrapper with defined module of our needs.
-fn setup_app() -> AppWrapper<ContractError, InstantiateMsg, ExecuteMsg, QueryMsg> {
+fn setup_app() -> AppWrapperType {
     let app_wrapper = AppWrapper::build_app(|router, api, storage| {
         let env = mock_env();
 
@@ -84,43 +84,69 @@ fn setup_app() -> AppWrapper<ContractError, InstantiateMsg, ExecuteMsg, QueryMsg
 }
 
 /// Init contracts we need for our test
-pub fn setup_app_with_contracts() -> AppWrapper<ContractError, InstantiateMsg, ExecuteMsg, QueryMsg> {
+pub fn setup_app_with_consumer() -> (AppWrapperType, Addr) {
     let mut app_wrapper = setup_app();
 
     // Init meta-staking
     let meta_staking_addr = app_wrapper.init_contract(
         ADMIN.addr(),
-        StoreContract::new_with_name(
-            ContractNames::MetaStaking.to_str(),
-            meta_staking_contract(),
-            InstantiateMsg {},
-        ),
+        StoreContract::new(meta_staking_contract(), InstantiateMsg {}),
     );
-
     app_wrapper.fund_address(meta_staking_addr.clone());
 
-    app_wrapper.init_contract(
-        ADMIN.addr(),
-        StoreContract::new_with_name(
-            ContractNames::MeshConsumer.to_str(),
-            mesh_consumer_contract(),
-            ConsumerInstantiateMsg {
-                provider: ProviderInfo {
-                    port_id: "port-id".to_string(),
-                    connection_id: "connection-id".to_string(),
-                },
-                remote_to_local_exchange_rate: Decimal::from_str("0.1").unwrap(),
-                meta_staking_contract_address: meta_staking_addr.to_string(),
-                ics20_channel: "channel-1".to_string(),
-                packet_lifetime: None,
-            },
-        ),
-    );
-
     app_wrapper
+        .sudo_contract(
+            &meta_staking_addr,
+            SudoMsg::AddConsumer {
+                consumer_address: CONSUMER_1.to_string(),
+                funds_available_for_staking: coin(10000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+
+    (app_wrapper, meta_staking_addr)
 }
 
-#[test]
-fn test() {
-    setup_app_with_contracts();
+/// Setup contract with 2 delegations mainly to test rewards
+pub fn setup_app_with_multiple_delegations(
+) -> (AppWrapperType, Addr) {
+    let (mut app_wrapper, meta_staking_addr) = setup_app_with_consumer();
+
+    app_wrapper.sudo_contract(&meta_staking_addr, SudoMsg::AddConsumer {
+        consumer_address: CONSUMER_2.addr().to_string(),
+        funds_available_for_staking: coin(10000, NATIVE_DENOM),
+    }).unwrap();
+
+    // Add delegations
+    app_wrapper.execute(meta_staking_addr.clone(), CONSUMER_1.addr(), ExecuteMsg::Delegate {
+        validator: VALIDATOR.addr().to_string(),
+        amount: Uint128::new(7654_u128),
+    }).unwrap();
+
+    app_wrapper.execute(meta_staking_addr.clone(), CONSUMER_2.addr(), ExecuteMsg::Delegate {
+        validator: VALIDATOR.addr().to_string(),
+        amount: Uint128::new(2346_u128),
+    }).unwrap();
+
+    app_wrapper.next_block();
+
+    (app_wrapper, meta_staking_addr)
 }
+
+// app_wrapper.init_contract(
+//     ADMIN.addr(),
+//     StoreContract::new_with_name(
+//         ContractNames::MeshConsumer.to_str(),
+//         mesh_consumer_contract(),
+//         ConsumerInstantiateMsg {
+//             provider: ProviderInfo {
+//                 port_id: "port-id".to_string(),
+//                 connection_id: "connection-id".to_string(),
+//             },
+//             remote_to_local_exchange_rate: Decimal::from_str("0.1").unwrap(),
+//             meta_staking_contract_address: meta_staking_addr.to_string(),
+//             ics20_channel: "channel-1".to_string(),
+//             packet_lifetime: None,
+//         },
+//     ),
+// );

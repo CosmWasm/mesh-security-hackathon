@@ -140,20 +140,3 @@ fn proper_path() {
     let err = execute_withdraw_rewards_should_fail(&mut app, &meta_staking_addr, &VALIDATOR.addr());
     assert!(matches!(err, ContractError::NoDelegationsForValidator {}));
 }
-
-#[test]
-fn malicious_consumer() {
-    let (mut app, meta_staking_addr) = instantiate_setup();
-
-    let malicious_consumer = Addr::unchecked("malicious_consumer");
-
-    let err = execute_delegate_should_fail(
-        &mut app,
-        &meta_staking_addr,
-        &malicious_consumer,
-        &VALIDATOR.addr(),
-        Uint128::from(100_u128),
-    );
-
-    assert!(matches!(err, ContractError::Unauthorized {}));
-}

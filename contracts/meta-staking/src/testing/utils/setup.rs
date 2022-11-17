@@ -12,8 +12,10 @@ use crate::{
 
 use super::{CONSUMER_1, CONSUMER_2, VALIDATOR};
 
-type ContractWrapperType = ContractWrapper<ContractError, InstantiateMsg, ExecuteMsg, QueryMsg, SudoMsg>;
+/// Helper return type to setup functions (make it shorter)
+pub type ContractWrapperType = ContractWrapper<ContractError, InstantiateMsg, ExecuteMsg, QueryMsg, SudoMsg>;
 
+///
 pub const CONTRACT_ENTRY_POINTS: ContractEntryPoints<
     ContractError,
     InstantiateMsg,
@@ -78,51 +80,6 @@ pub fn setup_contract_with_delegation(
             ExecuteMsg::Delegate {
                 validator: VALIDATOR.addr().to_string(),
                 amount: Uint128::new(10000_u128),
-            },
-        )
-        .unwrap();
-
-    contract_wrapper
-}
-
-/// Setup contract with 2 delegations mainly to test rewards
-pub fn setup_contract_with_multiple_delegations(
-) -> ContractWrapperType {
-    let mut contract_wrapper = setup_contract();
-
-    // Add consumer 1
-    contract_wrapper
-        .sudo(SudoMsg::AddConsumer {
-            consumer_address: CONSUMER_1.addr().to_string(),
-            funds_available_for_staking: coin(10000, NATIVE_DENOM),
-        })
-        .unwrap();
-
-    // Add consumer 2
-    contract_wrapper
-        .sudo(SudoMsg::AddConsumer {
-            consumer_address: CONSUMER_2.addr().to_string(),
-            funds_available_for_staking: coin(10000, NATIVE_DENOM),
-        })
-        .unwrap();
-
-    // Add delegations
-    contract_wrapper
-        .execute(
-            CONSUMER_1.addr().as_str(),
-            ExecuteMsg::Delegate {
-                validator: VALIDATOR.addr().to_string(),
-                amount: Uint128::new(8500_u128),
-            },
-        )
-        .unwrap();
-
-    contract_wrapper
-        .execute(
-            CONSUMER_2.addr().as_str(),
-            ExecuteMsg::Delegate {
-                validator: VALIDATOR.addr().to_string(),
-                amount: Uint128::new(1500_u128),
             },
         )
         .unwrap();
