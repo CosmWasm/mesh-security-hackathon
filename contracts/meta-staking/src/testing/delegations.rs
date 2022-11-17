@@ -1,5 +1,8 @@
 use cosmwasm_std::Uint128;
-use mesh_testing::unit_wrapper::{UnitExecute, UnitQuery};
+use mesh_testing::{
+    app_wrapper::{AppExecute, AppQuery},
+    unit_wrapper::UnitExecute,
+};
 
 use crate::{
     error::ContractError,
@@ -9,54 +12,67 @@ use crate::{
 
 use super::utils::{
     setup::{setup_contract, setup_contract_with_delegation},
+    setup_app::setup_app_with_consumer,
     CONSUMER_1, VALIDATOR,
 };
 
 #[test]
 fn add_remove_delegations() {
-    let mut contract_wrapper = setup_contract_with_consumer();
+    let (mut app_wrapper, meta_staking_addr) = setup_app_with_consumer();
 
     let delegation_amount = Uint128::new(10000_u128);
 
-    // Delegate from consumer
-    contract_wrapper
+    app_wrapper
         .execute(
-            CONSUMER_1.addr().as_str(),
+            meta_staking_addr.clone(),
+            CONSUMER_1.addr(),
             ExecuteMsg::Delegate {
-                validator: VALIDATOR.addr().to_string(),
+                validator: VALIDATOR.to_string(),
                 amount: delegation_amount,
             },
         )
         .unwrap();
 
-    // Test delegation amounts
-    let contract_delegation = contract_wrapper
-        .query(QueryMsg::Delegation {
-            consumer: CONSUMER_1.to_string(),
-            validator: VALIDATOR.to_string(),
-        })
-        .unwrap::<Uint128>();
+    let contract_delegation: Uint128 = app_wrapper
+        .query_smart(
+            meta_staking_addr.as_str(),
+            QueryMsg::Delegation {
+                consumer: CONSUMER_1.to_string(),
+                validator: VALIDATOR.to_string(),
+            },
+        )
+        .unwrap();
+    // We delegate from meta-staking (not from consumer)
+    let module_delegation = app_wrapper
+        .module_querier()
+        .query_delegation(meta_staking_addr.clone(), VALIDATOR.to_string())
+        .unwrap()
+        .unwrap();
 
     assert_eq!(delegation_amount, contract_delegation);
+    assert_eq!(delegation_amount, module_delegation.amount.amount);
 
-    // Undelegate from consumer
-    contract_wrapper
+    // Undelegate
+    app_wrapper
         .execute(
-            CONSUMER_1.addr().as_str(),
+            meta_staking_addr.clone(),
+            CONSUMER_1.addr(),
             ExecuteMsg::Undelegate {
-                validator: VALIDATOR.addr().to_string(),
+                validator: VALIDATOR.to_string(),
                 amount: delegation_amount,
             },
         )
         .unwrap();
 
-    // Verify we have 0 delegations
-    let contract_delegation = contract_wrapper
-        .query(QueryMsg::Delegation {
-            consumer: CONSUMER_1.to_string(),
-            validator: VALIDATOR.to_string(),
-        })
-        .unwrap::<Uint128>();
+    let contract_delegation: Uint128 = app_wrapper
+        .query_smart(
+            meta_staking_addr.as_str(),
+            QueryMsg::Delegation {
+                consumer: CONSUMER_1.to_string(),
+                validator: VALIDATOR.to_string(),
+            },
+        )
+        .unwrap();
 
     assert_eq!(contract_delegation, Uint128::zero());
 }
@@ -67,7 +83,7 @@ fn no_consumer() {
 
     let err = contract_wrapper
         .execute(
-            &CONSUMER_1.to_string(),
+            CONSUMER_1.as_str(),
             ExecuteMsg::Delegate {
                 validator: VALIDATOR.addr().to_string(),
                 amount: Uint128::new(1000),
@@ -79,7 +95,7 @@ fn no_consumer() {
 
     let err = contract_wrapper
         .execute(
-            &CONSUMER_1.to_string(),
+            CONSUMER_1.as_str(),
             ExecuteMsg::Undelegate {
                 validator: VALIDATOR.addr().to_string(),
                 amount: Uint128::new(1000),
@@ -97,7 +113,7 @@ fn delegate_too_much() {
 
     let err = contract_wrapper
         .execute(
-            &CONSUMER_1.to_string(),
+            CONSUMER_1.as_str(),
             ExecuteMsg::Delegate {
                 validator: VALIDATOR.addr().to_string(),
                 amount: Uint128::new(99999999),

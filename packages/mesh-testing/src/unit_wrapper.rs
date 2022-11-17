@@ -8,6 +8,7 @@ use serde::Deserialize;
 
 use super::{ADMIN, NATIVE_DENOM};
 
+/// Helper struct to hold all entry point functions for unit tests
 pub struct ContractEntryPoints<E, IM, EM, QM, SM> {
     pub instantiate: fn(deps: DepsMut, env: Env, info: MessageInfo, msg: IM) -> Result<Response, E>,
     pub execute: fn(deps: DepsMut, env: Env, info: MessageInfo, msg: EM) -> Result<Response, E>,

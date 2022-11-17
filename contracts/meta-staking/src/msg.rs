@@ -30,6 +30,8 @@ pub enum ExecuteMsg {
         consumer: String,
         validator: String,
     },
+    /// Use for now, only admin can call - later we can remove if x/gov calls SudoMsg directly
+    Sudo(SudoMsg),
 }
 
 #[cw_serde]
