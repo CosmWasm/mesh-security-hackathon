@@ -1,8 +1,7 @@
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, Uint128, Validator};
 use cw_multi_test::{next_block, App, AppBuilder, BankSudo, StakingInfo, SudoMsg};
 
-use super::super::helpers::{NATIVE_DENOM, USER, VALIDATOR};
+use super::super::utils::{NATIVE_DENOM, USER, VALIDATOR};
 use super::instantiate::instantiate_meta_staking;
 
 pub fn mock_app() -> App {

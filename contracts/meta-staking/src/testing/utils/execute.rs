@@ -3,7 +3,7 @@ use cw_multi_test::{App, AppResponse, Executor};
 
 use crate::{error::ContractError, msg::ExecuteMsg};
 
-use super::super::helpers::ADMIN;
+use super::super::utils::ADMIN;
 
 pub fn execute_delegate(
     app: &mut App,

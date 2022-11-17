@@ -5,10 +5,10 @@ use crate::{
     error::ContractError,
     msg::{QueryMsg, SudoMsg},
     state::ConsumerInfo,
-    testing::helpers::setup::setup_contract,
+    testing::utils::setup::setup_contract,
 };
 
-use super::helpers::{CONSUMER_1, NATIVE_DENOM};
+use super::utils::{CONSUMER_1, NATIVE_DENOM};
 
 #[test]
 fn add_and_remove_consumer() {

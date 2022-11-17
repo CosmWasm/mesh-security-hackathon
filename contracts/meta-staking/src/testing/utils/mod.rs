@@ -1,4 +1,4 @@
-use mesh_testing::utils::addr::AddrWrapper;
+use mesh_testing::utils::addr_wrapper::AddrWrapper;
 #[macro_use]
 pub mod utils;
 pub mod execute;

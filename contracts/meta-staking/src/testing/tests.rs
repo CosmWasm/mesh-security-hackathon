@@ -3,7 +3,7 @@ use cw_multi_test::next_block;
 
 use crate::error::ContractError;
 
-use super::helpers::{
+use super::utils::{
     execute::{
         execute_delegate, execute_delegate_should_fail, execute_undelegate,
         execute_withdraw_rewards, execute_withdraw_rewards_should_fail,

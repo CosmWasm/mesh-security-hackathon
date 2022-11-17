@@ -7,7 +7,7 @@ use mesh_consumer::msg::{InstantiateMsg as ConsumerInitMsg, ProviderInfo};
 
 use crate::msg::{InstantiateMsg, SudoMsg as MetaStakingSudoMsg};
 
-use super::super::helpers::{ADMIN, NATIVE_DENOM};
+use super::super::utils::{ADMIN, NATIVE_DENOM};
 
 fn meta_staking_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
