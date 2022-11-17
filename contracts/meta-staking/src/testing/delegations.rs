@@ -1,4 +1,5 @@
 use cosmwasm_std::Uint128;
+use mesh_testing::unit_wrapper::{UnitExecute, UnitQuery};
 
 use crate::{
     error::ContractError,
@@ -7,7 +8,6 @@ use crate::{
 };
 
 use super::helpers::{
-    contract_wrapper::{Execute, Query},
     setup::{setup_contract, setup_contract_with_delegation},
     CONSUMER_1, VALIDATOR,
 };

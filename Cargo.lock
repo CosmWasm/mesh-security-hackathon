@@ -584,9 +584,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "mesh-testing"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "schemars",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "meta-staking"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -596,6 +610,7 @@ dependencies = [
  "cw2",
  "mesh-apis",
  "mesh-consumer",
+ "mesh-testing",
  "schemars",
  "serde",
  "thiserror",

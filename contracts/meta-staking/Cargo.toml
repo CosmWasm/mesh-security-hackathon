@@ -39,5 +39,7 @@ serde            = { workspace = true }
 thiserror        = { workspace = true }
 
 [dev-dependencies]
+mesh-testing  = { workspace = true }
 cw-multi-test = { workspace = true }
 mesh-consumer = { workspace = true }
+anyhow        = { workspace = true }

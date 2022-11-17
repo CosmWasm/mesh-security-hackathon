@@ -1,17 +1,21 @@
-use utils::AddrHelper;
-
+use mesh_testing::utils::addr::AddrWrapper;
+#[macro_use]
 pub mod utils;
-pub mod instantiate;
 pub mod execute;
+pub mod instantiate;
 pub mod queries;
 
-pub mod contract_wrapper;
+// std::testing stuff
 pub mod setup;
+//cw-multi-test stuff
+pub mod setup_app;
 
-pub const ADMIN: AddrHelper = AddrHelper::new("admin");
-pub const CONSUMER_1: AddrHelper = AddrHelper::new("consumer_1");
-pub const CONSUMER_2: AddrHelper = AddrHelper::new("consumer_2");
-pub const USER: AddrHelper = AddrHelper::new("user");
-pub const VALIDATOR: AddrHelper = AddrHelper::new("validator");
+
+
+pub const ADMIN: AddrWrapper = AddrWrapper::new("admin");
+pub const CONSUMER_1: AddrWrapper = AddrWrapper::new("consumer_1");
+pub const CONSUMER_2: AddrWrapper = AddrWrapper::new("consumer_2");
+pub const USER: AddrWrapper = AddrWrapper::new("user");
+pub const VALIDATOR: AddrWrapper = AddrWrapper::new("validator");
 
 pub const NATIVE_DENOM: &str = "denom";

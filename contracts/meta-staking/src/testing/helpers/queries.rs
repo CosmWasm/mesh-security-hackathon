@@ -1,9 +1,9 @@
-use cosmwasm_std::{Addr, Uint128, Coin};
+use cosmwasm_std::{Addr, Coin, Uint128};
 use cw_multi_test::App;
 
 use crate::{msg::QueryMsg, state::ConsumerInfo};
 
-pub fn query_module_rewards(app: &mut App, meta_staking_addr: &Addr, validator: &Addr) -> Coin{
+pub fn query_module_rewards(app: &mut App, meta_staking_addr: &Addr, validator: &Addr) -> Coin {
     app.read_module(|router, _api, storage| {
         //let rewards = router.distribution.remove_rewards(api,  storage, &app.block_info(), &CONSUMER.addr(), &VALIDATOR.addr()).unwrap();
         router

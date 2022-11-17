@@ -30,7 +30,7 @@ pub fn execute_delegate_should_fail(
     from: &Addr,
     validator: &Addr,
     amount: Uint128,
-) -> ContractError{
+) -> ContractError {
     app.execute_contract(
         from.clone(),
         contract.clone(),

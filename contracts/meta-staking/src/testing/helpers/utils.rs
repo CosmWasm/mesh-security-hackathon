@@ -1,36 +1,24 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, Uint128, Validator};
-use cw_multi_test::{next_block, App, AppBuilder, BankSudo, SudoMsg, StakingInfo};
+use cw_multi_test::{next_block, App, AppBuilder, BankSudo, StakingInfo, SudoMsg};
 
-use super::instantiate::instantiate_meta_staking;
 use super::super::helpers::{NATIVE_DENOM, USER, VALIDATOR};
-
-
-#[cw_serde]
-pub struct AddrHelper<'a>(pub &'a str);
-
-impl<'a> AddrHelper<'a> {
-    pub const fn new(addr: &'a str) -> Self {
-        AddrHelper(addr)
-    }
-
-    pub fn addr(&self) -> Addr {
-        Addr::unchecked(self.0.clone())
-    }
-
-    pub fn to_string(&self) -> String {
-        self.0.clone().to_string()
-    }
-}
+use super::instantiate::instantiate_meta_staking;
 
 pub fn mock_app() -> App {
     let env = mock_env();
     AppBuilder::new().build(|router, api, storage| {
-        router.staking.setup(storage, StakingInfo {
-            bonded_denom: NATIVE_DENOM.to_string(),
-            unbonding_time: 1,
-            apr: Decimal::percent(10),
-        }).unwrap();
+        router
+            .staking
+            .setup(
+                storage,
+                StakingInfo {
+                    bonded_denom: NATIVE_DENOM.to_string(),
+                    unbonding_time: 1,
+                    apr: Decimal::percent(10),
+                },
+            )
+            .unwrap();
 
         router
             .staking
