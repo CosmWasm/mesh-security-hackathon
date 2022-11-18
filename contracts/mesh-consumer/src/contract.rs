@@ -70,7 +70,8 @@ pub fn execute_receive_rewards(
     info: MessageInfo,
     validator: String,
 ) -> Result<Response, ContractError> {
-    let channel_id = (CHANNEL.may_load(deps.storage)?).ok_or(ContractError::UnknownChannel("No channel".into()))?;
+    let channel_id = (CHANNEL.may_load(deps.storage)?)
+        .ok_or(ContractError::UnknownChannel("No channel".into()))?;
 
     let coin = info.funds[0].clone();
 

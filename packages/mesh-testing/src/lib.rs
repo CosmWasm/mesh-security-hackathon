@@ -3,11 +3,11 @@ use utils::addr_wrapper::AddrWrapper;
 pub mod utils;
 
 #[cfg(not(target_arch = "wasm32"))]
-#[cfg(feature="unit")]
+#[cfg(feature = "unit")]
 pub mod unit_wrapper;
 
 #[cfg(not(target_arch = "wasm32"))]
-#[cfg(feature="multi")]
+#[cfg(feature = "multi")]
 pub mod app_wrapper;
 
 /// Native token for default uses

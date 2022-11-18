@@ -14,7 +14,7 @@ impl<'a> AddrWrapper<'a> {
         Addr::unchecked(self.0.clone())
     }
 
-    pub fn as_str(&self) -> &str{
+    pub fn as_str(&self) -> &str {
         self.0
     }
 

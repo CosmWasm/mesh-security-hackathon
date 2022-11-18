@@ -10,10 +10,11 @@ use crate::{
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg},
 };
 
-use super::{CONSUMER_1, CONSUMER_2, VALIDATOR};
+use super::{CONSUMER_1, VALIDATOR};
 
 /// Helper return type to setup functions (make it shorter)
-pub type ContractWrapperType = ContractWrapper<ContractError, InstantiateMsg, ExecuteMsg, QueryMsg, SudoMsg>;
+pub type ContractWrapperType =
+    ContractWrapper<ContractError, InstantiateMsg, ExecuteMsg, QueryMsg, SudoMsg>;
 
 ///
 pub const CONTRACT_ENTRY_POINTS: ContractEntryPoints<
@@ -30,8 +31,7 @@ pub const CONTRACT_ENTRY_POINTS: ContractEntryPoints<
 };
 
 /// Basic setup for unit test on a single contract
-pub fn setup_contract(
-) -> ContractWrapperType {
+pub fn setup_contract() -> ContractWrapperType {
     // init meta-staking contract
     let mut contract = ContractWrapper::init(CONTRACT_ENTRY_POINTS, InstantiateMsg {});
 
@@ -53,8 +53,7 @@ pub fn setup_contract(
 }
 
 /// Using the basic setup and adding a consumer
-pub fn setup_contract_with_consumer(
-) -> ContractWrapperType {
+pub fn setup_contract_with_consumer() -> ContractWrapperType {
     let mut contract_wrapper = setup_contract();
 
     // Add consumer
@@ -69,8 +68,7 @@ pub fn setup_contract_with_consumer(
 }
 
 /// Setup with a single delegation
-pub fn setup_contract_with_delegation(
-) -> ContractWrapperType {
+pub fn setup_contract_with_delegation() -> ContractWrapperType {
     let mut contract_wrapper = setup_contract_with_consumer();
 
     // Add delegation
