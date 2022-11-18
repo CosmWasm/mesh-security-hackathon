@@ -1,9 +1,9 @@
-use cosmwasm_std::{coin, testing::mock_env, Addr, Decimal, Empty, Validator, Uint128};
+use cosmwasm_std::{coin, testing::mock_env, Addr, Decimal, Empty, Uint128, Validator};
 use cw_multi_test::{Contract, ContractWrapper, StakingInfo};
 
 // use mesh_consumer::msg::{InstantiateMsg as ConsumerInstantiateMsg, ProviderInfo};
 use mesh_testing::{
-    app_wrapper::{AppInit, AppSudo, AppWrapper, StoreContract, AppExecute},
+    app_wrapper::{AppExecute, AppInit, AppSudo, AppWrapper, StoreContract},
     enum_str, ADMIN, NATIVE_DENOM,
 };
 
@@ -12,7 +12,7 @@ use crate::{
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg},
 };
 
-use super::{CONSUMER_1, VALIDATOR, CONSUMER_2};
+use super::{CONSUMER_1, CONSUMER_2, VALIDATOR};
 
 pub type AppWrapperType = AppWrapper<ContractError, InstantiateMsg, ExecuteMsg, QueryMsg, SudoMsg>;
 
@@ -108,25 +108,41 @@ pub fn setup_app_with_consumer() -> (AppWrapperType, Addr) {
 }
 
 /// Setup contract with 2 delegations mainly to test rewards
-pub fn setup_app_with_multiple_delegations(
-) -> (AppWrapperType, Addr) {
+pub fn setup_app_with_multiple_delegations() -> (AppWrapperType, Addr) {
     let (mut app_wrapper, meta_staking_addr) = setup_app_with_consumer();
 
-    app_wrapper.sudo_contract(&meta_staking_addr, SudoMsg::AddConsumer {
-        consumer_address: CONSUMER_2.addr().to_string(),
-        funds_available_for_staking: coin(10000, NATIVE_DENOM),
-    }).unwrap();
+    app_wrapper
+        .sudo_contract(
+            &meta_staking_addr,
+            SudoMsg::AddConsumer {
+                consumer_address: CONSUMER_2.addr().to_string(),
+                funds_available_for_staking: coin(10000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
 
     // Add delegations
-    app_wrapper.execute(meta_staking_addr.clone(), CONSUMER_1.addr(), ExecuteMsg::Delegate {
-        validator: VALIDATOR.addr().to_string(),
-        amount: Uint128::new(7654_u128),
-    }).unwrap();
+    app_wrapper
+        .execute(
+            meta_staking_addr.clone(),
+            CONSUMER_1.addr(),
+            ExecuteMsg::Delegate {
+                validator: VALIDATOR.addr().to_string(),
+                amount: Uint128::new(7654_u128),
+            },
+        )
+        .unwrap();
 
-    app_wrapper.execute(meta_staking_addr.clone(), CONSUMER_2.addr(), ExecuteMsg::Delegate {
-        validator: VALIDATOR.addr().to_string(),
-        amount: Uint128::new(2346_u128),
-    }).unwrap();
+    app_wrapper
+        .execute(
+            meta_staking_addr.clone(),
+            CONSUMER_2.addr(),
+            ExecuteMsg::Delegate {
+                validator: VALIDATOR.addr().to_string(),
+                amount: Uint128::new(2346_u128),
+            },
+        )
+        .unwrap();
 
     app_wrapper.next_block();
 

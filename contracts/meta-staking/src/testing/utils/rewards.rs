@@ -1,4 +1,4 @@
-use cosmwasm_std::{coin, Coin, Uint128};
+use cosmwasm_std::{coin, Coin};
 use mesh_testing::NATIVE_DENOM;
 
 use super::setup_app::AppWrapperType;
@@ -28,8 +28,8 @@ pub fn query_rewards_expect_empty(
         .accumulated_rewards;
 
     if rewards.is_empty() {
-        return coin(0, NATIVE_DENOM)
+        return coin(0, NATIVE_DENOM);
     } else {
-        return rewards[0].clone()
+        return rewards[0].clone();
     }
 }

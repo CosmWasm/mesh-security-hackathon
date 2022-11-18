@@ -1,8 +1,8 @@
 use cosmwasm_std::{
     coins, from_binary,
-    testing::{mock_env, mock_info, MockApi, MockQuerier, mock_dependencies},
-    Addr, Binary, Coin, DepsMut, Empty, Env, MemoryStorage, MessageInfo, OwnedDeps, Response,
-    StdError, Deps, StdResult,
+    testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier},
+    Addr, Binary, Coin, Deps, DepsMut, Empty, Env, MemoryStorage, MessageInfo, OwnedDeps, Response,
+    StdError, StdResult,
 };
 use serde::Deserialize;
 
@@ -52,7 +52,7 @@ pub struct ContractWrapper<E, IM, EM, QM, SM = Empty> {
 impl<E: std::fmt::Debug, IM, EM, QM, SM> ContractWrapper<E, IM, EM, QM, SM> {
     pub fn init(
         contract_entry_points: ContractEntryPoints<E, IM, EM, QM, SM>,
-        init_msg: IM
+        init_msg: IM,
     ) -> ContractWrapper<E, IM, EM, QM, SM> {
         let mut deps = mock_dependencies();
         let env = mock_env();
@@ -108,6 +108,10 @@ impl<E, IM, EM, QM, SM> UnitSudo<SM, E> for ContractWrapper<E, IM, EM, QM, SM> {
 
 impl<E, IM, EM, QM, SM> UnitQuery<QM> for ContractWrapper<E, IM, EM, QM, SM> {
     fn query<M: Into<QM>>(&mut self, msg: M) -> UnitQueryResult {
-        UnitQueryResult((self.contract_entry_points.query)(self.deps.as_ref(), mock_env(), msg.into()))
+        UnitQueryResult((self.contract_entry_points.query)(
+            self.deps.as_ref(),
+            mock_env(),
+            msg.into(),
+        ))
     }
 }

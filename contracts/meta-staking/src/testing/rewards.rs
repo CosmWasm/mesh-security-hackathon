@@ -1,13 +1,14 @@
-use std::ops::Deref;
-
 use cosmwasm_std::Uint128;
-use mesh_testing::app_wrapper::{self, AppExecute, AppQuery, AppWrapper};
+use mesh_testing::app_wrapper::{AppExecute, AppQuery};
 
 use crate::{
     error::ContractError,
     msg::{ExecuteMsg, QueryMsg},
-    state::{ConsumerInfo, CONSUMERS},
-    testing::utils::{rewards::{query_rewards, query_rewards_expect_empty}, CONSUMER_1, CONSUMER_2},
+    state::ConsumerInfo,
+    testing::utils::{
+        rewards::{query_rewards, query_rewards_expect_empty},
+        CONSUMER_1, CONSUMER_2,
+    },
 };
 
 use super::utils::{setup_app::setup_app_with_multiple_delegations, VALIDATOR};
@@ -94,6 +95,9 @@ fn verify_rewards() {
     // When we delegate we delegate not round numbers to get some leftovers.
     assert_eq!(rewards_1 + rewards_2, total_rewards.amount.u128() - 1);
 }
+
+#[test]
+fn withdraw_to_consumer() {}
 
 #[test]
 fn try_withdraw_no_rewards() {
