@@ -43,11 +43,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::Bond {} => execute_bond(deps, info),
         ExecuteMsg::Unbond { amount } => execute_unbond(deps, info, amount),
-        ExecuteMsg::GrantClaim {
-            provider,
-            amount,
-            validator,
-        } => execute_grant_claim(deps, info, provider, amount, validator),
+        ExecuteMsg::GrantClaim {amount,validator, leinholder } => execute_grant_claim(deps, info, leinholder, amount, validator),
         ExecuteMsg::ReleaseClaim { owner, amount } => {
             execute_release_claim(deps, info, owner, amount)
         }
