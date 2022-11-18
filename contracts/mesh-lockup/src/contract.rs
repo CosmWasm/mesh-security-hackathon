@@ -43,7 +43,11 @@ pub fn execute(
     match msg {
         ExecuteMsg::Bond {} => execute_bond(deps, info),
         ExecuteMsg::Unbond { amount } => execute_unbond(deps, info, amount),
-        ExecuteMsg::GrantClaim {amount,validator, leinholder } => execute_grant_claim(deps, info, leinholder, amount, validator),
+        ExecuteMsg::GrantClaim {
+            leinholder,
+            amount,
+            validator,
+        } => execute_grant_claim(deps, info, leinholder, amount, validator),
         ExecuteMsg::ReleaseClaim { owner, amount } => {
             execute_release_claim(deps, info, owner, amount)
         }
@@ -96,13 +100,13 @@ pub fn execute_unbond(
 pub fn execute_grant_claim(
     deps: DepsMut,
     info: MessageInfo,
-    provider: String,
+    leinholder: String,
     amount: Uint128,
     validator: String,
 ) -> Result<Response, ContractError> {
     nonpayable(&info)?;
     // validation
-    let leiner = deps.api.addr_validate(&provider)?;
+    let leiner = deps.api.addr_validate(&leinholder)?;
 
     // ensure we have balance for this, and update count
     BALANCES.update::<_, ContractError>(deps.storage, &info.sender, |bal| {
@@ -118,7 +122,7 @@ pub fn execute_grant_claim(
         validator,
     };
     let msg = WasmMsg::Execute {
-        contract_addr: provider,
+        contract_addr: leinholder,
         msg: to_binary(&exec)?,
         funds: vec![],
     };
@@ -126,7 +130,7 @@ pub fn execute_grant_claim(
     Ok(Response::new().add_message(msg))
 }
 
-// this is called by the provider
+// this is called by the leinholder
 pub fn execute_release_claim(
     deps: DepsMut,
     info: MessageInfo,

@@ -15,8 +15,7 @@ pub enum ExecuteMsg {
     /// Withdraws tokens from Lockup.
     /// Only works if the account has sufficient funds that is not backing open claims
     Unbond { amount: Uint128 },
-    /// This gives a claim on my balance to leinholder, granting it to a given validator
-    /// In the case of granting a claim, the leinholder is the mesh-provider contract
+    /// This gives a claim on my balance to provider, granting it to a given validator
     GrantClaim {
         leinholder: String,
         amount: Uint128,
