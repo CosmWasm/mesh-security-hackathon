@@ -32,7 +32,7 @@ schemars         = "0.8.11"
 serde            = { version = "1.0.147", default-features = false, features = ["derive"] }
 thiserror        = "1.0.37"
 # dev deps
-mesh-testing  = { path = "./packages/mesh-testing", version = "0.1.0" }
+mesh-testing  = { path = "./packages/mesh-testing", version = "0.1.0", features = ["unit", "multi"] }
 cw-multi-test = "0.16"
 test-case     = "2.2.0"
 derivative    = "2"
