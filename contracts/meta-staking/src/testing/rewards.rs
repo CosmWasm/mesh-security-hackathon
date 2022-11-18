@@ -96,8 +96,11 @@ fn verify_rewards() {
     assert_eq!(rewards_1 + rewards_2, total_rewards.amount.u128() - 1);
 }
 
+// TODO:
 #[test]
-fn withdraw_to_consumer() {}
+fn withdraw_to_consumer() {
+    unimplemented!()
+}
 
 #[test]
 fn try_withdraw_no_rewards() {
