@@ -128,7 +128,9 @@ mod tests {
         let leinholder = Addr::unchecked("foo");
         let mut balance = Balance::new(bonded);
         for claim in add_claims {
-            balance.add_claim(&leinholder, Uint128::new(*claim)).unwrap();
+            balance
+                .add_claim(&leinholder, Uint128::new(*claim))
+                .unwrap();
         }
         assert_eq!(balance.free().u128(), free);
         assert_eq!(balance.claims.len(), 1);
@@ -141,7 +143,9 @@ mod tests {
         for (i, claims) in add_claims.iter().enumerate() {
             let leinholder = Addr::unchecked(format! {"Owner {}", i});
             for claim in *claims {
-                balance.add_claim(&leinholder, Uint128::new(*claim)).unwrap();
+                balance
+                    .add_claim(&leinholder, Uint128::new(*claim))
+                    .unwrap();
             }
         }
         assert_eq!(balance.free().u128(), free);
@@ -192,6 +196,7 @@ mod tests {
         let init = 12345;
         let mut balance = Balance::new(init);
         balance.add_claim(&leinholder, init.into()).unwrap();
+        assert_eq!(balance.free().u128(), 0);
         assert_eq!(balance.free().u128(), 0);
         assert_eq!(balance.claims.len(), 1);
         balance.release_claim(&leinholder, init.into()).unwrap();
