@@ -10,5 +10,3 @@ pub mod rewards;
 pub const CONSUMER_1: AddrWrapper = AddrWrapper::new("consumer_1");
 pub const CONSUMER_2: AddrWrapper = AddrWrapper::new("consumer_2");
 pub const VALIDATOR: AddrWrapper = AddrWrapper::new("validator");
-
-pub const NATIVE_DENOM: &str = "denom";

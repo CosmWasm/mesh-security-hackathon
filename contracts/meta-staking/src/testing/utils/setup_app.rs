@@ -46,7 +46,7 @@ fn _mesh_consumer_contract() -> Box<dyn Contract<Empty>> {
 }
 
 /// Basic app wrapper with defined module of our needs.
-fn setup_app() -> AppWrapperType {
+pub fn setup_app() -> AppWrapperType {
     let app_wrapper = AppWrapper::build_app(|router, api, storage| {
         let env = mock_env();
 
@@ -83,8 +83,7 @@ fn setup_app() -> AppWrapperType {
     app_wrapper
 }
 
-/// Init contracts we need for our test
-pub fn setup_app_with_consumer() -> (AppWrapperType, Addr) {
+pub fn setup_app_with_contract() -> (AppWrapperType, Addr) {
     let mut app_wrapper = setup_app();
 
     // Init meta-staking
@@ -93,6 +92,13 @@ pub fn setup_app_with_consumer() -> (AppWrapperType, Addr) {
         StoreContract::new(meta_staking_contract(), InstantiateMsg {}),
     );
     app_wrapper.fund_address(meta_staking_addr.clone());
+
+    (app_wrapper, meta_staking_addr)
+}
+
+/// Init contracts we need for our test
+pub fn setup_app_with_consumer() -> (AppWrapperType, Addr) {
+    let (mut app_wrapper, meta_staking_addr) = setup_app_with_contract();
 
     app_wrapper
         .sudo_contract(

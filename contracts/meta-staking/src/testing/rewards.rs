@@ -1,5 +1,11 @@
-use cosmwasm_std::Uint128;
-use mesh_testing::app_wrapper::{AppExecute, AppQuery};
+use cosmwasm_std::{
+    coin, coins, to_binary, CosmosMsg, Decimal, FullDelegation, Uint128, Validator, WasmMsg,
+};
+use mesh_testing::{
+    app_wrapper::{AppExecute, AppQuery},
+    unit_wrapper::UnitExecute,
+    ADMIN, NATIVE_DENOM,
+};
 
 use crate::{
     error::ContractError,
@@ -7,11 +13,15 @@ use crate::{
     state::ConsumerInfo,
     testing::utils::{
         rewards::{query_rewards, query_rewards_expect_empty},
+        setup_app::setup_app_with_contract,
         CONSUMER_1, CONSUMER_2,
     },
 };
 
-use super::utils::{setup_app::setup_app_with_multiple_delegations, VALIDATOR};
+use super::utils::{
+    setup::setup_contract_with_delegation, setup_app::setup_app_with_multiple_delegations,
+    VALIDATOR,
+};
 
 #[test]
 fn verify_rewards() {
@@ -99,12 +109,96 @@ fn verify_rewards() {
 // TODO:
 #[test]
 fn withdraw_to_consumer() {
-    unimplemented!()
+    let mut contract_wrapper = setup_contract_with_delegation();
+
+    // Set rewards so we have something to send away
+    contract_wrapper.deps.querier.update_staking(
+        NATIVE_DENOM,
+        &[Validator {
+            address: VALIDATOR.to_string(),
+            commission: Decimal::zero(),
+            max_commission: Decimal::one(),
+            max_change_rate: Decimal::one(),
+        }],
+        &[FullDelegation {
+            delegator: contract_wrapper.addr.clone(),
+            validator: VALIDATOR.to_string(),
+            amount: coin(10000, NATIVE_DENOM),
+            can_redelegate: coin(10000, NATIVE_DENOM),
+            accumulated_rewards: coins(1000, NATIVE_DENOM),
+        }],
+    );
+
+    // withdraw rewards from validator
+    contract_wrapper
+        .execute(
+            ADMIN.as_str(),
+            ExecuteMsg::WithdrawDelegatorReward {
+                validator: VALIDATOR.to_string(),
+            },
+        )
+        .unwrap();
+
+    // Withdraw/send to consumer
+    let res = contract_wrapper
+        .execute(
+            ADMIN.as_str(),
+            ExecuteMsg::WithdrawToCostumer {
+                consumer: CONSUMER_1.to_string(),
+                validator: VALIDATOR.to_string(),
+            },
+        )
+        .unwrap();
+
+    // Make sure the msg we send away is the one we expect
+    assert_eq!(
+        res.messages[0].msg,
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: CONSUMER_1.to_string(),
+            msg: to_binary(
+                &mesh_apis::ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg {
+                    validator: VALIDATOR.to_string()
+                }
+            )
+            .unwrap(),
+            funds: coins(1000, NATIVE_DENOM)
+        })
+    );
+
+    // println!("{:?}", msg)
 }
 
 #[test]
 fn try_withdraw_no_rewards() {
     let (mut app_wrapper, meta_staking_addr) = setup_app_with_multiple_delegations();
+
+    let err = app_wrapper
+        .execute_admin(
+            meta_staking_addr.clone(),
+            ExecuteMsg::WithdrawDelegatorReward {
+                validator: VALIDATOR.to_string(),
+            },
+        )
+        .unwrap_err();
+
+    assert!(matches!(err, ContractError::ZeroRewardsToSend {}));
+
+    let err = app_wrapper
+        .execute_admin(
+            meta_staking_addr,
+            ExecuteMsg::WithdrawToCostumer {
+                consumer: CONSUMER_1.to_string(),
+                validator: VALIDATOR.to_string(),
+            },
+        )
+        .unwrap_err();
+
+    assert!(matches!(err, ContractError::ZeroRewardsToSend {}));
+}
+
+#[test]
+fn try_withdraw_no_delegations() {
+    let (mut app_wrapper, meta_staking_addr) = setup_app_with_contract();
 
     let err = app_wrapper
         .execute_admin(
@@ -115,5 +209,22 @@ fn try_withdraw_no_rewards() {
         )
         .unwrap_err();
 
-    assert!(matches!(err, ContractError::ZeroRewardsToSend {}));
+    assert!(matches!(err, ContractError::NoDelegationsForValidator {}));
+}
+
+#[test]
+fn try_withdraw_no_consumer() {
+    let (mut app_wrapper, meta_staking_addr) = setup_app_with_contract();
+
+    let err = app_wrapper
+        .execute_admin(
+            meta_staking_addr,
+            ExecuteMsg::WithdrawToCostumer {
+                consumer: CONSUMER_1.to_string(),
+                validator: VALIDATOR.to_string(),
+            },
+        )
+        .unwrap_err();
+
+    assert!(matches!(err, ContractError::NoConsumer {}));
 }

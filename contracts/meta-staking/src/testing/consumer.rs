@@ -1,5 +1,8 @@
 use cosmwasm_std::{coin, Decimal, StdError, Uint128};
-use mesh_testing::unit_wrapper::{UnitQuery, UnitSudo};
+use mesh_testing::{
+    unit_wrapper::{UnitQuery, UnitSudo},
+    NATIVE_DENOM,
+};
 
 use crate::{
     error::ContractError,
@@ -8,7 +11,7 @@ use crate::{
     testing::utils::setup::setup_contract,
 };
 
-use super::utils::{CONSUMER_1, NATIVE_DENOM};
+use super::utils::CONSUMER_1;
 
 #[test]
 fn add_and_remove_consumer() {

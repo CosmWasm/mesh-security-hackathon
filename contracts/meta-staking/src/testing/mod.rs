@@ -4,6 +4,7 @@ mod utils;
 mod consumer;
 // Test delegate and undelegate
 mod delegations;
-
 // Test rewards
 mod rewards;
+// Test queries
+mod queries;
