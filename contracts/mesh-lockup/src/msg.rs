@@ -15,7 +15,8 @@ pub enum ExecuteMsg {
     /// Withdraws tokens from Lockup.
     /// Only works if the account has sufficient funds that is not backing open claims
     Unbond { amount: Uint128 },
-    /// This gives a claim on my balance to provider, granting it to a given validator
+    /// This gives a claim on my balance to leinholder, granting it to a given validator
+    /// In the case of granting a claim, the leinholder is the mesh-provider contract
     GrantClaim {
         leinholder: String,
         amount: Uint128,
@@ -43,14 +44,14 @@ pub struct BalanceResponse {
 
 #[cw_serde]
 pub struct Lein {
-    pub provider: String,
+    pub leinholder: String,
     pub amount: Uint128,
 }
 
 impl From<LeinAddr> for Lein {
     fn from(lein: LeinAddr) -> Self {
         Lein {
-            provider: lein.provider.into_string(),
+            leinholder: lein.leinholder.into_string(),
             amount: lein.amount,
         }
     }
