@@ -197,7 +197,6 @@ mod tests {
         let mut balance = Balance::new(init);
         balance.add_claim(&leinholder, init.into()).unwrap();
         assert_eq!(balance.free().u128(), 0);
-        assert_eq!(balance.free().u128(), 0);
         assert_eq!(balance.claims.len(), 1);
         balance.release_claim(&leinholder, init.into()).unwrap();
         assert_eq!(balance.free().u128(), init);
