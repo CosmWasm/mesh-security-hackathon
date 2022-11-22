@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{AllValidatorsResponse, Coin, DelegationResponse, Uint128};
+use cosmwasm_std::{Addr, Coin, Uint128};
 
 use crate::state::ConsumerInfo;
 
@@ -44,25 +44,25 @@ pub enum ExecuteMsg {
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     /// AllDelegations will return all delegations by the consumer
-    #[returns(AllDelegationsResponse)]
+    #[returns(Vec<Delegation>)]
     AllDelegations { consumer: String },
     /// Returns an individual consumer
     #[returns(ConsumerInfo)]
     Consumer { address: String },
     /// Returns list of consumers
-    #[returns(ConsumersResponse)]
+    #[returns(Vec<Addr>)]
     Consumers {
         start: Option<String>,
         limit: Option<u32>,
     },
     /// Delegation will return more detailed info on a particular
     /// delegation, defined by delegator/validator pair
-    #[returns(DelegationResponse)]
+    #[returns(Uint128)]
     Delegation { consumer: String, validator: String },
     /// Returns all validators the consumer delegates to.
     ///
     /// The query response type is `AllValidatorsResponse`.
-    #[returns(AllValidatorsResponse)]
+    #[returns(Vec<String>)]
     AllValidators {
         consumer: String,
         start: Option<String>,
@@ -85,16 +85,6 @@ pub enum SudoMsg {
     RemoveConsumer {
         consumer_address: String,
     },
-}
-
-#[cw_serde]
-pub struct ConsumersResponse {
-    pub consumers: Vec<ConsumerInfo>,
-}
-
-#[cw_serde]
-pub struct AllDelegationsResponse {
-    pub delegations: Vec<Delegation>,
 }
 
 #[cw_serde]
