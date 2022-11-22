@@ -331,9 +331,7 @@ mod execute {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::AllDelegations { consumer } => {
-            to_binary(&query::all_delegations(deps, consumer)?)
-        }
+        QueryMsg::AllDelegations { consumer } => query::all_delegations(deps, consumer),
         QueryMsg::AllValidators {
             consumer,
             start,
@@ -349,7 +347,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 mod query {
-    use crate::msg::{AllDelegationsResponse, Delegation};
+    use crate::msg::Delegation;
     use cosmwasm_std::{to_binary, Addr, Order};
     use cw_storage_plus::Bound;
     use cw_utils::maybe_addr;
@@ -358,7 +356,7 @@ mod query {
 
     use super::*;
 
-    pub fn all_delegations(deps: Deps, consumer: String) -> StdResult<AllDelegationsResponse> {
+    pub fn all_delegations(deps: Deps, consumer: String) -> StdResult<Binary> {
         let consumer = deps.api.addr_validate(&consumer)?;
         let delegations = VALIDATORS_BY_CONSUMER
             .prefix(&consumer)
@@ -371,7 +369,7 @@ mod query {
                 })
             })
             .collect::<StdResult<Vec<_>>>()?;
-        Ok(AllDelegationsResponse { delegations })
+        to_binary(&delegations)
     }
 
     pub fn all_validators(
