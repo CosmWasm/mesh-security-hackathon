@@ -105,7 +105,7 @@ mod execute {
         let validator_rewards = match validator_rewards {
             Some(val_rewards) => val_rewards,
             None => {
-                let val = ValidatorRewards::new();
+                let val = ValidatorRewards::default();
 
                 VALIDATORS_REWARDS.save(deps.storage, &validator, &val)?;
                 val
@@ -159,7 +159,12 @@ mod execute {
 
         let validator_rewards = VALIDATORS_REWARDS.load(deps.storage, &validator)?;
 
-        let delegations = VALIDATORS_BY_CONSUMER.load(deps.storage, (&info.sender, &validator))?;
+        // TODO: We check if we have delegation before we check if we have consumer
+        // If we don't have consumer, we shouldn't have delegation by default
+        // so we return a wrong error to the problem in that case.
+        let delegations = VALIDATORS_BY_CONSUMER
+            .may_load(deps.storage, (&info.sender, &validator))?
+            .ok_or(ContractError::NoDelegationsForValidator {})?;
 
         // Increase the amount of available funds for that consumer
         CONSUMERS.update(
