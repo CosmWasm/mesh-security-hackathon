@@ -1,14 +1,12 @@
 use cosmwasm_std::Uint128;
-use mesh_testing::CREATOR_ADDR;
 
-use crate::testing::utils::{executes::undelegate, queries::{query_delegation, query_consumer}};
-
-use super::{
-    utils::{
-        executes::withdraw_rewards, queries::query_rewards, setup::setup_with_multiple_delegations,
-    },
-    VALIDATOR,
+use crate::testing::utils::{
+    executes::{undelegate, withdraw_rewards},
+    queries::{query_consumer, query_rewards},
+    setup::setup_with_multiple_delegations,
 };
+
+use mesh_testing::constants::{CREATOR_ADDR, VALIDATOR};
 
 #[test]
 fn verify_rewards() {

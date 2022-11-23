@@ -2,15 +2,13 @@ use cosmwasm_std::Uint128;
 
 use crate::ContractError;
 
-use super::{
-    assert_error,
-    utils::{
-        executes::{delegate, undelegate},
-        queries::{query_delegation, query_module_delegation},
-        setup::{setup_with_consumer, setup_with_contracts},
-    },
-    VALIDATOR,
+use super::utils::{
+    executes::{delegate, undelegate},
+    queries::{query_delegation, query_module_delegation},
+    setup::{setup_with_consumer, setup_with_contracts},
 };
+
+use mesh_testing::{constants::VALIDATOR, macros::assert_error};
 
 #[test]
 fn add_remove_delegations() {

@@ -6,7 +6,7 @@ use crate::msg::{ExecuteMsg, SudoMsg};
 
 use mesh_testing::{constants::NATIVE_DENOM, macros::addr};
 
-pub fn _delegate(
+pub fn delegate(
     app: &mut App,
     contract_addr: &str,
     sender: &str,
@@ -24,7 +24,7 @@ pub fn _delegate(
     )
 }
 
-pub fn _undelegate(
+pub fn undelegate(
     app: &mut App,
     contract_addr: &str,
     sender: &str,
@@ -42,7 +42,7 @@ pub fn _undelegate(
     )
 }
 
-pub fn _withdraw_rewards(
+pub fn withdraw_rewards(
     app: &mut App,
     contract_addr: &str,
     sender: &str,

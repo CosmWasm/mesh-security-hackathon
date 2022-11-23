@@ -1,4 +1,4 @@
-use cosmwasm_std::{coins, testing::mock_env, Addr, Decimal, Validator};
+use cosmwasm_std::{coins, testing::mock_env, Addr, Decimal, Validator, Uint128};
 use cw_multi_test::{App, AppBuilder, BankSudo, StakingInfo, SudoMsg};
 
 use mesh_testing::{
