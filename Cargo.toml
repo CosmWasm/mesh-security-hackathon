@@ -18,6 +18,7 @@ exclude = [
 [workspace.dependencies]
 mesh-ibc         = { path = "./packages/mesh-ibc", version = "0.1.0" }
 mesh-apis        = { path = "./packages/mesh-apis", version = "0.1.0" }
+mesh-testing     = { path = "./packages/mesh-testing", version = "0.1.0" }
 meta-staking     = { path = "./contracts/meta-staking", version = "0.1.0", features = ["library"] }
 mesh-consumer    = { path = "./contracts/mesh-consumer", version = "0.1.0", features = ["library"] }
 mesh-slasher     = { path = "./contracts/mesh-slasher", version = "0.1.0", features = ["library"] }

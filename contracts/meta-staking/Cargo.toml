@@ -40,5 +40,5 @@ thiserror        = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }
-mesh-consumer = { workspace = true }
+mesh-testing  = { workspace = true }
 anyhow        = { workspace = true }
