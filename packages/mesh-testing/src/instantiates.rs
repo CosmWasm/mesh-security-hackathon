@@ -3,10 +3,10 @@ use std::str::FromStr;
 use cosmwasm_std::{Addr, Decimal};
 use cw_multi_test::{App, Executor};
 
-use crate::contracts::{mesh_consumer_contract, meta_staking_contract};
-
-pub const CREATOR_ADDR: &str = "creater_addr";
-
+use crate::{
+    constants::CREATOR_ADDR,
+    contracts::{mesh_consumer_contract, meta_staking_contract},
+};
 
 pub fn instantiate_meta_staking(
     app: &mut App,
