@@ -3,7 +3,10 @@ use std::str::FromStr;
 use cosmwasm_std::{Addr, Decimal};
 use cw_multi_test::{App, Executor};
 
-use crate::{contracts::{meta_staking_contract, mesh_consumer_contract}, CREATOR_ADDR};
+use crate::{
+    contracts::{mesh_consumer_contract, meta_staking_contract},
+    CREATOR_ADDR,
+};
 
 pub fn instantiate_meta_staking(
     app: &mut App,
@@ -26,13 +29,16 @@ pub fn instantiate_meta_staking(
 pub fn instantiate_mesh_consumer(
     app: &mut App,
     init_msg: Option<mesh_consumer::msg::InstantiateMsg>,
-    meta_staking_addr: Addr
+    meta_staking_addr: Option<Addr>,
 ) -> Addr {
     let mesh_consumer_id = app.store_code(mesh_consumer_contract());
     let init_msg = init_msg.unwrap_or(mesh_consumer::msg::InstantiateMsg {
-        provider: mesh_consumer::msg::ProviderInfo{ port_id: "some_port".to_string(), connection_id: "come_connection".to_string() },
+        provider: mesh_consumer::msg::ProviderInfo {
+            port_id: "some_port".to_string(),
+            connection_id: "come_connection".to_string(),
+        },
         remote_to_local_exchange_rate: Decimal::from_str("0.1").unwrap(),
-        meta_staking_contract_address: meta_staking_addr.to_string(),
+        meta_staking_contract_address: meta_staking_addr.unwrap().to_string(),
         ics20_channel: "some_channel".to_string(),
         packet_lifetime: None,
     });
