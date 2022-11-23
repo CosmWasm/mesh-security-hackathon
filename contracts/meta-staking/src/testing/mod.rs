@@ -1,3 +1,4 @@
 pub mod utils;
 
-const NATIVE_DENOM: &str = "NATIVE_DENOM";
+// Test add / remove consumer
+mod test_consumer;

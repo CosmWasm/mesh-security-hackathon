@@ -1,18 +1,15 @@
 use cosmwasm_std::{Decimal, Uint128};
 
 use crate::{
-    testing::{
-        assert_error,
-        utils::{
-            executes::{add_consumer, remove_consumer},
-            queries::query_consumer,
-            setup::{setup_with_consumer, setup_with_contracts},
-        },
+    testing::utils::{
+        executes::{add_consumer, remove_consumer},
+        queries::query_consumer,
+        setup::{setup_with_consumer, setup_with_contracts},
     },
     ContractError,
 };
 
-use mesh_testing::CREATOR_ADDR;
+use mesh_testing::{constants::CREATOR_ADDR, macros::assert_error};
 
 #[test]
 fn add_and_remove_consumer() {
