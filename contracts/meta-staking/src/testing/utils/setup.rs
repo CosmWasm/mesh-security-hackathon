@@ -1,5 +1,5 @@
-use cosmwasm_std::{testing::mock_env, Addr, Decimal, Validator};
-use cw_multi_test::{App, AppBuilder, StakingInfo};
+use cosmwasm_std::{testing::mock_env, Addr, Decimal, Validator, coins};
+use cw_multi_test::{App, AppBuilder, StakingInfo, SudoMsg, BankSudo};
 
 use crate::testing::{NATIVE_DENOM, VALIDATOR};
 use mesh_testing::instantiates::{instantiate_mesh_consumer, instantiate_meta_staking};
@@ -43,6 +43,12 @@ pub fn setup_with_contracts() -> (App, Addr, Addr) {
     let mut app = setup_app();
 
     let meta_staking_addr = instantiate_meta_staking(&mut app, None);
+    // Fund meta-staking
+    app.sudo(SudoMsg::Bank(BankSudo::Mint {
+        to_address: meta_staking_addr.to_string(),
+        amount: coins(100000, NATIVE_DENOM),
+    }))
+    .unwrap();
 
     let mesh_consumer_addr = instantiate_mesh_consumer(&mut app, None, meta_staking_addr.clone());
 
