@@ -1,12 +1,18 @@
 use cosmwasm_std::Uint128;
 
-use crate::testing::utils::{
-    executes::{undelegate, withdraw_rewards},
-    queries::{query_consumer, query_rewards},
-    setup::setup_with_multiple_delegations,
+use crate::{
+    testing::utils::{
+        executes::{undelegate, withdraw_rewards},
+        queries::{query_consumer, query_rewards},
+        setup::{setup_with_contracts, setup_with_multiple_delegations},
+    },
+    ContractError,
 };
 
-use mesh_testing::constants::{CREATOR_ADDR, VALIDATOR};
+use mesh_testing::{
+    constants::{CREATOR_ADDR, VALIDATOR},
+    macros::assert_error,
+};
 
 #[test]
 fn verify_rewards() {
@@ -72,4 +78,35 @@ fn verify_rewards() {
     // -1 is for leftover from rounding (left as pending)
     // When we delegate we delegate not round numbers to get some leftovers.
     assert_eq!(rewards_1 + rewards_2, total_rewards.u128() - 1);
+}
+
+#[test]
+fn try_withdraw_no_delegations() {
+    let (mut app, meta_staking_addr, _) = setup_with_contracts();
+
+    let err = withdraw_rewards(
+        &mut app,
+        meta_staking_addr.as_str(),
+        CREATOR_ADDR,
+        VALIDATOR,
+    );
+
+    assert_error!(err, ContractError::NoDelegationsForValidator {});
+}
+
+// TODO: multi-test doesn't support IBC calls, so we can't test withdraw_to_consumer with
+// We should do unit testing for now.
+#[test]
+fn withdraw_to_consumer() {
+    unimplemented!()
+}
+
+#[test]
+fn try_withdraw_no_rewards() {
+    unimplemented!()
+}
+
+#[test]
+fn try_withdraw_no_consumer() {
+    unimplemented!()
 }
