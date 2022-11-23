@@ -2,14 +2,11 @@ use cosmwasm_std::{coins, testing::mock_env, Addr, Decimal, Validator};
 use cw_multi_test::{App, AppBuilder, BankSudo, StakingInfo, SudoMsg};
 
 use mesh_testing::{
-    constants::CREATOR_ADDR,
+    constants::{CREATOR_ADDR, NATIVE_DENOM, VALIDATOR},
     instantiates::{instantiate_mesh_consumer, instantiate_meta_staking},
 };
 
 use super::executes::add_consumer;
-
-const NATIVE_DENOM: &str = "vative_denom";
-const VALIDATOR: &str = "validator";
 
 pub fn setup_app() -> App {
     AppBuilder::new().build(|router, api, storage| {
