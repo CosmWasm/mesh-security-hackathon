@@ -1,16 +1,15 @@
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 use crate::ContractError;
 use cw_storage_plus::{Item, Map};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct Config {
     pub denom: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct Balance {
     pub bonded: Uint128,
     pub claims: Vec<LeinAddr>,
@@ -35,7 +34,7 @@ impl Default for Balance {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct LeinAddr {
     pub leinholder: Addr,
     pub amount: Uint128,

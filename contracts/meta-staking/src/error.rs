@@ -1,4 +1,6 @@
-use cosmwasm_std::{CheckedFromRatioError, DivideByZeroError, OverflowError, StdError, DecimalRangeExceeded};
+use cosmwasm_std::{
+    CheckedFromRatioError, DecimalRangeExceeded, DivideByZeroError, OverflowError, StdError,
+};
 use cw_utils::ParseReplyError;
 use thiserror::Error;
 

@@ -1,5 +1,4 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use cosmwasm_schema::cw_serde;
 
 use cosmwasm_std::{Addr, Decimal, Fraction, Uint128};
 use cw_controllers::Claims;
@@ -8,7 +7,7 @@ use cw_storage_plus::{Item, Map};
 use crate::msg::ConsumerInfo;
 use crate::ContractError;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct Config {
     pub consumer: ConsumerInfo,
     pub slasher: Option<Addr>,
@@ -33,7 +32,8 @@ pub const STAKED: Map<(&Addr, &str), Stake> = Map::new("staked");
 
 pub const CLAIMS: Claims = Claims::new("claims");
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[cw_serde]
+#[derive(Default)]
 pub struct Stake {
     /// how many tokens we have received here
     pub locked: Uint128,
@@ -44,7 +44,8 @@ pub struct Stake {
     pub rewards: DelegatorRewards,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[cw_serde]
+#[derive(Default)]
 pub struct DelegatorRewards {
     pub pending: Decimal,
     pub paid_rewards_per_token: Decimal,
@@ -142,7 +143,7 @@ impl Stake {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct Validator {
     // how many shares have been staked here
     pub stake: Uint128,
@@ -153,7 +154,7 @@ pub struct Validator {
     pub rewards: ValidatorRewards,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct ValidatorRewards {
     /// rewards_per_token, total of rewards to be paid per staked token
     pub rewards_per_token: Decimal,
@@ -184,7 +185,7 @@ impl ValidatorRewards {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub enum ValStatus {
     Active,
     Removed,
