@@ -86,6 +86,24 @@ pub fn add_consumer(
     )
 }
 
+pub fn remove_consumer(
+    app: &mut App,
+    contract_addr: Addr,
+    sender: &str,
+    consumer_addr: &str,
+) -> AnyResult<AppResponse> {
+    let sudo_msg = SudoMsg::RemoveConsumer {
+        consumer_address: consumer_addr.to_string(),
+    };
+
+    app.execute_contract(
+        addr!(sender),
+        contract_addr.clone(),
+        &ExecuteMsg::Sudo(sudo_msg),
+        &[],
+    )
+}
+
 // TODO: withdraw to consumer end with IBC call which is not supported by cw-multi-test
 pub fn withdraw_to_consumer(
     app: &mut App,
