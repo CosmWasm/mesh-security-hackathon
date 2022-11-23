@@ -1,2 +1,2 @@
-mod executes;
-mod queries;
+pub mod executes;
+pub mod queries;
