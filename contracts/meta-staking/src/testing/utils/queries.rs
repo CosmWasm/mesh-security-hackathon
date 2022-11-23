@@ -1,4 +1,4 @@
-use cosmwasm_std::{StdResult, Uint128};
+use cosmwasm_std::{StdResult, Uint128, FullDelegation};
 use cw_multi_test::App;
 
 use crate::{
@@ -22,7 +22,21 @@ pub fn _query_delegation(
     Ok(delegation)
 }
 
-pub fn _query_all_delegations(
+pub fn query_module_delegation(app: &App, delegator: &str, validator: &str) -> Option<FullDelegation>{
+    app.wrap().query_delegation(delegator, validator).unwrap()
+}
+
+pub fn query_rewards(app: &App, delegator: &str, validator: &str) -> Option<Uint128>{
+    let rewards = query_module_delegation(app, delegator, validator).unwrap().accumulated_rewards;
+
+    if rewards.is_empty() {
+        return None
+    } else {
+        return Some(rewards[0].amount);
+    }
+}
+
+pub fn query_all_delegations(
     app: &App,
     contract_addr: &str,
     consumer: &str,
