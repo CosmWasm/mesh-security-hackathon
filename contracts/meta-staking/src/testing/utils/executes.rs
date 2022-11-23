@@ -2,10 +2,9 @@ use anyhow::Result as AnyResult;
 use cosmwasm_std::{coin, Addr, Uint128};
 use cw_multi_test::{App, AppResponse, Executor};
 
-use crate::{
-    msg::{ExecuteMsg, SudoMsg},
-    testing::NATIVE_DENOM,
-};
+use crate::msg::{ExecuteMsg, SudoMsg};
+
+const NATIVE_DENOM: &str = "NATIVE_DENOM";
 
 // Shorthand for an unchecked address.
 macro_rules! addr {
