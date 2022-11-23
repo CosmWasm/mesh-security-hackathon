@@ -157,14 +157,14 @@ mod execute {
     ) -> Result<Response, ContractError> {
         // TODO Validate validator valoper address
 
-        let validator_rewards = VALIDATORS_REWARDS.load(deps.storage, &validator)?;
-
         // TODO: We check if we have delegation before we check if we have consumer
         // If we don't have consumer, we shouldn't have delegation by default
         // so we return a wrong error to the problem in that case.
         let delegations = VALIDATORS_BY_CONSUMER
             .may_load(deps.storage, (&info.sender, &validator))?
             .ok_or(ContractError::NoDelegationsForValidator {})?;
+
+        let validator_rewards = VALIDATORS_REWARDS.load(deps.storage, &validator)?;
 
         // Increase the amount of available funds for that consumer
         CONSUMERS.update(
