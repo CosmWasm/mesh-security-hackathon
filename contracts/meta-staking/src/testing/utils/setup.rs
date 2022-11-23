@@ -2,7 +2,9 @@ use cosmwasm_std::{testing::mock_env, Addr, Decimal, Validator, coins};
 use cw_multi_test::{App, AppBuilder, StakingInfo, SudoMsg, BankSudo};
 
 use crate::testing::{NATIVE_DENOM, VALIDATOR};
-use mesh_testing::instantiates::{instantiate_mesh_consumer, instantiate_meta_staking};
+use mesh_testing::{CREATOR_ADDR, instantiates::{instantiate_mesh_consumer, instantiate_meta_staking}};
+
+use super::executes::add_consumer;
 
 pub fn setup_app() -> App {
     AppBuilder::new().build(|router, api, storage| {
@@ -51,6 +53,21 @@ pub fn setup_with_contracts() -> (App, Addr, Addr) {
     .unwrap();
 
     let mesh_consumer_addr = instantiate_mesh_consumer(&mut app, None, Some(meta_staking_addr.clone()));
+
+    (app, meta_staking_addr, mesh_consumer_addr)
+}
+
+pub fn setup_with_consumer() -> (App, Addr, Addr) {
+    let (mut app, meta_staking_addr, mesh_consumer_addr) = setup_with_contracts();
+
+    add_consumer(
+        &mut app,
+        meta_staking_addr.as_str(),
+        CREATOR_ADDR,
+        mesh_consumer_addr.as_str(),
+        10000,
+    )
+    .unwrap();
 
     (app, meta_staking_addr, mesh_consumer_addr)
 }

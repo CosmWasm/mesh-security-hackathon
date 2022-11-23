@@ -1,25 +1,22 @@
 use cosmwasm_std::{Decimal, Uint128};
 
 use crate::{
-    testing::{assert_error, utils::executes::remove_consumer},
+    testing::{
+        assert_error,
+        utils::{
+            executes::{add_consumer, remove_consumer},
+            queries::query_consumer,
+            setup::{setup_with_consumer, setup_with_contracts},
+        },
+    },
     ContractError,
 };
 
-use super::utils::{executes::add_consumer, queries::query_consumer, setup::setup_with_contracts};
 use mesh_testing::CREATOR_ADDR;
 
 #[test]
 fn add_and_remove_consumer() {
-    let (mut app, meta_staking_addr, mesh_consumer_addr) = setup_with_contracts();
-
-    add_consumer(
-        &mut app,
-        meta_staking_addr.as_str(),
-        CREATOR_ADDR,
-        mesh_consumer_addr.as_str(),
-        10000,
-    )
-    .unwrap();
+    let (mut app, meta_staking_addr, mesh_consumer_addr) = setup_with_consumer();
 
     let consumer = query_consumer(
         &app,
@@ -50,16 +47,7 @@ fn add_and_remove_consumer() {
 
 #[test]
 fn consumer_already_exists() {
-    let (mut app, meta_staking_addr, mesh_consumer_addr) = setup_with_contracts();
-
-    add_consumer(
-        &mut app,
-        meta_staking_addr.as_str(),
-        CREATOR_ADDR,
-        mesh_consumer_addr.as_str(),
-        10000,
-    )
-    .unwrap();
+    let (mut app, meta_staking_addr, mesh_consumer_addr) = setup_with_consumer();
 
     // Should failed because we already have a consumer
     let err = add_consumer(
