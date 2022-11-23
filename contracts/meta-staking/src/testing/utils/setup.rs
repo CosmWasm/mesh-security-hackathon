@@ -50,7 +50,7 @@ pub fn setup_with_contracts() -> (App, Addr, Addr) {
     }))
     .unwrap();
 
-    let mesh_consumer_addr = instantiate_mesh_consumer(&mut app, None, meta_staking_addr.clone());
+    let mesh_consumer_addr = instantiate_mesh_consumer(&mut app, None, Some(meta_staking_addr.clone()));
 
     (app, meta_staking_addr, mesh_consumer_addr)
 }
