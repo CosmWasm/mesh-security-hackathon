@@ -4,14 +4,7 @@ use cw_multi_test::{App, AppResponse, Executor};
 
 use crate::msg::{ExecuteMsg, SudoMsg};
 
-const NATIVE_DENOM: &str = "NATIVE_DENOM";
-
-// Shorthand for an unchecked address.
-macro_rules! addr {
-    ($x:expr ) => {
-        Addr::unchecked($x)
-    };
-}
+use mesh_testing::{constants::NATIVE_DENOM, macros::addr};
 
 pub fn delegate(
     app: &mut App,

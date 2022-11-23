@@ -9,3 +9,13 @@ macro_rules! assert_error {
 }
 
 pub use assert_error;
+
+// Shorthand for an unchecked address.
+#[macro_export]
+macro_rules! addr {
+    ($x:expr ) => {
+        Addr::unchecked($x)
+    };
+}
+
+pub use addr;
