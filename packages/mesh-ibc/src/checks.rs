@@ -3,7 +3,7 @@ use cosmwasm_std::IbcOrder;
 
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum MeshSecurityError {
     #[error("Only supports unordered channels")]
     InvalidChannelOrder,

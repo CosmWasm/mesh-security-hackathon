@@ -6,7 +6,7 @@ use crate::msg::{ExecuteMsg, SudoMsg};
 
 use mesh_testing::{constants::NATIVE_DENOM, macros::addr};
 
-pub fn delegate(
+pub fn _delegate(
     app: &mut App,
     contract_addr: Addr,
     sender: &str,
@@ -15,7 +15,7 @@ pub fn delegate(
 ) -> AnyResult<AppResponse> {
     app.execute_contract(
         addr!(sender),
-        contract_addr.clone(),
+        contract_addr,
         &ExecuteMsg::Delegate {
             validator: validator.to_string(),
             amount,
@@ -24,7 +24,7 @@ pub fn delegate(
     )
 }
 
-pub fn undelegate(
+pub fn _undelegate(
     app: &mut App,
     contract_addr: Addr,
     sender: &str,
@@ -33,7 +33,7 @@ pub fn undelegate(
 ) -> AnyResult<AppResponse> {
     app.execute_contract(
         addr!(sender),
-        contract_addr.clone(),
+        contract_addr,
         &ExecuteMsg::Undelegate {
             validator: validator.to_string(),
             amount,
@@ -42,7 +42,7 @@ pub fn undelegate(
     )
 }
 
-pub fn withdraw_rewards(
+pub fn _withdraw_rewards(
     app: &mut App,
     contract_addr: Addr,
     sender: &str,
@@ -50,7 +50,7 @@ pub fn withdraw_rewards(
 ) -> AnyResult<AppResponse> {
     app.execute_contract(
         addr!(sender),
-        contract_addr.clone(),
+        contract_addr,
         &ExecuteMsg::WithdrawDelegatorReward {
             validator: validator.to_string(),
         },
@@ -97,12 +97,12 @@ pub fn remove_consumer(
 }
 
 // TODO: withdraw to consumer end with IBC call which is not supported by cw-multi-test
-pub fn withdraw_to_consumer(
-    app: &mut App,
-    contract_addr: Addr,
-    sender: &str,
-    consumer: &str,
-    validator: &str,
+pub fn _withdraw_to_consumer(
+    _app: &mut App,
+    _contract_addr: Addr,
+    _sender: &str,
+    _consumer: &str,
+    _validator: &str,
 ) -> AnyResult<AppResponse> {
     unimplemented!()
     // app.execute_contract(

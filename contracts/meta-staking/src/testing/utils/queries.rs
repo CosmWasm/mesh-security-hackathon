@@ -6,7 +6,7 @@ use crate::{
     state::ConsumerInfo,
 };
 
-pub fn query_delegation(
+pub fn _query_delegation(
     app: &App,
     contract_addr: &str,
     consumer: &str,
@@ -22,7 +22,7 @@ pub fn query_delegation(
     Ok(delegation)
 }
 
-pub fn query_all_delegations(
+pub fn _query_all_delegations(
     app: &App,
     contract_addr: &str,
     consumer: &str,
@@ -46,7 +46,7 @@ pub fn query_consumer(app: &App, contract_addr: &str, consumer: &str) -> StdResu
     Ok(consumer)
 }
 
-pub fn query_consumers(
+pub fn _query_consumers(
     app: &App,
     contract_addr: &str,
     start: Option<String>,
@@ -58,7 +58,7 @@ pub fn query_consumers(
     Ok(consumers)
 }
 
-pub fn query_all_validators(
+pub fn _query_all_validators(
     app: &App,
     contract_addr: &str,
     consumer: &str,

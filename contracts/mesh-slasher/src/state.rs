@@ -1,10 +1,9 @@
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 use cw_storage_plus::Item;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct Config {
     pub owner: Addr,
     pub slashee: Addr,
