@@ -68,7 +68,7 @@ pub fn withdraw_rewards(
 
 pub fn add_consumer(
     app: &mut App,
-    contract_addr: Addr,
+    contract_addr: &str,
     sender: &str,
     consumer_addr: &str,
     funds_avaiable: u128,
@@ -80,7 +80,7 @@ pub fn add_consumer(
 
     app.execute_contract(
         addr!(sender),
-        contract_addr.clone(),
+        addr!(contract_addr),
         &ExecuteMsg::Sudo(sudo_msg),
         &[],
     )
@@ -88,7 +88,7 @@ pub fn add_consumer(
 
 pub fn remove_consumer(
     app: &mut App,
-    contract_addr: Addr,
+    contract_addr: &str,
     sender: &str,
     consumer_addr: &str,
 ) -> AnyResult<AppResponse> {
@@ -98,7 +98,7 @@ pub fn remove_consumer(
 
     app.execute_contract(
         addr!(sender),
-        contract_addr.clone(),
+        addr!(contract_addr),
         &ExecuteMsg::Sudo(sudo_msg),
         &[],
     )
