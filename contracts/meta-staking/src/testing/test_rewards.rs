@@ -1,6 +1,12 @@
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{
+    coin, coins,
+    testing::{mock_env, mock_info},
+    to_binary, CosmosMsg, Decimal, FullDelegation, Uint128, Validator, WasmMsg,
+};
 
 use crate::{
+    contract::execute,
+    msg::ExecuteMsg,
     testing::utils::{
         executes::{undelegate, withdraw_rewards},
         queries::{query_consumer, query_rewards},
@@ -10,9 +16,11 @@ use crate::{
 };
 
 use mesh_testing::{
-    constants::{CREATOR_ADDR, VALIDATOR},
+    constants::{CREATOR_ADDR, NATIVE_DENOM, VALIDATOR},
     macros::assert_error,
 };
+
+use super::utils::setup::{setup_unit_with_contract, setup_unit_with_delegation};
 
 #[test]
 fn verify_rewards() {
@@ -94,19 +102,146 @@ fn try_withdraw_no_delegations() {
     assert_error!(err, ContractError::NoDelegationsForValidator {});
 }
 
-// TODO: multi-test doesn't support IBC calls, so we can't test withdraw_to_consumer with
-// We should do unit testing for now.
+// TODO: can't use multi-test to test withdraw_to_consumer because it doesn't support IBC calls
+// We do unit testing for now.
 #[test]
 fn withdraw_to_consumer() {
-    unimplemented!()
+    let (mut deps, meta_staking_addr, consumer_addr) = setup_unit_with_delegation();
+    let admin_info = mock_info(CREATOR_ADDR, &[]);
+
+    // Set rewards so we have something to send away
+    deps.querier.update_staking(
+        NATIVE_DENOM,
+        &[Validator {
+            address: VALIDATOR.to_string(),
+            commission: Decimal::zero(),
+            max_commission: Decimal::one(),
+            max_change_rate: Decimal::one(),
+        }],
+        &[FullDelegation {
+            delegator: meta_staking_addr.clone(),
+            validator: VALIDATOR.to_string(),
+            amount: coin(10000, NATIVE_DENOM),
+            can_redelegate: coin(10000, NATIVE_DENOM),
+            accumulated_rewards: coins(1000, NATIVE_DENOM),
+        }],
+    );
+
+    // Withdraw rewards from validator
+    execute(
+        deps.as_mut(),
+        mock_env(),
+        admin_info.clone(),
+        ExecuteMsg::WithdrawDelegatorReward {
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap();
+
+    // Withdraw/send to consumer
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        admin_info.clone(),
+        ExecuteMsg::WithdrawToCostumer {
+            consumer: consumer_addr.to_string(),
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap();
+
+    // Make sure the msg we send away is the one we expect
+    assert_eq!(
+        res.messages[0].msg,
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: consumer_addr.to_string(),
+            msg: to_binary(
+                &mesh_apis::ConsumerExecuteMsg::MeshConsumerRecieveRewardsMsg {
+                    validator: VALIDATOR.to_string()
+                }
+            )
+            .unwrap(),
+            funds: coins(1000, NATIVE_DENOM)
+        })
+    );
 }
 
 #[test]
 fn try_withdraw_no_rewards() {
-    unimplemented!()
+    let (mut deps, meta_staking_addr, consumer_addr) = setup_unit_with_delegation();
+    let admin_info = mock_info(CREATOR_ADDR, &[]);
+
+    // Setup delegation with 0 rewards
+    deps.querier.update_staking(
+        NATIVE_DENOM,
+        &[Validator {
+            address: VALIDATOR.to_string(),
+            commission: Decimal::zero(),
+            max_commission: Decimal::one(),
+            max_change_rate: Decimal::one(),
+        }],
+        &[FullDelegation {
+            delegator: meta_staking_addr.clone(),
+            validator: VALIDATOR.to_string(),
+            amount: coin(10000, NATIVE_DENOM),
+            can_redelegate: coin(10000, NATIVE_DENOM),
+            accumulated_rewards: coins(0, NATIVE_DENOM),
+        }],
+    );
+
+    let err = execute(
+        deps.as_mut(),
+        mock_env(),
+        admin_info.clone(),
+        ExecuteMsg::WithdrawDelegatorReward {
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(err, ContractError::ZeroRewardsToSend {});
+
+    let err = execute(
+        deps.as_mut(),
+        mock_env(),
+        admin_info.clone(),
+        ExecuteMsg::WithdrawToCostumer {
+            consumer: consumer_addr.to_string(),
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(err, ContractError::ZeroRewardsToSend {});
 }
 
 #[test]
 fn try_withdraw_no_consumer() {
-    unimplemented!()
+    let (mut deps, staking_addr) = setup_unit_with_contract();
+    let admin_info = mock_info(CREATOR_ADDR, &[]);
+
+    let err = execute(
+        deps.as_mut(),
+        mock_env(),
+        admin_info.clone(),
+        ExecuteMsg::WithdrawDelegatorReward {
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(err, ContractError::NoDelegationsForValidator {});
+
+    let err = execute(
+        deps.as_mut(),
+        mock_env(),
+        admin_info.clone(),
+        ExecuteMsg::WithdrawToCostumer {
+            consumer: "consumer_addr".to_string(),
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(err, ContractError::NoConsumer {});
 }
