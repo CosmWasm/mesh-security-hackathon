@@ -157,36 +157,24 @@ mod execute {
     ) -> Result<Response, ContractError> {
         // TODO Validate validator valoper address
 
-        // TODO: We check if we have delegation before we check if we have consumer
-        // If we don't have consumer, we shouldn't have delegation by default
-        // so we return a wrong error to the problem in that case.
+        let mut consumer = (CONSUMERS.may_load(deps.storage, &info.sender)?)
+            .ok_or(ContractError::NoConsumer {})?;
+
         let delegations = VALIDATORS_BY_CONSUMER
             .may_load(deps.storage, (&info.sender, &validator))?
             .ok_or(ContractError::NoDelegationsForValidator {})?;
 
         let validator_rewards = VALIDATORS_REWARDS.load(deps.storage, &validator)?;
 
-        // Increase the amount of available funds for that consumer
-        CONSUMERS.update(
-            deps.storage,
-            &info.sender,
-            |cons| -> Result<_, ContractError> {
-                // fail if consumer was never registered
-                let mut cons = cons.ok_or(ContractError::Unauthorized {})?;
-                // calculate consumer rewards till now (with old stake)
-                cons.calc_pending_rewards(validator_rewards.rewards_per_token, delegations)?;
-
-                // HACK temporary work around for proof of concept. Real implementation
-                // would use something like a generic Superfluid module to mint or burn
-                // synthetic tokens.
-                cons.decrease_stake(amount)?;
-                Ok(cons)
-            },
-        )?;
-
+        // Decrease the amount of available funds for that consumer
+        consumer.calc_pending_rewards(validator_rewards.rewards_per_token, delegations)?;
         // HACK temporary work around for proof of concept. Real implementation
         // would use something like a generic Superfluid module to mint or burn
         // synthetic tokens
+        consumer.decrease_stake(amount)?;
+        CONSUMERS.save(deps.storage, &info.sender, &consumer)?;
+
+
 
         // Update info for the (consumer, validator) map
         // We subtract the amount delegated to the validator.
