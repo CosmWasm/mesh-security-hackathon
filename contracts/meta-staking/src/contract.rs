@@ -174,8 +174,6 @@ mod execute {
         consumer.decrease_stake(amount)?;
         CONSUMERS.save(deps.storage, &info.sender, &consumer)?;
 
-
-
         // Update info for the (consumer, validator) map
         // We subtract the amount delegated to the validator.
         deps = update_delegations(deps, info, &validator, amount, Method::Sub)?;

@@ -84,7 +84,7 @@ fn no_consumer() {
     );
 
     // TODO: this should return noConsumer error (fix in contract)
-    assert_error!(err, ContractError::NoDelegationsForValidator {});
+    assert_error!(err, ContractError::NoConsumer {});
 }
 
 #[test]
