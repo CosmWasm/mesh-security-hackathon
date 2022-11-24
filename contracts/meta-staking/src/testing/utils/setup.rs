@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     coin, coins,
     testing::{mock_dependencies, mock_env, mock_info},
-    Addr, Decimal, Empty, FullDelegation, OwnedDeps, Uint128, Validator,
+    Addr, Decimal, OwnedDeps, Uint128, Validator,
 };
 use cw_multi_test::{App, AppBuilder, BankSudo, StakingInfo, SudoMsg};
 
@@ -129,11 +129,14 @@ pub fn setup_with_multiple_delegations() -> (App, Addr, Addr, Addr) {
 }
 
 // UNIT test setups
-pub fn setup_unit_with_contract() -> (OwnedDeps<
-    cosmwasm_std::MemoryStorage,
-    cosmwasm_std::testing::MockApi,
-    cosmwasm_std::testing::MockQuerier,
->, Addr) {
+pub fn setup_unit_with_contract() -> (
+    OwnedDeps<
+        cosmwasm_std::MemoryStorage,
+        cosmwasm_std::testing::MockApi,
+        cosmwasm_std::testing::MockQuerier,
+    >,
+    Addr,
+) {
     let mut deps = mock_dependencies();
     let env = mock_env();
     let init_info = mock_info(CREATOR_ADDR, &[]);
@@ -142,7 +145,8 @@ pub fn setup_unit_with_contract() -> (OwnedDeps<
     instantiate(deps.as_mut(), env.clone(), init_info, InstantiateMsg {}).unwrap();
 
     let staking_addr = env.contract.address.clone();
-    deps.querier.update_balance(staking_addr.clone(), coins(100000, NATIVE_DENOM));
+    deps.querier
+        .update_balance(staking_addr.clone(), coins(100000, NATIVE_DENOM));
 
     // Add module Staking init
     deps.querier.update_staking(
@@ -159,20 +163,29 @@ pub fn setup_unit_with_contract() -> (OwnedDeps<
     (deps, staking_addr)
 }
 
-pub fn setup_unit_with_delegation() -> (OwnedDeps<
-    cosmwasm_std::MemoryStorage,
-    cosmwasm_std::testing::MockApi,
-    cosmwasm_std::testing::MockQuerier,
->, Addr, Addr) {
+pub fn setup_unit_with_delegation() -> (
+    OwnedDeps<
+        cosmwasm_std::MemoryStorage,
+        cosmwasm_std::testing::MockApi,
+        cosmwasm_std::testing::MockQuerier,
+    >,
+    Addr,
+    Addr,
+) {
     let (mut deps, staking_addr) = setup_unit_with_contract();
     let env = mock_env();
     let consumer_addr = addr!("consumer");
 
     // add_consumer
-    sudo(deps.as_mut(), env.clone(), MetaStakingSudoMsg::AddConsumer {
-        consumer_address: consumer_addr.to_string(),
-        funds_available_for_staking: coin(10000, NATIVE_DENOM),
-    }).unwrap();
+    sudo(
+        deps.as_mut(),
+        env.clone(),
+        MetaStakingSudoMsg::AddConsumer {
+            consumer_address: consumer_addr.to_string(),
+            funds_available_for_staking: coin(10000, NATIVE_DENOM),
+        },
+    )
+    .unwrap();
 
     // execute delegation on contract
     let info = mock_info(consumer_addr.as_str(), &[]);

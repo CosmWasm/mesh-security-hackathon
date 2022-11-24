@@ -217,7 +217,7 @@ fn try_withdraw_no_rewards() {
 
 #[test]
 fn try_withdraw_no_consumer() {
-    let (mut deps, staking_addr) = setup_unit_with_contract();
+    let (mut deps, _) = setup_unit_with_contract();
     let admin_info = mock_info(CREATOR_ADDR, &[]);
 
     let err = execute(
