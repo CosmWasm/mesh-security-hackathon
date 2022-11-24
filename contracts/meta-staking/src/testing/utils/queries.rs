@@ -36,9 +36,9 @@ pub fn query_rewards(app: &App, delegator: &str, validator: &str) -> Option<Uint
         .accumulated_rewards;
 
     if rewards.is_empty() {
-        return None;
+        None
     } else {
-        return Some(rewards[0].amount);
+        Some(rewards[0].amount)
     }
 }
 

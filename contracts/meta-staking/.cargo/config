@@ -2,4 +2,3 @@
 wasm = "build --release --lib --target wasm32-unknown-unknown"
 unit-test = "test --lib"
 schema = "run --bin schema"
-clippy = clippy --all-targets -- -D warnings

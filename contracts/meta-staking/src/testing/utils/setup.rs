@@ -144,7 +144,7 @@ pub fn setup_unit_with_contract() -> (
     // init meta-staking
     instantiate(deps.as_mut(), env.clone(), init_info, InstantiateMsg {}).unwrap();
 
-    let staking_addr = env.contract.address.clone();
+    let staking_addr = env.contract.address;
     deps.querier
         .update_balance(staking_addr.clone(), coins(100000, NATIVE_DENOM));
 
@@ -191,7 +191,7 @@ pub fn setup_unit_with_delegation() -> (
     let info = mock_info(consumer_addr.as_str(), &[]);
     execute(
         deps.as_mut(),
-        env.clone(),
+        env,
         info,
         ExecuteMsg::Delegate {
             validator: VALIDATOR.to_string(),

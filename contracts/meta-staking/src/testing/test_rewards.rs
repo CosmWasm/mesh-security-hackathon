@@ -119,7 +119,7 @@ fn withdraw_to_consumer() {
             max_change_rate: Decimal::one(),
         }],
         &[FullDelegation {
-            delegator: meta_staking_addr.clone(),
+            delegator: meta_staking_addr,
             validator: VALIDATOR.to_string(),
             amount: coin(10000, NATIVE_DENOM),
             can_redelegate: coin(10000, NATIVE_DENOM),
@@ -142,7 +142,7 @@ fn withdraw_to_consumer() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        admin_info.clone(),
+        admin_info,
         ExecuteMsg::WithdrawToCostumer {
             consumer: consumer_addr.to_string(),
             validator: VALIDATOR.to_string(),
@@ -181,7 +181,7 @@ fn try_withdraw_no_rewards() {
             max_change_rate: Decimal::one(),
         }],
         &[FullDelegation {
-            delegator: meta_staking_addr.clone(),
+            delegator: meta_staking_addr,
             validator: VALIDATOR.to_string(),
             amount: coin(10000, NATIVE_DENOM),
             can_redelegate: coin(10000, NATIVE_DENOM),
@@ -204,7 +204,7 @@ fn try_withdraw_no_rewards() {
     let err = execute(
         deps.as_mut(),
         mock_env(),
-        admin_info.clone(),
+        admin_info,
         ExecuteMsg::WithdrawToCostumer {
             consumer: consumer_addr.to_string(),
             validator: VALIDATOR.to_string(),
@@ -235,7 +235,7 @@ fn try_withdraw_no_consumer() {
     let err = execute(
         deps.as_mut(),
         mock_env(),
-        admin_info.clone(),
+        admin_info,
         ExecuteMsg::WithdrawToCostumer {
             consumer: "consumer_addr".to_string(),
             validator: VALIDATOR.to_string(),
