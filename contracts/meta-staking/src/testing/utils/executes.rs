@@ -6,16 +6,16 @@ use crate::msg::{ExecuteMsg, SudoMsg};
 
 use mesh_testing::{constants::NATIVE_DENOM, macros::addr};
 
-pub fn _delegate(
+pub fn delegate(
     app: &mut App,
-    contract_addr: Addr,
+    contract_addr: &str,
     sender: &str,
     validator: &str,
     amount: Uint128,
 ) -> AnyResult<AppResponse> {
     app.execute_contract(
         addr!(sender),
-        contract_addr,
+        addr!(contract_addr),
         &ExecuteMsg::Delegate {
             validator: validator.to_string(),
             amount,
@@ -24,16 +24,16 @@ pub fn _delegate(
     )
 }
 
-pub fn _undelegate(
+pub fn undelegate(
     app: &mut App,
-    contract_addr: Addr,
+    contract_addr: &str,
     sender: &str,
     validator: &str,
     amount: Uint128,
 ) -> AnyResult<AppResponse> {
     app.execute_contract(
         addr!(sender),
-        contract_addr,
+        addr!(contract_addr),
         &ExecuteMsg::Undelegate {
             validator: validator.to_string(),
             amount,
@@ -42,15 +42,15 @@ pub fn _undelegate(
     )
 }
 
-pub fn _withdraw_rewards(
+pub fn withdraw_rewards(
     app: &mut App,
-    contract_addr: Addr,
+    contract_addr: &str,
     sender: &str,
     validator: &str,
 ) -> AnyResult<AppResponse> {
     app.execute_contract(
         addr!(sender),
-        contract_addr,
+        addr!(contract_addr),
         &ExecuteMsg::WithdrawDelegatorReward {
             validator: validator.to_string(),
         },

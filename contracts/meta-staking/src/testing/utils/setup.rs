@@ -1,4 +1,4 @@
-use cosmwasm_std::{coins, testing::mock_env, Addr, Decimal, Validator};
+use cosmwasm_std::{coins, testing::mock_env, Addr, Decimal, Validator, Uint128};
 use cw_multi_test::{App, AppBuilder, BankSudo, StakingInfo, SudoMsg};
 
 use mesh_testing::{
@@ -6,7 +6,7 @@ use mesh_testing::{
     instantiates::{instantiate_mesh_consumer, instantiate_meta_staking},
 };
 
-use super::executes::add_consumer;
+use super::executes::{add_consumer, delegate};
 
 pub fn setup_app() -> App {
     AppBuilder::new().build(|router, api, storage| {
@@ -73,4 +73,42 @@ pub fn setup_with_consumer() -> (App, Addr, Addr) {
     .unwrap();
 
     (app, meta_staking_addr, mesh_consumer_addr)
+}
+
+pub fn setup_with_multiple_delegations() -> (App, Addr, Addr, Addr){
+    let (mut app, meta_staking_addr, mesh_consumer_addr_1) = setup_with_consumer();
+
+    // We add another consumer
+    let mesh_consumer_addr_2 =
+        instantiate_mesh_consumer(&mut app, None, Some(meta_staking_addr.clone()));
+
+    add_consumer(
+        &mut app,
+        meta_staking_addr.as_str(),
+        CREATOR_ADDR,
+        mesh_consumer_addr_2.as_str(),
+        10000,
+    )
+    .unwrap();
+
+    // Delegate from both consumers
+    delegate(
+        &mut app,
+        meta_staking_addr.as_str(),
+        mesh_consumer_addr_1.as_str(),
+        VALIDATOR,
+        Uint128::new(2345),
+    )
+    .unwrap();
+
+    delegate(
+        &mut app,
+        meta_staking_addr.as_str(),
+        mesh_consumer_addr_2.as_str(),
+        VALIDATOR,
+        Uint128::new(7655),
+    )
+    .unwrap();
+
+    (app, meta_staking_addr, mesh_consumer_addr_1, mesh_consumer_addr_2)
 }

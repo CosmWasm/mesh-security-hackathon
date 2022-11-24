@@ -1,4 +1,4 @@
-use cosmwasm_std::{StdResult, Uint128};
+use cosmwasm_std::{StdResult, Uint128, FullDelegation, Addr};
 use cw_multi_test::App;
 
 use crate::{
@@ -6,7 +6,7 @@ use crate::{
     state::ConsumerInfo,
 };
 
-pub fn _query_delegation(
+pub fn query_delegation(
     app: &App,
     contract_addr: &str,
     consumer: &str,
@@ -22,7 +22,21 @@ pub fn _query_delegation(
     Ok(delegation)
 }
 
-pub fn _query_all_delegations(
+pub fn query_module_delegation(app: &App, delegator: &str, validator: &str) -> Option<FullDelegation>{
+    app.wrap().query_delegation(delegator, validator).unwrap()
+}
+
+pub fn query_rewards(app: &App, delegator: &str, validator: &str) -> Option<Uint128>{
+    let rewards = query_module_delegation(app, delegator, validator).unwrap().accumulated_rewards;
+
+    if rewards.is_empty() {
+        return None
+    } else {
+        return Some(rewards[0].amount);
+    }
+}
+
+pub fn query_all_delegations(
     app: &App,
     contract_addr: &str,
     consumer: &str,
@@ -46,19 +60,19 @@ pub fn query_consumer(app: &App, contract_addr: &str, consumer: &str) -> StdResu
     Ok(consumer)
 }
 
-pub fn _query_consumers(
+pub fn query_consumers(
     app: &App,
     contract_addr: &str,
     start: Option<String>,
     limit: Option<u32>,
-) -> StdResult<ConsumerInfo> {
+) -> StdResult<Vec<Addr>> {
     let consumers = app
         .wrap()
         .query_wasm_smart(contract_addr, &&QueryMsg::Consumers { start, limit })?;
     Ok(consumers)
 }
 
-pub fn _query_all_validators(
+pub fn query_all_validators(
     app: &App,
     contract_addr: &str,
     consumer: &str,
