@@ -9,10 +9,12 @@ use mesh_testing::constants::{NATIVE_DENOM, VALIDATOR};
 use crate::{
     ibc::build_timeout,
     testing::utils::{
-        helpers::{execute_receive_rewards, CHANNEL_ID, STAKING_ADDR},
+        helpers::{CHANNEL_ID, STAKING_ADDR},
         setup::setup_with_channel,
     },
 };
+
+use super::utils::executes::execute_receive_rewards;
 
 #[test]
 fn recieve_rewards() {

@@ -1,13 +1,11 @@
-use cosmwasm_std::{
-    from_binary, testing::mock_dependencies, to_binary, Decimal, Uint128, Validator, WasmMsg,
-};
-use mesh_ibc::{ListValidatorsResponse, StakeResponse, StdAck, UnstakeResponse};
+use cosmwasm_std::{to_binary, Decimal, Uint128, Validator, WasmMsg};
+use mesh_ibc::{ListValidatorsResponse, StakeResponse, UnstakeResponse};
 use mesh_testing::constants::{NATIVE_DENOM, VALIDATOR};
 
-use crate::testing::utils::helpers::{instantiate_consumer, STAKING_ADDR};
-
 use super::utils::{
-    helpers::{ack_unwrap, ibc_receive_list_validators, ibc_receive_stake, ibc_receive_unstake},
+    executes::ibc_receive_list_validators,
+    executes::{ibc_receive_stake, ibc_receive_unstake},
+    helpers::{ack_unwrap, STAKING_ADDR},
     setup::setup_with_channel,
 };
 

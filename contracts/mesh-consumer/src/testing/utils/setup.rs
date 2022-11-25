@@ -1,6 +1,6 @@
 use cosmwasm_std::{OwnedDeps, Addr, testing::{mock_dependencies, MockApi, MockQuerier}, MemoryStorage, Empty};
 
-use super::helpers::{instantiate_consumer, ibc_open_channel};
+use super::executes::{instantiate_consumer, ibc_open_channel};
 
 pub fn setup_with_channel() -> (OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>, Addr){
     let mut deps = mock_dependencies();
