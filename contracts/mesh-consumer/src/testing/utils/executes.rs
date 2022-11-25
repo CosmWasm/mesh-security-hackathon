@@ -1,13 +1,30 @@
 use std::str::FromStr;
 
-use cosmwasm_std::{DepsMut, Addr, testing::{mock_info, mock_env}, Decimal, MessageInfo, Response, Empty, IbcChannelOpenMsg, IbcChannelConnectMsg, IbcReceiveResponse, to_binary, IbcPacketReceiveMsg, Uint128};
+use cosmwasm_std::{
+    coin,
+    testing::{mock_env, mock_info},
+    to_binary, Addr, Decimal, DepsMut, Empty, IbcAcknowledgement, IbcBasicResponse,
+    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
+    IbcReceiveResponse, MessageInfo, Response, Uint128,
+};
 use mesh_apis::ConsumerExecuteMsg;
-use mesh_ibc::{IBC_APP_VERSION, ProviderMsg};
-use mesh_testing::{constants::CREATOR_ADDR, addr};
+use mesh_ibc::{ConsumerMsg, ProviderMsg, IBC_APP_VERSION};
+use mesh_testing::{
+    addr,
+    constants::{CREATOR_ADDR, NATIVE_DENOM},
+};
 
-use crate::{msg::{InstantiateMsg, ProviderInfo}, contract::{instantiate, execute}, ContractError, ibc::{ibc_channel_open, ibc_channel_connect, ibc_packet_receive}};
+use crate::{
+    contract::{execute, instantiate},
+    ibc::{ibc_channel_connect, ibc_channel_open, ibc_packet_ack, ibc_packet_receive},
+    msg::{InstantiateMsg, ProviderInfo},
+    ContractError,
+};
 
-use super::helpers::{REMOTE_PORT, CONNECTION_ID, STAKING_ADDR, ICS20_CHANNEL_ID, mock_channel, CHANNEL_ID, mock_packet, RELAYER_ADDR};
+use super::helpers::{
+    mock_channel, mock_packet, CHANNEL_ID, CONNECTION_ID, ICS20_CHANNEL_ID, RELAYER_ADDR,
+    REMOTE_PORT, STAKING_ADDR,
+};
 
 pub fn instantiate_consumer(mut deps: DepsMut) -> Addr {
     let info = mock_info(CREATOR_ADDR, &[]);
@@ -105,6 +122,25 @@ pub fn ibc_receive_unstake(
     )
 }
 
-pub fn _ibc_ack_rewards() {}
+pub fn ibc_ack_rewards(
+    deps: DepsMut,
+    validator: &str,
+    amount: u128,
+    ack: IbcAcknowledgement,
+) -> Result<IbcBasicResponse, ContractError> {
+    let original_packet = mock_packet(
+        to_binary(&ConsumerMsg::Rewards {
+            validator: validator.to_string(),
+            total_funds: coin(amount, NATIVE_DENOM),
+        })
+        .unwrap(),
+    );
+
+    ibc_packet_ack(
+        deps,
+        mock_env(),
+        IbcPacketAckMsg::new(ack, original_packet, addr!(RELAYER_ADDR)),
+    )
+}
 
 pub fn _ibc_ack_update_validators() {}

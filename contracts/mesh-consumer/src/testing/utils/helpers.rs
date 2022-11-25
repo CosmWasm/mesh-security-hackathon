@@ -1,7 +1,7 @@
 use std::fmt;
 
 use cosmwasm_std::{
-    from_binary, Binary, IbcChannel, IbcEndpoint, IbcOrder, IbcPacket, IbcTimeout, Timestamp,
+    from_binary, Binary, IbcChannel, IbcEndpoint, IbcOrder, IbcPacket, IbcTimeout, Timestamp, to_binary,
 };
 use mesh_ibc::{StdAck, IBC_APP_VERSION};
 use serde::Deserialize;
@@ -50,4 +50,8 @@ pub fn mock_packet(data: Binary) -> IbcPacket {
 
 pub fn ack_unwrap<R: for<'de> Deserialize<'de> + fmt::Debug + PartialEq>(res: Binary) -> R {
     from_binary::<R>(&(from_binary::<StdAck>(&res).unwrap()).unwrap()).unwrap()
+}
+
+pub fn to_ack_success<T: serde::Serialize>(response: T) -> Binary {
+    to_binary(&StdAck::Result(to_binary(&response).unwrap())).unwrap()
 }
