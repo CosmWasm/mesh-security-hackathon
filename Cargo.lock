@@ -505,6 +505,7 @@ dependencies = [
  "cw2",
  "mesh-apis",
  "mesh-ibc",
+ "mesh-testing",
  "meta-staking",
  "schemars",
  "serde",
