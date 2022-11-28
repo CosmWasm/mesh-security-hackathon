@@ -34,7 +34,7 @@ cw-storage-plus  = { workspace = true }
 cw2              = { workspace = true }
 mesh-apis        = { workspace = true }
 mesh-ibc         = { workspace = true }
-meta-staking     = { workspace = true }
+meta-staking     = { workspace = true, features = ["library"] }
 schemars         = { workspace = true }
 serde            = { workspace = true }
 thiserror        = { workspace = true }
