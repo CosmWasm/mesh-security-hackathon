@@ -1,11 +1,9 @@
-use std::str::FromStr;
-
 use cosmwasm_std::{
     coin,
     testing::{mock_env, mock_info},
-    to_binary, Addr, Decimal, DepsMut, Empty, IbcAcknowledgement, IbcBasicResponse,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcReceiveResponse, MessageInfo, Response, Uint128,
+    to_binary, Addr, DepsMut, Empty, Ibc3ChannelOpenResponse, IbcAcknowledgement, IbcBasicResponse,
+    IbcChannel, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg,
+    IbcPacketReceiveMsg, IbcReceiveResponse, MessageInfo, Response, Uint128,
 };
 use mesh_apis::ConsumerExecuteMsg;
 use mesh_ibc::{ConsumerMsg, ProviderMsg, IBC_APP_VERSION};
@@ -16,29 +14,22 @@ use mesh_testing::{
 
 use crate::{
     contract::{execute, instantiate},
-    ibc::{ibc_channel_connect, ibc_channel_open, ibc_packet_ack, ibc_packet_receive},
-    msg::{InstantiateMsg, ProviderInfo},
+    ibc::{
+        ibc_channel_close, ibc_channel_connect, ibc_channel_open, ibc_packet_ack,
+        ibc_packet_receive,
+    },
+    msg::InstantiateMsg,
     ContractError,
 };
 
 use super::helpers::{
-    mock_channel, mock_packet, CHANNEL_ID, CONNECTION_ID, ICS20_CHANNEL_ID, RELAYER_ADDR,
-    REMOTE_PORT, STAKING_ADDR,
+    get_default_instantiate_msg, mock_channel, mock_packet, CHANNEL_ID, RELAYER_ADDR,
 };
 
-pub fn instantiate_consumer(mut deps: DepsMut) -> Addr {
+pub fn instantiate_consumer(mut deps: DepsMut, init_msg: Option<InstantiateMsg>) -> Addr {
     let info = mock_info(CREATOR_ADDR, &[]);
     let env = mock_env();
-    let msg = InstantiateMsg {
-        provider: ProviderInfo {
-            port_id: REMOTE_PORT.to_string(),
-            connection_id: CONNECTION_ID.to_string(),
-        },
-        remote_to_local_exchange_rate: Decimal::from_str("0.1").unwrap(),
-        meta_staking_contract_address: STAKING_ADDR.to_string(),
-        ics20_channel: ICS20_CHANNEL_ID.to_string(),
-        packet_lifetime: None,
-    };
+    let msg = init_msg.unwrap_or(get_default_instantiate_msg());
 
     instantiate(deps.branch(), env.clone(), info, msg).unwrap();
 
@@ -60,12 +51,36 @@ pub fn execute_receive_rewards(
     )
 }
 
-pub fn ibc_open_channel(mut deps: DepsMut) {
+pub fn ibc_open(
+    mut deps: DepsMut,
+    channel: IbcChannel,
+) -> Result<Option<Ibc3ChannelOpenResponse>, ContractError> {
+    let open_msg = IbcChannelOpenMsg::new_init(channel);
+    ibc_channel_open(deps.branch(), mock_env(), open_msg)
+}
+
+pub fn ibc_connect(
+    mut deps: DepsMut,
+    channel: IbcChannel,
+) -> Result<IbcBasicResponse, ContractError> {
+    let connect_msg = IbcChannelConnectMsg::new_ack(channel, IBC_APP_VERSION);
+    ibc_channel_connect(deps.branch(), mock_env(), connect_msg)
+}
+
+pub fn ibc_open_channel(mut deps: DepsMut) -> Result<(), ContractError> {
     let channel = mock_channel(CHANNEL_ID);
-    let open_msg = IbcChannelOpenMsg::new_init(channel.clone());
-    ibc_channel_open(deps.branch(), mock_env(), open_msg).unwrap();
-    let connect_msg = IbcChannelConnectMsg::new_ack(channel.clone(), IBC_APP_VERSION);
-    ibc_channel_connect(deps.branch(), mock_env(), connect_msg).unwrap();
+
+    ibc_open(deps.branch(), channel.clone())?;
+    ibc_connect(deps.branch(), channel)?;
+    Ok(())
+}
+
+pub fn ibc_close_channel(mut deps: DepsMut) -> Result<(), ContractError> {
+    let channel = mock_channel(CHANNEL_ID);
+
+    let close_msg = IbcChannelCloseMsg::new_init(channel);
+    ibc_channel_close(deps.branch(), mock_env(), close_msg)?;
+    Ok(())
 }
 
 pub fn ibc_receive_list_validators(deps: DepsMut) -> Result<IbcReceiveResponse, ContractError> {
