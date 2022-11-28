@@ -27,8 +27,8 @@ fn test_wrong_connection() {
 
     // Make sure we detect wrong connection
     init_msg.provider.connection_id = wrong_connection.clone();
-    let (mut deps, _) = setup(Some(init_msg.clone()));
-    let err = ibc_open(deps.as_mut(), channel.clone()).unwrap_err();
+    let (mut deps, _) = setup(Some(init_msg));
+    let err = ibc_open(deps.as_mut(), channel).unwrap_err();
 
     assert_eq!(err, ContractError::WrongConnection(wrong_connection));
 }
@@ -41,7 +41,7 @@ fn test_wrong_port() {
     // Check we detect wrong port
     init_msg.provider.port_id = wrong_port.clone();
     let (mut deps, _) = setup(Some(init_msg));
-    let err = ibc_open(deps.as_mut(), channel.clone()).unwrap_err();
+    let err = ibc_open(deps.as_mut(), channel).unwrap_err();
 
     assert_eq!(err, ContractError::WrongPort(wrong_port));
 }

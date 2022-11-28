@@ -29,7 +29,7 @@ use super::helpers::{
 pub fn instantiate_consumer(mut deps: DepsMut, init_msg: Option<InstantiateMsg>) -> Addr {
     let info = mock_info(CREATOR_ADDR, &[]);
     let env = mock_env();
-    let msg = init_msg.unwrap_or(get_default_instantiate_msg());
+    let msg = init_msg.unwrap_or_else(get_default_instantiate_msg);
 
     instantiate(deps.branch(), env.clone(), info, msg).unwrap();
 
