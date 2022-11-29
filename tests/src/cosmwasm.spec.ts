@@ -359,23 +359,27 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   console.log("Remote staked tokens: ");
   pprint(remoteStakedTokens.delegations);
 
-  // Unstake 100 tokens on wasmd
-  const unstakeRes = await osmoClient.sign.execute(
-    osmoClient.senderAddress,
-    osmoMeshProvider,
-    { unstake: { amount: "100", validator: validatorAddr } },
-    "auto"
-  );
-  console.log("Unstake remote tokens: ", unstakeRes);
+  // TODO: Currently we do not withdraw rewards from validator when we stake/unstake
+  // This leads to a problem where rewards are only calculated based on latest staked token when we call withdrawDelegatorReward
+  // to correctly calculate rewards we need to call withdrawDelegatorReward on stake/unstake as well.
 
-  // Relay packets to cross-stake
-  const relay_info_3 = await link.relayAll();
-  assertPacketsFromB(relay_info_3, 1, true);
+  // // Unstake 100 tokens on wasmd
+  // const unstakeRes = await osmoClient.sign.execute(
+  //   osmoClient.senderAddress,
+  //   osmoMeshProvider,
+  //   { unstake: { amount: "100", validator: validatorAddr } },
+  //   "auto"
+  // );
+  // console.log("Unstake remote tokens: ", unstakeRes);
 
-  const emptyStakedTokenResponse = await osmoClient.sign.queryContractSmart(osmoMeshProvider, {
-    account: { address: osmoClient.senderAddress },
-  });
-  console.log("List of staked tokens on consumer chain: ", emptyStakedTokenResponse);
+  // // Relay packets to cross-stake
+  // const relay_info_3 = await link.relayAll();
+  // assertPacketsFromB(relay_info_3, 1, true);
+
+  // const emptyStakedTokenResponse = await osmoClient.sign.queryContractSmart(osmoMeshProvider, {
+  //   account: { address: osmoClient.senderAddress },
+  // });
+  // console.log("List of staked tokens on consumer chain: ", emptyStakedTokenResponse);
 
   /** Start withdraw rewards process */
   const preConsumerbalance = await wasmStargateClient.getBalance(wasmMeshConsumer, "ucosm");
@@ -419,6 +423,8 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   const metaStakingBalance = await wasmStargateClient.getBalance(wasmMetaStaking, "ucosm");
   const meshConsumerBalance = await wasmStargateClient.getBalance(wasmMeshConsumer, "ucosm");
   let meshProviderBalance = await osmoStargateClient.getBalance(osmoMeshProvider, ibcDenom);
+
+  console.log("Meta:", metaStakingBalance, "Consumer:", meshConsumerBalance, "Provider:", meshProviderBalance);
 
   // Verify meta has same value as before send (we sent the right amount)
   t.is(metaStakingBalance.amount, preMetabalance.amount);
