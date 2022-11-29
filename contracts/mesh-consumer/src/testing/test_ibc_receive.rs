@@ -1,17 +1,24 @@
-use cosmwasm_std::{to_binary, Decimal, Uint128, Validator, WasmMsg};
-use mesh_ibc::{ListValidatorsResponse, StakeResponse, UnstakeResponse};
-use mesh_testing::constants::{NATIVE_DENOM, VALIDATOR};
+use cosmwasm_std::{
+    testing::mock_env, to_binary, Addr, Decimal, IbcPacketReceiveMsg, Uint128, Validator, WasmMsg,
+};
+use mesh_ibc::{ListValidatorsResponse, ProviderMsg, StakeResponse, UnstakeResponse};
+use mesh_testing::{
+    addr,
+    constants::{NATIVE_DENOM, VALIDATOR},
+};
+
+use crate::{ibc::ibc_packet_receive, ContractError};
 
 use super::utils::{
     executes::ibc_receive_list_validators,
     executes::{ibc_receive_stake, ibc_receive_unstake},
-    helpers::{ack_unwrap, STAKING_ADDR},
+    helpers::{ack_unwrap, mock_packet, RELAYER_ADDR, STAKING_ADDR},
     setup::setup_with_channel,
 };
 
 #[test]
 fn test_ibc_receive_list_validators() {
-    let (mut deps, _) = setup_with_channel();
+    let (mut deps, _) = setup_with_channel(None);
 
     // Update module to include validator
     deps.querier.update_staking(
@@ -33,7 +40,7 @@ fn test_ibc_receive_list_validators() {
 
 #[test]
 fn test_ibc_receive_stake() {
-    let (mut deps, _) = setup_with_channel();
+    let (mut deps, _) = setup_with_channel(None);
 
     let res = ibc_receive_stake(deps.as_mut(), VALIDATOR, 1000, "key_1").unwrap();
 
@@ -57,7 +64,7 @@ fn test_ibc_receive_stake() {
 
 #[test]
 fn test_ibc_receive_unstake() {
-    let (mut deps, _) = setup_with_channel();
+    let (mut deps, _) = setup_with_channel(None);
 
     let res = ibc_receive_unstake(deps.as_mut(), VALIDATOR, 1000, "key_1").unwrap();
 
@@ -76,5 +83,23 @@ fn test_ibc_receive_unstake() {
             funds: vec![],
         }
         .into()
+    )
+}
+
+#[test]
+fn test_ibc_receive_wrong_channel() {
+    let (mut deps, _) = setup_with_channel(None);
+    let mut packet = mock_packet(to_binary(&ProviderMsg::ListValidators {}).unwrap());
+    packet.dest.channel_id = "some_channel".to_string();
+
+    let err = ibc_packet_receive(
+        deps.as_mut(),
+        mock_env(),
+        IbcPacketReceiveMsg::new(packet, addr!(RELAYER_ADDR)),
+    )
+    .unwrap_err();
+    assert_eq!(
+        err,
+        ContractError::UnknownChannel("some_channel".to_string())
     )
 }

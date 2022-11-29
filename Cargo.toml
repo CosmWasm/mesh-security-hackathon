@@ -16,12 +16,11 @@ exclude = [
 ]
 
 [workspace.dependencies]
-mesh-ibc         = { path = "./packages/mesh-ibc", version = "0.1.0" }
-mesh-apis        = { path = "./packages/mesh-apis", version = "0.1.0" }
-mesh-testing     = { path = "./packages/mesh-testing", version = "0.1.0" }
-meta-staking     = { path = "./contracts/meta-staking", version = "0.1.0", features = ["library"] }
-mesh-consumer    = { path = "./contracts/mesh-consumer", version = "0.1.0", features = ["library"] }
-mesh-slasher     = { path = "./contracts/mesh-slasher", version = "0.1.0", features = ["library"] }
+mesh-ibc         = { path = "./packages/mesh-ibc" }
+mesh-apis        = { path = "./packages/mesh-apis" }
+mesh-consumer    = { path = "./contracts/mesh-consumer" }
+mesh-slasher     = { path = "./contracts/mesh-slasher" }
+meta-staking     = { path = "./contracts/meta-staking" }
 cosmwasm-schema  = "1.1"
 cosmwasm-std     = "1.1"
 cosmwasm-storage = "1.1"
@@ -33,10 +32,11 @@ schemars         = "0.8.11"
 serde            = { version = "1.0.147", default-features = false, features = ["derive"] }
 thiserror        = "1.0.37"
 # dev deps
-cw-multi-test = "0.16"
-test-case     = "2.2.0"
-derivative    = "2"
 anyhow        = "1"
+cw-multi-test = "0.16"
+derivative    = "2"
+mesh-testing     = { path = "./packages/mesh-testing" }
+test-case     = "2.2.0"
 
 [profile.release.package.mesh-consumer]
 codegen-units = 1
@@ -59,9 +59,11 @@ codegen-units = 1
 incremental   = false
 
 [profile.release]
-rpath            = false
-lto              = true
-overflow-checks  = true
-opt-level        = 3
+codegen-units = 1
 debug            = false
 debug-assertions = false
+lto              = true
+panic = 'abort'
+rpath            = false
+opt-level        = 3
+overflow-checks  = true

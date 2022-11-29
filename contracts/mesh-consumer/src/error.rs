@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use mesh_ibc::MeshSecurityError;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),

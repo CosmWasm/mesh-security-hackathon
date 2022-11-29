@@ -18,7 +18,7 @@ use super::utils::executes::execute_receive_rewards;
 
 #[test]
 fn recieve_rewards() {
-    let (mut deps, _) = setup_with_channel();
+    let (mut deps, _) = setup_with_channel(None);
 
     // test execute receive rewards
     let coin = coin(1000, NATIVE_DENOM);
