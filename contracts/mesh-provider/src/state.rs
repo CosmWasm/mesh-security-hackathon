@@ -79,7 +79,8 @@ impl Stake {
             return Ok(());
         }
 
-        self.rewards.pending += rewards_per_token_to_pay.checked_mul(Decimal::new(staked))?;
+        self.rewards.pending +=
+            rewards_per_token_to_pay.checked_mul(Decimal::from_atomics(staked, 0)?)?;
 
         self.rewards.paid_rewards_per_token = new_rewards_per_token;
 
@@ -94,10 +95,13 @@ impl Stake {
     // TODO: Find a better way of doing this?
     /// Turn pending decimal to u128 to send tokens
     pub fn pending_to_u128(&self) -> Result<u128, ContractError> {
+        let decimal_fractional = Uint128::from(
+            10_u128
+                .checked_pow(self.rewards.pending.decimal_places())
+                .unwrap_or(1_000_000_000_000_000_000u128),
+        );
         let full_num = self.rewards.pending.floor().atomics();
-        let to_send = full_num.checked_div(Uint128::from(
-            10_u32.pow(self.rewards.pending.decimal_places()),
-        ))?;
+        let to_send = full_num.checked_div(decimal_fractional)?;
         Ok(to_send.u128())
     }
 

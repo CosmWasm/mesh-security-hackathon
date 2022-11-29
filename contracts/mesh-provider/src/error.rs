@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 use cosmwasm_std::{
-    CheckedFromRatioError, Decimal, DivideByZeroError, OverflowError, StdError, Uint128,
+    CheckedFromRatioError, Decimal, DivideByZeroError, OverflowError, StdError, Uint128, DecimalRangeExceeded,
 };
 use cw_utils::ParseReplyError;
 
@@ -20,6 +20,9 @@ pub enum ContractError {
 
     #[error("{0}")]
     CheckedFromRatioError(#[from] CheckedFromRatioError),
+
+    #[error("{0}")]
+    DecimalRangeExceeded(#[from] DecimalRangeExceeded),
 
     #[error("{0}")]
     Parse(#[from] ParseReplyError),
