@@ -1,7 +1,7 @@
 use cosmwasm_schema::write_api;
 
-use meta_staking::msg::{InstantiateMsg, QueryMsg};
 use mesh_apis::StakingExecuteMsg as ExecuteMsg;
+use meta_staking::msg::{InstantiateMsg, QueryMsg};
 
 fn main() {
     write_api! {

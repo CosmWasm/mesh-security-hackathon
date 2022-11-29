@@ -7,8 +7,8 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128, WasmMsg,
 };
 
-use mesh_ibc::{check_order, check_version, ConsumerMsg, ProviderMsg, StdAck};
 use mesh_apis::StakingExecuteMsg;
+use mesh_ibc::{check_order, check_version, ConsumerMsg, ProviderMsg, StdAck};
 
 use crate::error::ContractError;
 use crate::state::{CHANNEL, CONFIG, PACKET_LIFETIME};

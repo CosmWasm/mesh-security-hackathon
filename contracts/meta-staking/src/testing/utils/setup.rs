@@ -13,7 +13,7 @@ use mesh_testing::{
 
 use crate::{
     contract::{execute, instantiate, sudo},
-    msg::{InstantiateMsg},
+    msg::InstantiateMsg,
 };
 use mesh_apis::{StakingExecuteMsg as ExecuteMsg, StakingSudoMsg};
 
