@@ -1,4 +1,5 @@
 use cosmwasm_std::{testing::mock_env, IbcChannelCloseMsg};
+use mesh_testing::constants::CHANNEL_ID;
 
 use crate::{
     ibc::ibc_channel_close,
@@ -8,7 +9,7 @@ use crate::{
 
 use super::utils::{
     executes::{ibc_close_channel, ibc_open, ibc_open_channel},
-    helpers::{mock_channel, CHANNEL_ID},
+    helpers::mock_channel,
     setup::{setup, setup_with_channel},
 };
 

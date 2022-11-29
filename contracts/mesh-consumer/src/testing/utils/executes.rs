@@ -9,7 +9,7 @@ use mesh_apis::ConsumerExecuteMsg;
 use mesh_ibc::{ConsumerMsg, ProviderMsg, IBC_APP_VERSION};
 use mesh_testing::{
     addr,
-    constants::{CREATOR_ADDR, NATIVE_DENOM},
+    constants::{CHANNEL_ID, CREATOR_ADDR, NATIVE_DENOM},
 };
 
 use crate::{
@@ -22,9 +22,7 @@ use crate::{
     ContractError,
 };
 
-use super::helpers::{
-    get_default_instantiate_msg, mock_channel, mock_packet, CHANNEL_ID, RELAYER_ADDR,
-};
+use super::helpers::{get_default_instantiate_msg, mock_channel, mock_packet, RELAYER_ADDR};
 
 pub fn instantiate_consumer(mut deps: DepsMut, init_msg: Option<InstantiateMsg>) -> Addr {
     let info = mock_info(CREATOR_ADDR, &[]);

@@ -1,12 +1,8 @@
 use cosmwasm_std::{coin, testing::mock_env, IbcAcknowledgement, IbcMsg};
 use mesh_ibc::RewardsResponse;
-use mesh_testing::constants::{NATIVE_DENOM, VALIDATOR};
+use mesh_testing::constants::{ICS20_CHANNEL_ID, NATIVE_DENOM, REMOTE_PORT, VALIDATOR};
 
-use crate::{
-    ibc::build_timeout,
-    testing::utils::helpers::{ICS20_CHANNEL_ID, REMOTE_PORT},
-    ContractError,
-};
+use crate::{ibc::build_timeout, ContractError};
 
 use super::utils::{
     executes::ibc_ack_rewards,

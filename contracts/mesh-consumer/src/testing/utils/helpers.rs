@@ -5,17 +5,15 @@ use cosmwasm_std::{
     IbcTimeout, Timestamp,
 };
 use mesh_ibc::{StdAck, IBC_APP_VERSION};
+use mesh_testing::constants::{
+    CHANNEL_ID, CONNECTION_ID, CONTRACT_PORT, ICS20_CHANNEL_ID, REMOTE_PORT,
+};
 use serde::Deserialize;
 
 use crate::msg::{InstantiateMsg, ProviderInfo};
 
 pub const STAKING_ADDR: &str = "meta_staking";
 pub const RELAYER_ADDR: &str = "relayer";
-const CONTRACT_PORT: &str = "wasm.address1";
-pub const REMOTE_PORT: &str = "stars.address1";
-pub const CONNECTION_ID: &str = "connection-1";
-pub const CHANNEL_ID: &str = "channel-1";
-pub const ICS20_CHANNEL_ID: &str = "channel-2";
 const DEFAULT_TIMEOUT: u64 = 60;
 
 pub fn get_default_instantiate_msg() -> InstantiateMsg {
