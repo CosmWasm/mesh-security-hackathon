@@ -39,7 +39,7 @@ pub fn instantiate_mesh_provider(
 ) -> Addr {
     let mesh_provider_id = app.store_code(mesh_provider_contract());
     let mesh_slasher_id = app.store_code(mesh_slasher_contract());
-    let init_msg = init_msg.unwrap_or(get_default_mesh_provider_init_msg(mesh_slasher_id));
+    let init_msg = init_msg.unwrap_or_else(|| get_default_mesh_provider_init_msg(mesh_slasher_id));
 
     app.instantiate_contract(
         mesh_provider_id,
