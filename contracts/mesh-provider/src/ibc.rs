@@ -146,7 +146,7 @@ pub fn receive_rewards(
     })?;
 
     // TODO: if calculation failed, we want to handle it as leftover funds? or send funds back to consumer and handle it there?
-    let ack = to_binary(&StdAck::success(&RewardsResponse {}))?;
+    let ack = StdAck::success(&RewardsResponse {});
 
     Ok(IbcReceiveResponse::new().set_ack(ack))
 }
