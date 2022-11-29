@@ -7,8 +7,8 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128, WasmMsg,
 };
 
+use mesh_apis::StakingExecuteMsg;
 use mesh_ibc::{check_order, check_version, ConsumerMsg, ProviderMsg, StdAck};
-use meta_staking::msg::ExecuteMsg as MetaStakingExecuteMsg;
 
 use crate::error::ContractError;
 use crate::state::{CHANNEL, CONFIG, PACKET_LIFETIME};
@@ -143,7 +143,7 @@ pub fn receive_stake(
 
     let msg = WasmMsg::Execute {
         contract_addr: config.meta_staking_contract_address.to_string(),
-        msg: to_binary(&MetaStakingExecuteMsg::Delegate { validator, amount })?,
+        msg: to_binary(&StakingExecuteMsg::Delegate { validator, amount })?,
         funds: vec![],
     };
 
@@ -163,7 +163,7 @@ pub fn receive_unstake(
 
     let msg = WasmMsg::Execute {
         contract_addr: config.meta_staking_contract_address.to_string(),
-        msg: to_binary(&MetaStakingExecuteMsg::Undelegate { validator, amount })?,
+        msg: to_binary(&StakingExecuteMsg::Undelegate { validator, amount })?,
         funds: vec![],
     };
 

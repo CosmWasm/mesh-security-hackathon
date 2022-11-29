@@ -7,8 +7,9 @@ use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SudoMsg};
+use crate::msg::{InstantiateMsg, QueryMsg};
 use crate::state::{Config, CONFIG};
+use mesh_apis::{StakingExecuteMsg as ExecuteMsg, StakingSudoMsg as SudoMsg};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:meta-staking";

@@ -13,8 +13,9 @@ use mesh_testing::{
 
 use crate::{
     contract::{execute, instantiate, sudo},
-    msg::{ExecuteMsg, InstantiateMsg, SudoMsg as MetaStakingSudoMsg},
+    msg::InstantiateMsg,
 };
+use mesh_apis::{StakingExecuteMsg as ExecuteMsg, StakingSudoMsg};
 
 use super::executes::{add_consumer, delegate};
 
@@ -180,7 +181,7 @@ pub fn setup_unit_with_delegation() -> (
     sudo(
         deps.as_mut(),
         env.clone(),
-        MetaStakingSudoMsg::AddConsumer {
+        StakingSudoMsg::AddConsumer {
             consumer_address: consumer_addr.to_string(),
             funds_available_for_staking: coin(10000, NATIVE_DENOM),
         },

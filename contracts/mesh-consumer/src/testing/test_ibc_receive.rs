@@ -1,6 +1,7 @@
 use cosmwasm_std::{
     testing::mock_env, to_binary, Addr, Decimal, IbcPacketReceiveMsg, Uint128, Validator, WasmMsg,
 };
+use mesh_apis::StakingExecuteMsg;
 use mesh_ibc::{ListValidatorsResponse, ProviderMsg, StakeResponse, UnstakeResponse};
 use mesh_testing::{
     addr,
@@ -51,7 +52,7 @@ fn test_ibc_receive_stake() {
         res.messages[0].msg,
         WasmMsg::Execute {
             contract_addr: STAKING_ADDR.to_string(),
-            msg: to_binary(&meta_staking::msg::ExecuteMsg::Delegate {
+            msg: to_binary(&StakingExecuteMsg::Delegate {
                 validator: VALIDATOR.to_string(),
                 amount: Uint128::new(100)
             })
@@ -75,7 +76,7 @@ fn test_ibc_receive_unstake() {
         res.messages[0].msg,
         WasmMsg::Execute {
             contract_addr: STAKING_ADDR.to_string(),
-            msg: to_binary(&meta_staking::msg::ExecuteMsg::Undelegate {
+            msg: to_binary(&StakingExecuteMsg::Undelegate {
                 validator: VALIDATOR.to_string(),
                 amount: Uint128::new(100)
             })
