@@ -2,7 +2,7 @@ use anyhow::Result as AnyResult;
 use cosmwasm_std::{coin, Addr, Uint128};
 use cw_multi_test::{App, AppResponse, Executor};
 
-use crate::msg::{ExecuteMsg, SudoMsg};
+use mesh_apis::{StakingExecuteMsg as ExecuteMsg, StakingSudoMsg};
 
 use mesh_testing::{constants::NATIVE_DENOM, macros::addr};
 
@@ -65,7 +65,7 @@ pub fn add_consumer(
     consumer_addr: &str,
     funds_avaiable: u128,
 ) -> AnyResult<AppResponse> {
-    let sudo_msg = SudoMsg::AddConsumer {
+    let sudo_msg = StakingSudoMsg::AddConsumer {
         consumer_address: consumer_addr.to_string(),
         funds_available_for_staking: coin(funds_avaiable, NATIVE_DENOM),
     };
@@ -84,7 +84,7 @@ pub fn remove_consumer(
     sender: &str,
     consumer_addr: &str,
 ) -> AnyResult<AppResponse> {
-    let sudo_msg = SudoMsg::RemoveConsumer {
+    let sudo_msg = StakingSudoMsg::RemoveConsumer {
         consumer_address: consumer_addr.to_string(),
     };
 

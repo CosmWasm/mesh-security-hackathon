@@ -506,7 +506,6 @@ dependencies = [
  "mesh-apis",
  "mesh-ibc",
  "mesh-testing",
- "meta-staking",
  "schemars",
  "serde",
  "thiserror",

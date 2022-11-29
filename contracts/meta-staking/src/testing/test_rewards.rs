@@ -6,7 +6,6 @@ use cosmwasm_std::{
 
 use crate::{
     contract::execute,
-    msg::ExecuteMsg,
     testing::utils::{
         executes::{undelegate, withdraw_rewards},
         queries::{query_consumer, query_rewards},
@@ -14,6 +13,7 @@ use crate::{
     },
     ContractError,
 };
+use mesh_apis::StakingExecuteMsg as ExecuteMsg;
 
 use mesh_testing::{
     constants::{CREATOR_ADDR, NATIVE_DENOM, VALIDATOR},
