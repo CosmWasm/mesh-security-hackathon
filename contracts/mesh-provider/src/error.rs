@@ -1,7 +1,8 @@
 use thiserror::Error;
 
 use cosmwasm_std::{
-    CheckedFromRatioError, Decimal, DivideByZeroError, OverflowError, StdError, Uint128, DecimalRangeExceeded,
+    CheckedFromRatioError, Decimal, DecimalRangeExceeded, DivideByZeroError, OverflowError,
+    StdError, Uint128,
 };
 use cw_utils::ParseReplyError;
 

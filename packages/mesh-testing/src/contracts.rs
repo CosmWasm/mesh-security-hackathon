@@ -19,3 +19,22 @@ pub fn mesh_consumer_contract() -> Box<dyn Contract<Empty>> {
     );
     Box::new(contract)
 }
+
+pub fn mesh_provider_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        mesh_provider::contract::execute,
+        mesh_provider::contract::instantiate,
+        mesh_provider::contract::query,
+    )
+    .with_reply(mesh_provider::contract::reply);
+    Box::new(contract)
+}
+
+pub fn mesh_slasher_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        mesh_slasher::contract::execute,
+        mesh_slasher::contract::instantiate,
+        mesh_slasher::contract::query,
+    );
+    Box::new(contract)
+}

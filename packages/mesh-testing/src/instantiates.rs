@@ -1,12 +1,56 @@
 use std::str::FromStr;
 
-use cosmwasm_std::{Addr, Decimal};
+use cosmwasm_std::{to_binary, Addr, Decimal};
 use cw_multi_test::{App, Executor};
 
 use crate::{
-    constants::CREATOR_ADDR,
-    contracts::{mesh_consumer_contract, meta_staking_contract},
+    addr,
+    constants::{CONNECTION_ID, CREATOR_ADDR},
+    contracts::{
+        mesh_consumer_contract, mesh_provider_contract, mesh_slasher_contract,
+        meta_staking_contract,
+    },
 };
+
+use mesh_provider::msg::InstantiateMsg as ProviderInit;
+
+pub fn get_default_mesh_provider_init_msg(slasher_code_id: u64) -> ProviderInit {
+    ProviderInit {
+        consumer: mesh_provider::msg::ConsumerInfo {
+            connection_id: CONNECTION_ID.to_string(),
+        },
+        slasher: mesh_provider::msg::SlasherInfo {
+            code_id: slasher_code_id,
+            msg: to_binary(&mesh_slasher::msg::InstantiateMsg {
+                owner: CREATOR_ADDR.to_string(),
+            })
+            .unwrap(),
+        },
+        lockup: "lockup_contract".to_string(),
+        unbonding_period: 86400 * 14,
+        rewards_ibc_denom: "".to_string(),
+        packet_lifetime: None,
+    }
+}
+
+pub fn instantiate_mesh_provider(
+    app: &mut App,
+    init_msg: Option<mesh_provider::msg::InstantiateMsg>,
+) -> Addr {
+    let mesh_provider_id = app.store_code(mesh_provider_contract());
+    let mesh_slasher_id = app.store_code(mesh_slasher_contract());
+    let init_msg = init_msg.unwrap_or(get_default_mesh_provider_init_msg(mesh_slasher_id));
+
+    app.instantiate_contract(
+        mesh_provider_id,
+        addr!(CREATOR_ADDR),
+        &init_msg,
+        &[],
+        "mesh-provider",
+        Some(CREATOR_ADDR.to_string()),
+    )
+    .unwrap()
+}
 
 pub fn instantiate_meta_staking(
     app: &mut App,
@@ -17,7 +61,7 @@ pub fn instantiate_meta_staking(
 
     app.instantiate_contract(
         meta_staking_id,
-        Addr::unchecked(CREATOR_ADDR),
+        addr!(CREATOR_ADDR),
         &init_msg,
         &[],
         "meta-staking",
@@ -45,7 +89,7 @@ pub fn instantiate_mesh_consumer(
 
     app.instantiate_contract(
         mesh_consumer_id,
-        Addr::unchecked(CREATOR_ADDR),
+        addr!(CREATOR_ADDR),
         &init_msg,
         &[],
         "mesh-consumer",
