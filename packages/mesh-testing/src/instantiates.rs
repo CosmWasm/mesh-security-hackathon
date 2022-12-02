@@ -5,7 +5,7 @@ use cw_multi_test::{App, Executor};
 
 use crate::{
     addr,
-    constants::{CONNECTION_ID, CREATOR_ADDR},
+    constants::{CONNECTION_ID, CREATOR_ADDR, LOCKUP_ADDR, REWARDS_IBC_DENOM},
     contracts::{
         mesh_consumer_contract, mesh_provider_contract, mesh_slasher_contract,
         meta_staking_contract,
@@ -14,7 +14,9 @@ use crate::{
 
 use mesh_provider::msg::InstantiateMsg as ProviderInit;
 
-pub fn get_default_mesh_provider_init_msg(slasher_code_id: u64) -> ProviderInit {
+pub fn get_mesh_provider_init_msg(slasher_code_id: u64, lockup_addr: Option<&str>) -> ProviderInit {
+    let lockup_addr = lockup_addr.unwrap_or(LOCKUP_ADDR);
+
     ProviderInit {
         consumer: mesh_provider::msg::ConsumerInfo {
             connection_id: CONNECTION_ID.to_string(),
@@ -26,9 +28,9 @@ pub fn get_default_mesh_provider_init_msg(slasher_code_id: u64) -> ProviderInit 
             })
             .unwrap(),
         },
-        lockup: "lockup_contract".to_string(),
+        lockup: lockup_addr.to_string(),
         unbonding_period: 86400 * 14,
-        rewards_ibc_denom: "".to_string(),
+        rewards_ibc_denom: REWARDS_IBC_DENOM.to_string(),
         packet_lifetime: None,
     }
 }
@@ -39,7 +41,7 @@ pub fn instantiate_mesh_provider(
 ) -> Addr {
     let mesh_provider_id = app.store_code(mesh_provider_contract());
     let mesh_slasher_id = app.store_code(mesh_slasher_contract());
-    let init_msg = init_msg.unwrap_or_else(|| get_default_mesh_provider_init_msg(mesh_slasher_id));
+    let init_msg = init_msg.unwrap_or_else(|| get_mesh_provider_init_msg(mesh_slasher_id, None));
 
     app.instantiate_contract(
         mesh_provider_id,

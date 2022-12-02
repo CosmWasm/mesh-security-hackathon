@@ -405,36 +405,3 @@ fn build_response((address, val): (String, Validator)) -> ValidatorResponse {
         multiplier: val.multiplier,
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::msg::{ConsumerInfo, SlasherInfo};
-
-    use super::*;
-    use cosmwasm_std::coins;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-
-    #[test]
-    fn proper_initialization() {
-        let mut deps = mock_dependencies();
-
-        let msg = InstantiateMsg {
-            consumer: ConsumerInfo {
-                connection_id: "1".to_string(),
-            },
-            slasher: SlasherInfo {
-                code_id: 17,
-                msg: b"{}".into(),
-            },
-            lockup: "lockup_contract".to_string(),
-            unbonding_period: 86400 * 14,
-            rewards_ibc_denom: "".to_string(),
-            packet_lifetime: None,
-        };
-        let info = mock_info("creator", &coins(1000, "earth"));
-
-        // we can just call .unwrap() to assert this was a success
-        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        assert_eq!(1, res.messages.len());
-    }
-}

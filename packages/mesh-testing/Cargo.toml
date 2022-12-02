@@ -13,13 +13,14 @@ edition = { workspace = true }
 #
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-cw-multi-test   = { workspace = true }
-cosmwasm-schema = { workspace = true }
-cosmwasm-std    = { workspace = true }
-schemars        = { workspace = true }
-serde           = { workspace = true }
-thiserror       = { workspace = true }
-meta-staking    = { workspace = true }
-mesh-consumer   = { workspace = true }
-mesh-provider   = { workspace = true }
-mesh-slasher    = { workspace = true }
+cw-multi-test    = { workspace = true }
+cosmwasm-schema  = { workspace = true }
+cosmwasm-std     = { workspace = true }
+cosmwasm-storage = { workspace = true }
+schemars         = { workspace = true }
+serde            = { workspace = true }
+thiserror        = { workspace = true }
+meta-staking     = { workspace = true }
+mesh-consumer    = { workspace = true }
+mesh-provider    = { workspace = true }
+mesh-slasher     = { workspace = true }
