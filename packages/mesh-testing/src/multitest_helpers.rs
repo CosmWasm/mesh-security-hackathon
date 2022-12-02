@@ -5,7 +5,7 @@ use cw_multi_test::App;
 pub fn update_storage(
     app: &mut App,
     address: &[u8],
-    function: &mut dyn FnMut(&mut PrefixedStorage) -> (),
+    function: &mut dyn FnMut(&mut PrefixedStorage),
 ) {
     app.init_modules(|_, _, storage| {
         let mut namespace = b"contract_data/".to_vec();

@@ -13,7 +13,7 @@ fn test_execute_slash() {
     let (mut app, mesh_provider_addr) = setup_with_contract();
 
     let provider_config = query_provider_config(&app, mesh_provider_addr.as_str()).unwrap();
-    let mesh_slasher_addr = provider_config.slasher.clone().unwrap();
+    let mesh_slasher_addr = provider_config.slasher.unwrap();
 
     // Add validator to contract (mimic ibc update call)
     add_validator(&mut app, mesh_provider_addr.clone());

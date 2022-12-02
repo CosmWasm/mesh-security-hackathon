@@ -10,7 +10,7 @@ use mesh_testing::{constants::VALIDATOR, multitest_helpers::update_storage};
 pub fn add_validator(app: &mut App, addr: Addr) {
     update_storage(app, addr.as_bytes(), &mut |storage| {
         VALIDATORS
-            .save(storage, &VALIDATOR, &Validator::new())
+            .save(storage, VALIDATOR, &Validator::new())
             .unwrap();
     });
 }
