@@ -8,11 +8,11 @@ use crate::{
     testing::utils::queries::{query_provider_config, query_slasher_config},
 };
 
-use super::utils::setup::setup_app_with_contract;
+use super::utils::setup::setup_with_contract;
 
 #[test]
 fn test_instantiate() {
-    let (app, mesh_provider_addr) = setup_app_with_contract();
+    let (app, mesh_provider_addr) = setup_with_contract();
 
     let provider_config = query_provider_config(&app, mesh_provider_addr.as_str()).unwrap();
     let mesh_slasher_addr = provider_config.slasher.clone().unwrap();

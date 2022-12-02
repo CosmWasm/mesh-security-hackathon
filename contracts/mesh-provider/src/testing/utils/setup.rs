@@ -22,7 +22,7 @@ pub fn setup_app() -> App {
     })
 }
 
-pub fn setup_app_with_contract() -> (App, Addr) {
+pub fn setup_with_contract() -> (App, Addr) {
     let mut app = setup_app();
 
     let mesh_provider_addr = instantiate_mesh_provider(&mut app, None);
