@@ -1,12 +1,16 @@
 use std::str::FromStr;
 
-use cosmwasm_std::Decimal;
+use cosmwasm_std::{coins, Decimal};
+use mesh_testing::constants::{DELEGATOR_ADDR, REWARDS_IBC_DENOM, VALIDATOR};
 
 use crate::testing::utils::{
     executes::execute_slash, helpers::add_validator, queries::query_validators,
 };
 
-use super::utils::{queries::query_provider_config, setup::setup_with_contract};
+use super::utils::{
+    executes::execute_claim_rewards, helpers::add_rewards, queries::query_provider_config,
+    setup::setup_with_contract,
+};
 
 #[test]
 fn test_execute_slash() {
@@ -35,4 +39,24 @@ fn test_execute_slash() {
         validators.validators[0].multiplier,
         Decimal::from_str("0.9").unwrap()
     );
+}
+
+#[test]
+fn test_unbond() {
+    // Need to create a lockup contract, and execute stuff on it.
+}
+
+#[test]
+fn test_claim_rewards() {
+    // Need to add rewards
+    let (mut app, mesh_provider_addr) = setup_with_contract();
+
+    // Add rewards (after calculation, we added 1000 ibc_coins)
+    add_rewards(&mut app, mesh_provider_addr.clone());
+
+    execute_claim_rewards(&mut app, mesh_provider_addr.as_str(), VALIDATOR).unwrap();
+
+    let balance = app.wrap().query_all_balances(DELEGATOR_ADDR).unwrap();
+
+    assert_eq!(balance, coins(1000, REWARDS_IBC_DENOM))
 }

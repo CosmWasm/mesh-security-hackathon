@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use cosmwasm_std::{
     CheckedFromRatioError, Decimal, DecimalRangeExceeded, DivideByZeroError, OverflowError,
-    StdError, Uint128,
+    StdError,
 };
 use cw_utils::ParseReplyError;
 
@@ -62,7 +62,7 @@ pub enum ContractError {
     NoRewardsToClaim,
 
     #[error("Balance is too low: {rewards:?} > {balance:?}")]
-    WrongBalance { balance: Uint128, rewards: Decimal },
+    WrongBalance { balance: Decimal, rewards: Decimal },
 
     #[error("Validator was never registered: {0}")]
     UnknownValidator(String),

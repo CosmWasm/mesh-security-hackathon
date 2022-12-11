@@ -1,5 +1,6 @@
 pub const VALIDATOR: &str = "validator";
 pub const CREATOR_ADDR: &str = "creater_addr";
+pub const DELEGATOR_ADDR: &str = "delegator_addr";
 pub const NATIVE_DENOM: &str = "native_denom";
 
 pub const LOCKUP_ADDR: &str = "lockup_address";

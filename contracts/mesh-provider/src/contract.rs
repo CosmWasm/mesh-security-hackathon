@@ -297,7 +297,7 @@ pub fn execute_claim_rewards(
     // We calculate the rewards
     delegator_stake.calc_pending_rewards(
         validator_info.rewards.rewards_per_token,
-        delegator_stake.shares,
+        validator_info.stake,
     )?;
 
     if delegator_stake.rewards.pending.floor().is_zero() {
@@ -309,9 +309,9 @@ pub fn execute_claim_rewards(
         .query_balance(env.contract.address, config.rewards_ibc_denom.clone())?;
 
     // Make sure we have something to send, if its false, funds might be stuck in consumer and need admin. (or we messed up badly)
-    if delegator_stake.rewards.pending > Decimal::new(balance.amount) {
+    if delegator_stake.rewards.pending > Decimal::from_atomics(balance.amount, 0)? {
         return Err(ContractError::WrongBalance {
-            balance: balance.amount,
+            balance: Decimal::new(balance.amount),
             rewards: delegator_stake.rewards.pending,
         });
     }
