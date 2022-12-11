@@ -8,7 +8,7 @@ edition = { workspace = true }
 
 [dependencies]
 cosmwasm-schema = { workspace = true }
-cosmwasm-std    = { workspace = true, features = ["ibc3"] }
+cosmwasm-std    = { workspace = true }
 schemars        = { workspace = true }
 serde           = { workspace = true }
 thiserror       = { workspace = true }

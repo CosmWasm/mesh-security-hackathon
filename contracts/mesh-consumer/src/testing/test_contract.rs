@@ -4,14 +4,11 @@ use cosmwasm_std::{
     to_binary, IbcMsg,
 };
 use mesh_ibc::ConsumerMsg;
-use mesh_testing::constants::{NATIVE_DENOM, VALIDATOR};
+use mesh_testing::constants::{CHANNEL_ID, NATIVE_DENOM, VALIDATOR};
 
 use crate::{
     ibc::build_timeout,
-    testing::utils::{
-        helpers::{CHANNEL_ID, STAKING_ADDR},
-        setup::setup_with_channel,
-    },
+    testing::utils::{helpers::STAKING_ADDR, setup::setup_with_channel},
 };
 
 use super::utils::executes::execute_receive_rewards;
