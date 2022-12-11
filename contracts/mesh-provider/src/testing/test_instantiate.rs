@@ -34,5 +34,4 @@ fn test_instantiate() {
             slashee: mesh_provider_addr.to_string()
         }
     );
-    // println!("{:?}", config)
 }
