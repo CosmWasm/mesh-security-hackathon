@@ -4,10 +4,7 @@ use std::str::FromStr;
 use anyhow::Result as AnyResult;
 use cosmwasm_std::Decimal;
 use cw_multi_test::{App, AppResponse, Executor};
-use mesh_testing::{
-    addr,
-    constants::{DELEGATOR_ADDR, VALIDATOR},
-};
+use mesh_testing::{addr, constants::DELEGATOR_ADDR};
 
 use crate::msg::ExecuteMsg;
 
@@ -15,13 +12,15 @@ pub fn execute_slash(
     app: &mut App,
     slasher_addr: &str,
     contract_addr: &str,
+    validator: &str,
+    slash_amount: &str,
 ) -> AnyResult<AppResponse> {
     app.execute_contract(
         addr!(slasher_addr),
         addr!(contract_addr),
         &ExecuteMsg::Slash {
-            validator: VALIDATOR.to_string(),
-            percentage: Decimal::from_str("0.1").unwrap(),
+            validator: validator.to_string(),
+            percentage: Decimal::from_str(slash_amount).unwrap(),
             force_unbond: false,
         },
         &[],

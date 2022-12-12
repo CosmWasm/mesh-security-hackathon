@@ -30,6 +30,8 @@ fn test_execute_slash() {
         &mut app,
         mesh_slasher_addr.as_str(),
         mesh_provider_addr.as_str(),
+        VALIDATOR,
+        "0.1",
     )
     .unwrap();
 
@@ -48,7 +50,6 @@ fn test_unbond() {
 
 #[test]
 fn test_claim_rewards() {
-    // Need to add rewards
     let (mut app, mesh_provider_addr) = setup_with_contract();
 
     // Add rewards (after calculation, we added 1000 ibc_coins)
