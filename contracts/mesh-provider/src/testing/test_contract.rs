@@ -3,8 +3,9 @@ use std::str::FromStr;
 use cosmwasm_std::{
     coins,
     testing::{mock_env, mock_info},
-    to_binary, CosmosMsg, Decimal, IbcMsg, Uint128,
+    to_binary, Decimal, IbcMsg, Uint128, WasmMsg,
 };
+use mesh_apis::ClaimProviderMsg;
 use mesh_ibc::ProviderMsg;
 use mesh_testing::constants::{
     CHANNEL_ID, DELEGATOR_ADDR, LOCKUP_ADDR, REWARDS_IBC_DENOM, VALIDATOR,
@@ -14,7 +15,7 @@ use crate::{
     contract::execute,
     ibc::build_timeout,
     msg::ExecuteMsg,
-    state::{Validator, CHANNEL, VALIDATORS},
+    state::{Validator, CHANNEL, CONFIG, VALIDATORS},
     testing::utils::{executes::execute_slash, helpers::add_validator, queries::query_validators},
 };
 
@@ -55,11 +56,6 @@ fn test_execute_slash() {
 }
 
 #[test]
-fn test_unbond() {
-    // Need to create a lockup contract, and execute stuff on it.
-}
-
-#[test]
 fn test_claim_rewards() {
     let (mut app, mesh_provider_addr) = setup_with_contract();
 
@@ -71,6 +67,67 @@ fn test_claim_rewards() {
     let balance = app.wrap().query_all_balances(DELEGATOR_ADDR).unwrap();
 
     assert_eq!(balance, coins(1000, REWARDS_IBC_DENOM))
+}
+
+#[test]
+fn test_unbond() {
+    let (mut deps, _) = setup_unit(None);
+
+    // First stake
+    let info = mock_info(LOCKUP_ADDR, &[]);
+
+    VALIDATORS
+        .save(deps.as_mut().storage, VALIDATOR, &Validator::default())
+        .unwrap();
+    CHANNEL
+        .save(deps.as_mut().storage, &CHANNEL_ID.to_string())
+        .unwrap();
+    execute(
+        deps.as_mut(),
+        mock_env(),
+        info,
+        ExecuteMsg::ReceiveClaim {
+            owner: DELEGATOR_ADDR.to_string(),
+            amount: Uint128::new(1000),
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap();
+
+    // To unstake the delegetor need to send the request
+    let info = mock_info(DELEGATOR_ADDR, &[]);
+
+    execute(
+        deps.as_mut(),
+        mock_env(),
+        info.clone(),
+        ExecuteMsg::Unstake {
+            amount: Uint128::new(1000),
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap();
+
+    // Update block
+    let unbound_period = CONFIG.load(deps.as_mut().storage).unwrap().unbonding_period;
+    let mut env = mock_env();
+    env.block.time = env.block.time.plus_seconds(unbound_period + 1);
+
+    let res = execute(deps.as_mut(), env, info, ExecuteMsg::Unbond {}).unwrap();
+
+    assert_eq!(
+        res.messages[0].msg,
+        WasmMsg::Execute {
+            contract_addr: LOCKUP_ADDR.to_string(),
+            msg: to_binary(&ClaimProviderMsg::SlashClaim {
+                owner: DELEGATOR_ADDR.to_string(),
+                amount: Uint128::new(1000),
+            })
+            .unwrap(),
+            funds: vec![]
+        }
+        .into()
+    );
 }
 
 #[test]
@@ -100,7 +157,7 @@ fn test_recieve_claim() {
 
     assert_eq!(
         res.messages[0].msg,
-        CosmosMsg::Ibc(IbcMsg::SendPacket {
+        IbcMsg::SendPacket {
             channel_id: CHANNEL_ID.to_string(),
             data: to_binary(&ProviderMsg::Stake {
                 validator: VALIDATOR.to_string(),
@@ -109,6 +166,64 @@ fn test_recieve_claim() {
             })
             .unwrap(),
             timeout: build_timeout(deps.as_ref(), &mock_env()).unwrap(),
-        })
+        }
+        .into()
+    )
+}
+
+#[test]
+fn test_unstake() {
+    let (mut deps, _) = setup_unit(None);
+
+    // First stake
+    let info = mock_info(LOCKUP_ADDR, &[]);
+
+    VALIDATORS
+        .save(deps.as_mut().storage, VALIDATOR, &Validator::default())
+        .unwrap();
+    CHANNEL
+        .save(deps.as_mut().storage, &CHANNEL_ID.to_string())
+        .unwrap();
+    execute(
+        deps.as_mut(),
+        mock_env(),
+        info,
+        ExecuteMsg::ReceiveClaim {
+            owner: DELEGATOR_ADDR.to_string(),
+            amount: Uint128::new(1000),
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap();
+
+    // To unstake the delegetor need to send the request (???)
+    let info = mock_info(DELEGATOR_ADDR, &[]);
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        info,
+        ExecuteMsg::Unstake {
+            amount: Uint128::new(1000),
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap();
+
+    // No slash, so only 1 msg should exist
+    assert_eq!(res.messages.len(), 1);
+    assert_eq!(
+        res.messages[0].msg,
+        IbcMsg::SendPacket {
+            channel_id: CHANNEL_ID.to_string(),
+            data: to_binary(&ProviderMsg::Unstake {
+                validator: VALIDATOR.to_string(),
+                amount: Uint128::new(1000),
+                key: DELEGATOR_ADDR.to_string()
+            })
+            .unwrap(),
+            timeout: build_timeout(deps.as_ref(), &mock_env()).unwrap(),
+        }
+        .into()
     )
 }
