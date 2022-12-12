@@ -1,15 +1,26 @@
 use std::str::FromStr;
 
-use cosmwasm_std::{coins, Decimal};
-use mesh_testing::constants::{DELEGATOR_ADDR, REWARDS_IBC_DENOM, VALIDATOR};
+use cosmwasm_std::{
+    coins,
+    testing::{mock_env, mock_info},
+    to_binary, CosmosMsg, Decimal, IbcMsg, Uint128,
+};
+use mesh_ibc::ProviderMsg;
+use mesh_testing::constants::{
+    CHANNEL_ID, DELEGATOR_ADDR, LOCKUP_ADDR, REWARDS_IBC_DENOM, VALIDATOR,
+};
 
-use crate::testing::utils::{
-    executes::execute_slash, helpers::add_validator, queries::query_validators,
+use crate::{
+    contract::execute,
+    ibc::build_timeout,
+    msg::ExecuteMsg,
+    state::{Validator, CHANNEL, VALIDATORS},
+    testing::utils::{executes::execute_slash, helpers::add_validator, queries::query_validators},
 };
 
 use super::utils::{
     executes::execute_claim_rewards, helpers::add_rewards, queries::query_provider_config,
-    setup::setup_with_contract,
+    setup::setup_with_contract, setup_unit::setup_unit,
 };
 
 #[test]
@@ -60,4 +71,44 @@ fn test_claim_rewards() {
     let balance = app.wrap().query_all_balances(DELEGATOR_ADDR).unwrap();
 
     assert_eq!(balance, coins(1000, REWARDS_IBC_DENOM))
+}
+
+#[test]
+fn test_recieve_claim() {
+    let (mut deps, _) = setup_unit(None);
+
+    // Only lockup can send ReceiveClaim
+    let info = mock_info(LOCKUP_ADDR, &[]);
+
+    VALIDATORS
+        .save(deps.as_mut().storage, VALIDATOR, &Validator::default())
+        .unwrap();
+    CHANNEL
+        .save(deps.as_mut().storage, &CHANNEL_ID.to_string())
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        info,
+        ExecuteMsg::ReceiveClaim {
+            owner: DELEGATOR_ADDR.to_string(),
+            amount: Uint128::new(1000),
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        res.messages[0].msg,
+        CosmosMsg::Ibc(IbcMsg::SendPacket {
+            channel_id: CHANNEL_ID.to_string(),
+            data: to_binary(&ProviderMsg::Stake {
+                validator: VALIDATOR.to_string(),
+                amount: Uint128::new(1000),
+                key: DELEGATOR_ADDR.to_string()
+            })
+            .unwrap(),
+            timeout: build_timeout(deps.as_ref(), &mock_env()).unwrap(),
+        })
+    )
 }
