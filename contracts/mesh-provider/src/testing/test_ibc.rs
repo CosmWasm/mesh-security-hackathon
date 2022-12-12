@@ -1,9 +1,22 @@
-use cosmwasm_std::{testing::mock_env, IbcChannelCloseMsg};
-use mesh_ibc::IBC_APP_VERSION;
-use mesh_testing::{constants::CHANNEL_ID, ibc_helpers::mock_channel};
+use cosmwasm_std::{
+    coin,
+    testing::{mock_env, mock_info},
+    to_binary, Addr, IbcChannelCloseMsg, IbcPacketReceiveMsg, Uint128,
+};
+use mesh_ibc::{ConsumerMsg, RewardsResponse, UpdateValidatorsResponse, IBC_APP_VERSION};
+use mesh_testing::{
+    addr,
+    constants::{
+        CHANNEL_ID, DELEGATOR_ADDR, LOCKUP_ADDR, RELAYER_ADDR, REWARDS_IBC_DENOM, VALIDATOR,
+    },
+    ibc_helpers::{ack_unwrap, mock_channel, mock_packet},
+};
 
 use crate::{
-    ibc::ibc_channel_close,
+    contract::execute,
+    ibc::{ibc_channel_close, ibc_packet_receive},
+    msg::ExecuteMsg,
+    state::{ValStatus, VALIDATORS},
     testing::utils::setup_unit::{
         get_default_init_msg, ibc_connect, ibc_open, ibc_open_channel, setup_unit,
     },
@@ -55,4 +68,101 @@ fn try_close_wrong_channel() {
     let err = ibc_channel_close(deps.as_mut(), mock_env(), close_msg).unwrap_err();
 
     assert_eq!(err, ContractError::UnknownChannel(some_channel.to_string()))
+}
+
+#[test]
+fn test_recieve_update_validators() {
+    let (mut deps, _) = setup_unit_with_channel(None);
+    let packet = mock_packet(
+        to_binary(&ConsumerMsg::UpdateValidators {
+            added: vec![VALIDATOR.to_string()],
+            removed: vec![],
+        })
+        .unwrap(),
+    );
+
+    let res = ibc_packet_receive(
+        deps.as_mut(),
+        mock_env(),
+        IbcPacketReceiveMsg::new(packet, addr!(RELAYER_ADDR)),
+    )
+    .unwrap();
+    let res: UpdateValidatorsResponse = ack_unwrap(res.acknowledgement);
+    assert_eq!(res, UpdateValidatorsResponse {});
+
+    // Will fail if no validator
+    VALIDATORS.load(deps.as_mut().storage, VALIDATOR).unwrap();
+
+    // Test remove validator
+    let packet = mock_packet(
+        to_binary(&ConsumerMsg::UpdateValidators {
+            added: vec!["new_validator".to_string()],
+            removed: vec![VALIDATOR.to_string()],
+        })
+        .unwrap(),
+    );
+
+    let res = ibc_packet_receive(
+        deps.as_mut(),
+        mock_env(),
+        IbcPacketReceiveMsg::new(packet, addr!(RELAYER_ADDR)),
+    )
+    .unwrap();
+    let res: UpdateValidatorsResponse = ack_unwrap(res.acknowledgement);
+    assert_eq!(res, UpdateValidatorsResponse {});
+
+    // Should failed as we removed our validator
+    let validator = VALIDATORS.load(deps.as_mut().storage, VALIDATOR).unwrap();
+
+    assert_eq!(validator.status, ValStatus::Removed);
+}
+
+#[test]
+fn test_recieve_rewards() {
+    let (mut deps, _) = setup_unit_with_channel(None);
+    let packet = mock_packet(
+        to_binary(&ConsumerMsg::UpdateValidators {
+            added: vec![VALIDATOR.to_string()],
+            removed: vec![],
+        })
+        .unwrap(),
+    );
+
+    // Add validator
+    ibc_packet_receive(
+        deps.as_mut(),
+        mock_env(),
+        IbcPacketReceiveMsg::new(packet, addr!(RELAYER_ADDR)),
+    )
+    .unwrap();
+
+    let packet = mock_packet(
+        to_binary(&ConsumerMsg::Rewards {
+            validator: VALIDATOR.to_string(),
+            total_funds: coin(100, REWARDS_IBC_DENOM),
+        })
+        .unwrap(),
+    );
+
+    // add stake
+    execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(LOCKUP_ADDR, &[]),
+        ExecuteMsg::ReceiveClaim {
+            owner: DELEGATOR_ADDR.to_string(),
+            amount: Uint128::new(1000),
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap();
+
+    let res = ibc_packet_receive(
+        deps.as_mut(),
+        mock_env(),
+        IbcPacketReceiveMsg::new(packet, addr!(RELAYER_ADDR)),
+    )
+    .unwrap();
+    let res: RewardsResponse = ack_unwrap(res.acknowledgement);
+    assert_eq!(res, RewardsResponse {});
 }

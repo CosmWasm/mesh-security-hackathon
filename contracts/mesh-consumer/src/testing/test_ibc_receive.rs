@@ -5,7 +5,8 @@ use mesh_apis::StakingExecuteMsg;
 use mesh_ibc::{ListValidatorsResponse, ProviderMsg, StakeResponse, UnstakeResponse};
 use mesh_testing::{
     addr,
-    constants::{NATIVE_DENOM, VALIDATOR, RELAYER_ADDR}, ibc_helpers::{ack_unwrap, mock_packet},
+    constants::{NATIVE_DENOM, RELAYER_ADDR, VALIDATOR},
+    ibc_helpers::{ack_unwrap, mock_packet},
 };
 
 use crate::{ibc::ibc_packet_receive, ContractError};

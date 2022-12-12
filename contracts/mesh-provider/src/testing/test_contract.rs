@@ -15,13 +15,16 @@ use crate::{
     contract::execute,
     ibc::build_timeout,
     msg::ExecuteMsg,
-    state::{Validator, CHANNEL, CONFIG, VALIDATORS},
-    testing::utils::{executes::execute_slash, helpers::add_validator, queries::query_validators},
+    state::{Validator, CONFIG, VALIDATORS},
+    testing::utils::{
+        executes::execute_slash, helpers::add_validator, queries::query_validators,
+        setup_unit::setup_unit_with_channel,
+    },
 };
 
 use super::utils::{
     executes::execute_claim_rewards, helpers::add_rewards, queries::query_provider_config,
-    setup::setup_with_contract, setup_unit::setup_unit,
+    setup::setup_with_contract,
 };
 
 #[test]
@@ -71,7 +74,7 @@ fn test_claim_rewards() {
 
 #[test]
 fn test_unbond() {
-    let (mut deps, _) = setup_unit(None);
+    let (mut deps, _) = setup_unit_with_channel(None);
 
     // First stake
     let info = mock_info(LOCKUP_ADDR, &[]);
@@ -79,9 +82,7 @@ fn test_unbond() {
     VALIDATORS
         .save(deps.as_mut().storage, VALIDATOR, &Validator::default())
         .unwrap();
-    CHANNEL
-        .save(deps.as_mut().storage, &CHANNEL_ID.to_string())
-        .unwrap();
+
     execute(
         deps.as_mut(),
         mock_env(),
@@ -132,7 +133,7 @@ fn test_unbond() {
 
 #[test]
 fn test_recieve_claim() {
-    let (mut deps, _) = setup_unit(None);
+    let (mut deps, _) = setup_unit_with_channel(None);
 
     // Only lockup can send ReceiveClaim
     let info = mock_info(LOCKUP_ADDR, &[]);
@@ -140,9 +141,7 @@ fn test_recieve_claim() {
     VALIDATORS
         .save(deps.as_mut().storage, VALIDATOR, &Validator::default())
         .unwrap();
-    CHANNEL
-        .save(deps.as_mut().storage, &CHANNEL_ID.to_string())
-        .unwrap();
+
     let res = execute(
         deps.as_mut(),
         mock_env(),
@@ -173,7 +172,7 @@ fn test_recieve_claim() {
 
 #[test]
 fn test_unstake() {
-    let (mut deps, _) = setup_unit(None);
+    let (mut deps, _) = setup_unit_with_channel(None);
 
     // First stake
     let info = mock_info(LOCKUP_ADDR, &[]);
@@ -181,9 +180,7 @@ fn test_unstake() {
     VALIDATORS
         .save(deps.as_mut().storage, VALIDATOR, &Validator::default())
         .unwrap();
-    CHANNEL
-        .save(deps.as_mut().storage, &CHANNEL_ID.to_string())
-        .unwrap();
+
     execute(
         deps.as_mut(),
         mock_env(),

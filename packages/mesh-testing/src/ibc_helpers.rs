@@ -1,10 +1,13 @@
 use std::fmt;
 
-use cosmwasm_std::{IbcChannel, IbcEndpoint, IbcOrder, Binary, IbcPacket, Timestamp, IbcTimeout, from_binary, to_binary};
+use cosmwasm_std::{
+    from_binary, to_binary, Binary, IbcChannel, IbcEndpoint, IbcOrder, IbcPacket, IbcTimeout,
+    Timestamp,
+};
 use mesh_ibc::StdAck;
 use serde::Deserialize;
 
-use crate::constants::{CONTRACT_PORT, REMOTE_PORT, CONNECTION_ID, CHANNEL_ID, DEFAULT_TIMEOUT};
+use crate::constants::{CHANNEL_ID, CONNECTION_ID, CONTRACT_PORT, DEFAULT_TIMEOUT, REMOTE_PORT};
 
 pub fn mock_channel(channel_id: &str, ibc_version: &str) -> IbcChannel {
     IbcChannel::new(

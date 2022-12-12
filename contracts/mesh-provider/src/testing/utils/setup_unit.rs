@@ -2,17 +2,21 @@
 
 use cosmwasm_std::{
     testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier},
-    to_binary, Addr, DepsMut, Empty, MemoryStorage, OwnedDeps, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcBasicResponse, IbcChannel, Ibc3ChannelOpenResponse, IbcChannelOpenMsg,
+    to_binary, Addr, DepsMut, Empty, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannel,
+    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, MemoryStorage, OwnedDeps,
 };
 use mesh_ibc::IBC_APP_VERSION;
 use mesh_testing::{
-    constants::{CONNECTION_ID, CREATOR_ADDR, LOCKUP_ADDR, REWARDS_IBC_DENOM, CHANNEL_ID},
-    instantiates::get_mesh_slasher_init_msg, ibc_helpers::mock_channel,
+    constants::{CHANNEL_ID, CONNECTION_ID, CREATOR_ADDR, LOCKUP_ADDR, REWARDS_IBC_DENOM},
+    ibc_helpers::mock_channel,
+    instantiates::get_mesh_slasher_init_msg,
 };
 
 use crate::{
     contract::instantiate,
-    msg::{ConsumerInfo, InstantiateMsg, SlasherInfo}, ibc::{ibc_channel_connect, ibc_channel_open, ibc_channel_close}, ContractError,
+    ibc::{ibc_channel_close, ibc_channel_connect, ibc_channel_open},
+    msg::{ConsumerInfo, InstantiateMsg, SlasherInfo},
+    ContractError,
 };
 
 type OwnedDepsType = OwnedDeps<MemoryStorage, MockApi, MockQuerier<Empty>, Empty>;
@@ -81,7 +85,6 @@ pub fn setup_unit(init_msg: Option<InstantiateMsg>) -> (OwnedDepsType, Addr) {
 
     (deps, provider_addr)
 }
-
 
 pub fn setup_unit_with_channel(init_msg: Option<InstantiateMsg>) -> (OwnedDepsType, Addr) {
     let (mut deps, consumer_addr) = setup_unit(init_msg);

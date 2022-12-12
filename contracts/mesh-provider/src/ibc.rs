@@ -139,6 +139,9 @@ pub fn receive_rewards(
             None => return Err(ContractError::ValidatorRewardsCalculationWrong {}),
         };
 
+        // TODO: Verify we have tokens staked, else we messed up because there should be no rewards if there are no
+        // staked tokens. (rewards calculation should run before we modify stake values)
+
         val.rewards
             .calc_rewards(total_funds.amount, val.shares_to_tokens(val.stake))?;
 
