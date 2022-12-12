@@ -12,3 +12,6 @@ pub const REMOTE_PORT: &str = "stars.address1";
 pub const CONNECTION_ID: &str = "connection-1";
 pub const CHANNEL_ID: &str = "channel-1";
 pub const ICS20_CHANNEL_ID: &str = "channel-2";
+
+pub const RELAYER_ADDR: &str = "relayer";
+pub const DEFAULT_TIMEOUT: u64 = 60;

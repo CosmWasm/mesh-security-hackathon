@@ -587,6 +587,7 @@ dependencies = [
  "cosmwasm-storage",
  "cw-multi-test",
  "mesh-consumer",
+ "mesh-ibc",
  "mesh-provider",
  "mesh-slasher",
  "meta-staking",

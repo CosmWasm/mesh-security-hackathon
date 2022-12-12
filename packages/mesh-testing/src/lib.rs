@@ -14,3 +14,4 @@ pub mod macros;
 pub mod msgs;
 
 pub mod multitest_helpers;
+pub mod ibc_helpers;

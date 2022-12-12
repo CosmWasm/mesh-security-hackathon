@@ -9,7 +9,8 @@ use mesh_apis::ConsumerExecuteMsg;
 use mesh_ibc::{ConsumerMsg, ProviderMsg, IBC_APP_VERSION};
 use mesh_testing::{
     addr,
-    constants::{CHANNEL_ID, CREATOR_ADDR, NATIVE_DENOM},
+    constants::{CHANNEL_ID, CREATOR_ADDR, NATIVE_DENOM, RELAYER_ADDR},
+    ibc_helpers::{mock_channel, mock_packet},
 };
 
 use crate::{
@@ -22,7 +23,7 @@ use crate::{
     ContractError,
 };
 
-use super::helpers::{get_default_instantiate_msg, mock_channel, mock_packet, RELAYER_ADDR};
+use super::helpers::get_default_instantiate_msg;
 
 pub fn instantiate_consumer(mut deps: DepsMut, init_msg: Option<InstantiateMsg>) -> Addr {
     let info = mock_info(CREATOR_ADDR, &[]);
@@ -66,7 +67,7 @@ pub fn ibc_connect(
 }
 
 pub fn ibc_open_channel(mut deps: DepsMut) -> Result<(), ContractError> {
-    let channel = mock_channel(CHANNEL_ID);
+    let channel = mock_channel(CHANNEL_ID, IBC_APP_VERSION);
 
     ibc_open(deps.branch(), channel.clone())?;
     ibc_connect(deps.branch(), channel)?;
@@ -74,7 +75,7 @@ pub fn ibc_open_channel(mut deps: DepsMut) -> Result<(), ContractError> {
 }
 
 pub fn ibc_close_channel(mut deps: DepsMut) -> Result<(), ContractError> {
-    let channel = mock_channel(CHANNEL_ID);
+    let channel = mock_channel(CHANNEL_ID, IBC_APP_VERSION);
 
     let close_msg = IbcChannelCloseMsg::new_init(channel);
     ibc_channel_close(deps.branch(), mock_env(), close_msg)?;
