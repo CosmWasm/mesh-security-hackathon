@@ -12,3 +12,5 @@ pub mod macros;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod msgs;
+
+pub mod multitest_helpers;

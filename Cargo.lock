@@ -546,6 +546,7 @@ dependencies = [
 name = "mesh-provider"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -583,6 +584,7 @@ version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cosmwasm-storage",
  "cw-multi-test",
  "mesh-consumer",
  "mesh-provider",

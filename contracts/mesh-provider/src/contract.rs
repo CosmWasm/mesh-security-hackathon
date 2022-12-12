@@ -297,7 +297,7 @@ pub fn execute_claim_rewards(
     // We calculate the rewards
     delegator_stake.calc_pending_rewards(
         validator_info.rewards.rewards_per_token,
-        delegator_stake.shares,
+        validator_info.stake,
     )?;
 
     if delegator_stake.rewards.pending.floor().is_zero() {
@@ -309,10 +309,10 @@ pub fn execute_claim_rewards(
         .query_balance(env.contract.address, config.rewards_ibc_denom.clone())?;
 
     // Make sure we have something to send, if its false, funds might be stuck in consumer and need admin. (or we messed up badly)
-    if delegator_stake.rewards.pending > Decimal::new(balance.amount) {
+    if delegator_stake.rewards.pending > Decimal::from_atomics(balance.amount, 0)? {
         return Err(ContractError::WrongBalance {
-            balance: balance.amount,
-            rewards: delegator_stake.rewards.pending,
+            balance: balance.amount.to_string(),
+            rewards: delegator_stake.rewards.pending.to_string(),
         });
     }
 
@@ -403,38 +403,5 @@ fn build_response((address, val): (String, Validator)) -> ValidatorResponse {
         tokens: val.stake_value(),
         status: val.status,
         multiplier: val.multiplier,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::msg::{ConsumerInfo, SlasherInfo};
-
-    use super::*;
-    use cosmwasm_std::coins;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-
-    #[test]
-    fn proper_initialization() {
-        let mut deps = mock_dependencies();
-
-        let msg = InstantiateMsg {
-            consumer: ConsumerInfo {
-                connection_id: "1".to_string(),
-            },
-            slasher: SlasherInfo {
-                code_id: 17,
-                msg: b"{}".into(),
-            },
-            lockup: "lockup_contract".to_string(),
-            unbonding_period: 86400 * 14,
-            rewards_ibc_denom: "".to_string(),
-            packet_lifetime: None,
-        };
-        let info = mock_info("creator", &coins(1000, "earth"));
-
-        // we can just call .unwrap() to assert this was a success
-        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        assert_eq!(1, res.messages.len());
     }
 }
