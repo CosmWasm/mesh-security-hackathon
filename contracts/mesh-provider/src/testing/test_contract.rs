@@ -4,11 +4,11 @@ use cosmwasm_std::{coins, Decimal};
 use mesh_testing::constants::{DELEGATOR_ADDR, REWARDS_IBC_DENOM, VALIDATOR};
 
 use crate::testing::utils::{
-    executes::execute_slash, helpers::add_validator, queries::query_validators,
+    execute::execute_slash, helpers::add_validator, query::query_validators,
 };
 
 use super::utils::{
-    executes::execute_claim_rewards, helpers::add_rewards, queries::query_provider_config,
+    execute::execute_claim_rewards, helpers::add_rewards, query::query_provider_config,
     setup::setup_with_contract,
 };
 
