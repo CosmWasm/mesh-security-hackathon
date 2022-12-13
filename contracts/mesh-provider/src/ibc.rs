@@ -142,7 +142,7 @@ pub fn receive_rewards(
         let total_staked = val.shares_to_tokens(val.stake);
 
         if total_staked.is_zero() {
-            return Err(ContractError::ValidatorRewardsCalculationWrong {})
+            return Err(ContractError::ValidatorRewardsCalculationWrong {});
         }
 
         val.rewards
