@@ -5,7 +5,7 @@ use cosmwasm_std::{
     from_slice, to_binary, Coin, Deps, DepsMut, Empty, Env, Event, Ibc3ChannelOpenResponse,
     IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg,
     IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout,
-    StdError, Uint128, WasmMsg,
+    Uint128, WasmMsg,
 };
 
 use cw_utils::Expiration;
@@ -193,12 +193,12 @@ pub fn ibc_packet_ack(
     let res: StdAck = from_slice(&msg.acknowledgement.data)?;
     // we need to handle the ack based on our request
     let original_packet: ProviderMsg = from_slice(&msg.original_packet.data)?;
-    match (original_packet, res.is_ok()) {
+    match (original_packet.clone(), res.is_ok()) {
         (ProviderMsg::ListValidators {}, true) => {
             let val: ListValidatorsResponse = from_slice(&res.unwrap())?;
             ack_list_validators(deps, env, val)
         }
-        (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps, env),
+        (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps, env, original_packet),
         (
             ProviderMsg::Stake {
                 key,
@@ -242,7 +242,7 @@ pub fn ibc_packet_timeout(
 ) -> Result<IbcBasicResponse, ContractError> {
     let original_packet: ProviderMsg = from_slice(&msg.packet.data)?;
     match original_packet {
-        ProviderMsg::ListValidators {} => fail_list_validators(deps, env),
+        ProviderMsg::ListValidators {} => fail_list_validators(deps, env, original_packet),
         ProviderMsg::Stake {
             key,
             validator: _,
@@ -264,26 +264,25 @@ pub fn ack_list_validators(
     for val in res.validators {
         VALIDATORS.save(deps.storage, &val, &Validator::new())?;
     }
-    LIST_VALIDATORS_RETRIES.update(deps.storage, |mut r| -> Result<u8, StdError> {
-        r -= 1;
-        Ok(r)
-    })?;
+    LIST_VALIDATORS_RETRIES.save(deps.storage, &LIST_VALIDATORS_MAX_RETRIES)?;
     Ok(IbcBasicResponse::new().add_attribute("action", "ack list_validators"))
 }
 
-pub fn fail_list_validators(deps: DepsMut, env: Env) -> Result<IbcBasicResponse, ContractError> {
+pub fn fail_list_validators(
+    deps: DepsMut,
+    env: Env,
+    packet: ProviderMsg,
+) -> Result<IbcBasicResponse, ContractError> {
     // check if we should retry
-    let mut retries = LIST_VALIDATORS_RETRIES.load(deps.storage)?;
-    if !retries == 0 {
-        retries = LIST_VALIDATORS_MAX_RETRIES;
-        LIST_VALIDATORS_RETRIES.save(deps.storage, &retries)?;
+    let retries = LIST_VALIDATORS_RETRIES.load(deps.storage)?;
+    if retries == 0 {
+        LIST_VALIDATORS_RETRIES.save(deps.storage, &LIST_VALIDATORS_MAX_RETRIES)?;
         return Ok(IbcBasicResponse::new().add_event(Event::new("list_validators_fail")));
     }
     LIST_VALIDATORS_RETRIES.save(deps.storage, &(retries - 1))?;
 
     // do retry
     let channel_id = CHANNEL.load(deps.storage)?;
-    let packet = ProviderMsg::ListValidators {};
     let msg = IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&packet)?,
@@ -302,7 +301,6 @@ fn ack_stake(
 ) -> Result<IbcBasicResponse, ContractError> {
     let staker = deps.api.addr_validate(&staker)?;
 
-    // We check if the validator exists before we send the packet.
     let mut val = VALIDATORS.load(deps.storage, &validator)?;
     let mut stake = STAKED
         .may_load(deps.storage, (&staker, &validator))?
