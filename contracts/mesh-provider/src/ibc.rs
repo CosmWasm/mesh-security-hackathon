@@ -3,8 +3,8 @@ use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
     from_slice, to_binary, Coin, Deps, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128,
+    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128, Event, StdError, IbcPacketAckMsg,
 };
 
 use mesh_ibc::{
@@ -13,7 +13,7 @@ use mesh_ibc::{
 };
 
 use crate::error::ContractError;
-use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PACKET_LIFETIME, PORT, VALIDATORS};
+use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PACKET_LIFETIME, PORT, VALIDATORS, STAKED, RETRIES};
 
 pub fn build_timeout(deps: Deps, env: &Env) -> Result<IbcTimeout, ContractError> {
     let packet_time = PACKET_LIFETIME.load(deps.storage)?;
@@ -185,7 +185,6 @@ pub fn ibc_packet_ack(
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     let res: StdAck = from_slice(&msg.acknowledgement.data)?;
-
     // we need to handle the ack based on our request
     let original_packet: ProviderMsg = from_slice(&msg.original_packet.data)?;
     match (original_packet, res.is_ok()) {
@@ -193,7 +192,15 @@ pub fn ibc_packet_ack(
             let val: ListValidatorsResponse = from_slice(&res.unwrap())?;
             ack_list_validators(deps, env, val)
         }
-        (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps),
+        (ProviderMsg::ListValidators {}, false) => fail_list_validators(deps, env),
+        (
+            ProviderMsg::Stake {
+                key,
+                validator,
+                amount,
+            },
+            true,
+        ) => ack_stake(deps, key, validator, amount),
         (
             ProviderMsg::Stake {
                 key,
@@ -201,7 +208,15 @@ pub fn ibc_packet_ack(
                 amount,
             },
             false,
-        ) => fail_stake(deps, key, validator, amount),
+        ) => fail_stake(deps, env, key, validator, amount),
+        (
+            ProviderMsg::Unstake {
+                key: _,
+                validator: _,
+                amount: _,
+            },
+            true,
+        ) => ack_unstake(deps),
         (
             ProviderMsg::Unstake {
                 key,
@@ -209,30 +224,29 @@ pub fn ibc_packet_ack(
                 amount,
             },
             false,
-        ) => fail_unstake(deps, key, validator, amount),
-        (_, true) => Ok(IbcBasicResponse::new()),
+        ) => fail_unstake(deps, env, key, validator, amount),
     }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_timeout(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcPacketTimeoutMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     let original_packet: ProviderMsg = from_slice(&msg.packet.data)?;
     match original_packet {
-        ProviderMsg::ListValidators {} => fail_list_validators(deps),
+        ProviderMsg::ListValidators {} => fail_list_validators(deps, env),
         ProviderMsg::Stake {
             key,
             validator,
             amount,
-        } => fail_stake(deps, key, validator, amount),
+        } => fail_stake(deps, env, key, validator, amount),
         ProviderMsg::Unstake {
             key,
             validator,
             amount,
-        } => fail_unstake(deps, key, validator, amount),
+        } => fail_unstake(deps, env, key, validator, amount),
     }
 }
 
@@ -244,33 +258,103 @@ pub fn ack_list_validators(
     for val in res.validators {
         VALIDATORS.save(deps.storage, &val, &Validator::new())?;
     }
-    Ok(IbcBasicResponse::new())
+    RETRIES.update(deps.storage, |mut r| -> Result<crate::state::RetryState, StdError> {
+        r.list_validators_reset();
+        Ok(r)
+    })?;
+    Ok(IbcBasicResponse::new()
+        .add_attribute("action", "ack list_validators"))
 }
 
-pub fn fail_list_validators(_deps: DepsMut) -> Result<IbcBasicResponse, ContractError> {
-    // TODO: send another ListValidators message
-    unimplemented!();
+pub fn fail_list_validators(deps: DepsMut, env: Env) -> Result<IbcBasicResponse, ContractError> {
+    // check if we should retry
+    let mut retries = RETRIES.load(deps.storage)?;
+    if !retries.list_validators_should_retry() {
+        retries.list_validators_reset();
+        RETRIES.save(deps.storage, &retries)?;
+        return Ok(IbcBasicResponse::new().add_event(Event::new("list_validators_fail")))
+    }
+    RETRIES.save(deps.storage, &retries)?;
+
+    // retry
+    let channel_id = CHANNEL.load(deps.storage)?;
+    let packet = ProviderMsg::ListValidators {};
+    let msg = IbcMsg::SendPacket {
+        channel_id: channel_id,
+        data: to_binary(&packet)?,
+        timeout: build_timeout(deps.as_ref(), &env)?,
+    };
+    Ok(IbcBasicResponse::new()
+        .add_event(Event::new("list_validators_retry"))
+        .add_message(msg))
+}
+
+fn ack_stake(deps: DepsMut, staker: String, validator: String, amount: Uint128) -> Result<IbcBasicResponse, ContractError> {
+    let staker = deps.api.addr_validate(&staker)?;
+
+    if amount.is_zero() {
+        return Ok(IbcBasicResponse::new().add_event(Event::new("ack_stake_zero_amount")));
+    }
+
+    let mut val = VALIDATORS
+        .may_load(deps.storage, &validator)?
+        .ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
+    let mut stake = STAKED.load(deps.storage, (&staker, &validator))?;
+    stake.stake_validator(&mut val, amount);
+    STAKED.save(deps.storage, (&staker, &validator), &stake)?;
+    VALIDATORS.save(deps.storage, &validator, &val)?;
+
+    Ok(IbcBasicResponse::new()
+        .add_event(Event::new("ack_stake")))
 }
 
 pub fn fail_stake(
-    _deps: DepsMut,
-    // _staker is the staker Addr, not used by consumer
-    _staker: String,
-    _validator: String,
-    _amount: Uint128,
+    deps: DepsMut,
+    env: Env,
+    staker: String,
+    validator: String,
+    amount: Uint128,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // TODO: release the bonded stake, adjust numer
-    unimplemented!();
+    let mut retries = RETRIES.load(deps.storage)?;
+    let packet = ProviderMsg::Stake {
+        validator,
+        amount,
+        key: staker.into(),
+    };
+    let msg = IbcMsg::SendPacket {
+        channel_id: CHANNEL.load(deps.storage)?,
+        data: to_binary(&packet)?,
+        timeout: build_timeout(deps.as_ref(), &env)?,
+    };
+    Ok(IbcBasicResponse::new()
+        .add_event(Event::new("retry_stake"))
+        .add_message(msg))
+}
+
+pub fn ack_unstake(
+    deps: DepsMut,
+) -> Result<IbcBasicResponse , ContractError> {
+    Ok(IbcBasicResponse::new().add_event(Event::new("ack_unstake")))
 }
 
 pub fn fail_unstake(
-    _deps: DepsMut,
-    // _staker is the staker Addr, not used by consumer
-    _staker: String,
-    _validator: String,
-    _amount: Uint128,
+    deps: DepsMut,
+    env: Env,
+    staker: String,
+    validator: String,
+    amount: Uint128,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // TODO: unrelease the bonded stake, remove claim
-    // Maybe we only make Claim on ack?
-    unimplemented!();
+    let packet = ProviderMsg::Unstake {
+        validator,
+        amount,
+        key: staker.to_string(),
+    };
+    let msg = IbcMsg::SendPacket {
+        channel_id: CHANNEL.load(deps.storage)?,
+        data: to_binary(&packet)?,
+        timeout: build_timeout(deps.as_ref(), &env)?,
+    };
+    Ok(IbcBasicResponse::new()
+        .add_event(Event::new("retry_unstake"))
+        .add_message(msg))
 }
