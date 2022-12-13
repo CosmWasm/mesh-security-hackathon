@@ -66,6 +66,9 @@ pub enum ContractError {
     #[error("Validator was never registered: {0}")]
     UnknownValidator(String),
 
+    #[error("No staked tokens for this validator: {0}")]
+    NoStakedTokens(String),
+
     #[error("Validator was removed from valset: {0}")]
     RemovedValidator(String),
 

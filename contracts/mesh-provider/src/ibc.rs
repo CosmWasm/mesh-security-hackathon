@@ -142,13 +142,13 @@ pub fn receive_rewards(
     VALIDATORS.update::<_, ContractError>(deps.storage, &validator, |val| {
         let mut val = match val {
             Some(val) => val,
-            None => return Err(ContractError::ValidatorRewardsCalculationWrong {}),
+            None => return Err(ContractError::UnknownValidator(validator.clone())),
         };
 
         let total_staked = val.shares_to_tokens(val.stake);
 
         if total_staked.is_zero() {
-            return Err(ContractError::ValidatorRewardsCalculationWrong {});
+            return Err(ContractError::NoStakedTokens(validator.clone()));
         }
 
         val.rewards
