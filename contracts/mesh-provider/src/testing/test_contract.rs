@@ -17,15 +17,15 @@ use crate::{
     msg::ExecuteMsg,
     state::CONFIG,
     testing::utils::{
-        execute::execute_slash, helpers::add_validator, ibc_helpers::remove_unit_stake,
-        query::query_validators, setup_unit::setup_unit_with_channel,
+        execute::execute_slash, helpers::add_validator, query::query_validators,
+        setup_unit::setup_unit_with_channel,
     },
 };
 
 use super::utils::{
     execute::execute_claim_rewards,
     helpers::add_rewards,
-    ibc_helpers::{add_unit_stake, update_unit_validator},
+    ibc_helpers::{add_stake_unit, remove_stake_unit, update_validator_unit},
     query::query_provider_config,
     setup::setup_with_contract,
 };
@@ -79,14 +79,14 @@ fn test_claim_rewards() {
 fn test_unbond() {
     let (mut deps, _) = setup_unit_with_channel(None);
 
-    update_unit_validator(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
+    update_validator_unit(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
 
-    add_unit_stake(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
+    add_stake_unit(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
 
     // To unstake the delegetor need to send the request
     let info = mock_info(DELEGATOR_ADDR, &[]);
 
-    remove_unit_stake(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
+    remove_stake_unit(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
 
     // Update block
     let unbound_period = CONFIG.load(deps.as_mut().storage).unwrap().unbonding_period;
@@ -114,7 +114,7 @@ fn test_unbond() {
 fn test_recieve_claim() {
     let (mut deps, _) = setup_unit_with_channel(None);
 
-    update_unit_validator(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
+    update_validator_unit(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
 
     let res = execute(
         deps.as_mut(),
@@ -148,9 +148,9 @@ fn test_recieve_claim() {
 fn test_unstake() {
     let (mut deps, _) = setup_unit_with_channel(None);
 
-    update_unit_validator(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
+    update_validator_unit(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
 
-    add_unit_stake(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
+    add_stake_unit(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
 
     let res = execute(
         deps.as_mut(),

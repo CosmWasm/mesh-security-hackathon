@@ -85,7 +85,7 @@ pub fn ibc_close_channel(mut deps: DepsMut) -> Result<(), ContractError> {
     Ok(())
 }
 
-pub fn update_unit_validator(
+pub fn update_validator_unit(
     deps: DepsMut,
     added: Vec<String>,
     removed: Vec<String>,
@@ -100,7 +100,7 @@ pub fn update_unit_validator(
     .unwrap()
 }
 
-pub fn add_unit_stake(
+pub fn add_stake_unit(
     deps: DepsMut,
     delegator: &str,
     validator: &str,
@@ -123,7 +123,7 @@ pub fn add_unit_stake(
     )
 }
 
-pub fn remove_unit_stake(
+pub fn remove_stake_unit(
     deps: DepsMut,
     delegator: &str,
     validator: &str,
@@ -147,6 +147,6 @@ pub fn remove_unit_stake(
 }
 
 // Queries
-pub fn query_unit_validators(deps: Deps, validator: &str) -> Result<Validator, StdError> {
+pub fn query_validators_unit(deps: Deps, validator: &str) -> Result<Validator, StdError> {
     VALIDATORS.load(deps.storage, validator)
 }

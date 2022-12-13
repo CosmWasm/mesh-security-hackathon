@@ -12,8 +12,8 @@ use crate::{
     ibc::{ibc_channel_close, ibc_packet_receive},
     state::ValStatus,
     testing::utils::ibc_helpers::{
-        add_unit_stake, get_default_init_msg, ibc_connect, ibc_open, ibc_open_channel,
-        query_unit_validators, update_unit_validator,
+        add_stake_unit, get_default_init_msg, ibc_connect, ibc_open, ibc_open_channel,
+        query_validators_unit, update_validator_unit,
     },
     ContractError,
 };
@@ -72,15 +72,15 @@ fn try_close_wrong_channel() {
 fn test_recieve_update_validators() {
     let (mut deps, _) = setup_unit_with_channel(None);
 
-    let res = update_unit_validator(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
+    let res = update_validator_unit(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
     let res: UpdateValidatorsResponse = ack_unwrap(res.acknowledgement);
     assert_eq!(res, UpdateValidatorsResponse {});
 
     // Will fail if no validator
-    query_unit_validators(deps.as_ref(), VALIDATOR).unwrap();
+    query_validators_unit(deps.as_ref(), VALIDATOR).unwrap();
 
     // Test remove validator
-    let res = update_unit_validator(
+    let res = update_validator_unit(
         deps.as_mut(),
         vec!["new_validator".to_string()],
         vec![VALIDATOR.to_string()],
@@ -89,7 +89,7 @@ fn test_recieve_update_validators() {
     assert_eq!(res, UpdateValidatorsResponse {});
 
     // Should failed as we removed our validator
-    let validator = query_unit_validators(deps.as_ref(), VALIDATOR).unwrap();
+    let validator = query_validators_unit(deps.as_ref(), VALIDATOR).unwrap();
 
     assert_eq!(validator.status, ValStatus::Removed);
 }
@@ -99,7 +99,7 @@ fn test_recieve_rewards() {
     let (mut deps, _) = setup_unit_with_channel(None);
 
     // Add validator
-    update_unit_validator(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
+    update_validator_unit(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
 
     let packet = mock_packet(
         to_binary(&ConsumerMsg::Rewards {
@@ -110,7 +110,7 @@ fn test_recieve_rewards() {
     );
 
     // add stake
-    add_unit_stake(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
+    add_stake_unit(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
 
     let res = ibc_packet_receive(
         deps.as_mut(),
