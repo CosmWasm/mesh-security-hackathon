@@ -34,17 +34,17 @@ let osmosisIds: Record<string, number> = {};
 test.before(async (t) => {
   console.debug("Upload contracts to wasmd...");
   const wasmContracts = {
-    mesh_consumer: "./src/contracts/mesh_consumer.wasm",
-    meta_staking: "./src/contracts/meta_staking.wasm",
+    mesh_consumer: "./internal/mesh_consumer.wasm",
+    meta_staking: "./internal/meta_staking.wasm",
   };
   const wasmSign = await setupWasmClient();
   wasmIds = await setupContracts(wasmSign, wasmContracts);
 
   console.debug("Upload contracts to osmosis...");
   const osmosisContracts = {
-    mesh_lockup: "./src/contracts/mesh_lockup.wasm",
-    mesh_provider: "./src/contracts/mesh_provider.wasm",
-    mesh_slasher: "./src/contracts/mesh_slasher.wasm",
+    mesh_lockup: "./internal/mesh_lockup.wasm",
+    mesh_provider: "./internal/mesh_provider.wasm",
+    mesh_slasher: "./internal/mesh_slasher.wasm",
   };
   const osmosisSign = await setupOsmosisClient();
   osmosisIds = await setupContracts(osmosisSign, osmosisContracts);

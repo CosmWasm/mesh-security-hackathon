@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     coin, ensure_eq, to_binary, BankMsg, Binary, Decimal, Deps, DepsMut, Env, IbcMsg, MessageInfo,
-    Order, Reply, Response, StdResult, SubMsgResponse, Uint128, WasmMsg, SubMsg,
+    Order, Reply, Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
@@ -13,11 +13,12 @@ use mesh_ibc::ProviderMsg;
 use crate::error::ContractError;
 use crate::ibc::build_timeout;
 use crate::msg::{
-    AccountResponse, ConfigResponse, ExecuteMsg, ListValidatorsResponse, QueryMsg,
-    StakeInfo, ValidatorResponse, InstantiateMsg,
+    AccountResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, ListValidatorsResponse, QueryMsg,
+    StakeInfo, ValidatorResponse,
 };
 use crate::state::{
-    ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, STAKED, VALIDATORS, RETRIES, LIST_VALIDATORS_MAX_RETRIES, STAKE_MAX_RETRIES, UNSTAKE_MAX_RETRIES, RetryState, Config, PACKET_LIFETIME,
+    Config, ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, LIST_VALIDATORS_MAX_RETRIES,
+    LIST_VALIDATORS_RETRIES, PACKET_LIFETIME, STAKED, VALIDATORS,
 };
 
 // version info for migration info
@@ -43,11 +44,10 @@ pub fn instantiate(
         slasher: None,
         lockup: deps.api.addr_validate(&msg.lockup)?,
         unbonding_period: msg.unbonding_period,
+        rewards_ibc_denom: msg.rewards_ibc_denom,
     };
     CONFIG.save(deps.storage, &state)?;
-    RETRIES.save(deps.storage, &RetryState {
-        list_validators_retries_remaining: LIST_VALIDATORS_MAX_RETRIES,
-    })?;
+    LIST_VALIDATORS_RETRIES.save(deps.storage, &LIST_VALIDATORS_MAX_RETRIES)?;
 
     // Set packet time from msg or set default
     PACKET_LIFETIME.save(
@@ -129,6 +129,11 @@ pub fn execute_receive_claim(
     if amount.is_zero() {
         return Err(ContractError::ZeroAmount);
     }
+
+    // Verify we have this validator, if not we can't continue.
+    VALIDATORS
+        .may_load(deps.storage, &validator)?
+        .ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
 
     // send out IBC packet for staking change, update contract state on ack
     let packet = ProviderMsg::Stake {
@@ -351,7 +356,7 @@ pub fn query_account(deps: Deps, address: String) -> StdResult<AccountResponse> 
                 slashed,
             })
         })
-    .collect::<StdResult<Vec<_>>>()?;
+        .collect::<StdResult<Vec<_>>>()?;
 
     Ok(AccountResponse { staked })
 }

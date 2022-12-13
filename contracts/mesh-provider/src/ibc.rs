@@ -2,18 +2,23 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_slice, to_binary, Coin, Deps, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout, Uint128, Event, StdError, IbcPacketAckMsg,
+    from_slice, to_binary, Coin, Deps, DepsMut, Env, Event, Ibc3ChannelOpenResponse,
+    IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg,
+    IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout,
+    StdError, Uint128, WasmMsg,
 };
 
+use mesh_apis::ClaimProviderMsg;
 use mesh_ibc::{
     check_order, check_version, ConsumerMsg, ListValidatorsResponse, ProviderMsg, RewardsResponse,
     StdAck, UpdateValidatorsResponse,
 };
 
 use crate::error::ContractError;
-use crate::state::{ValStatus, Validator, CHANNEL, CONFIG, PACKET_LIFETIME, PORT, VALIDATORS, STAKED, RETRIES};
+use crate::state::{
+    ValStatus, Validator, CHANNEL, CONFIG, LIST_VALIDATORS_MAX_RETRIES, LIST_VALIDATORS_RETRIES,
+    PACKET_LIFETIME, PORT, STAKED, VALIDATORS,
+};
 
 pub fn build_timeout(deps: Deps, env: &Env) -> Result<IbcTimeout, ContractError> {
     let packet_time = PACKET_LIFETIME.load(deps.storage)?;
@@ -204,11 +209,11 @@ pub fn ibc_packet_ack(
         (
             ProviderMsg::Stake {
                 key,
-                validator,
+                validator: _,
                 amount,
             },
             false,
-        ) => fail_stake(deps, env, key, validator, amount),
+        ) => fail_stake(deps, key, amount),
         (
             ProviderMsg::Unstake {
                 key: _,
@@ -216,15 +221,15 @@ pub fn ibc_packet_ack(
                 amount: _,
             },
             true,
-        ) => ack_unstake(deps),
+        ) => ack_unstake(),
         (
             ProviderMsg::Unstake {
-                key,
-                validator,
-                amount,
+                key: _,
+                validator: _,
+                amount: _,
             },
             false,
-        ) => fail_unstake(deps, env, key, validator, amount),
+        ) => fail_unstake(),
     }
 }
 
@@ -239,14 +244,14 @@ pub fn ibc_packet_timeout(
         ProviderMsg::ListValidators {} => fail_list_validators(deps, env),
         ProviderMsg::Stake {
             key,
-            validator,
+            validator: _,
             amount,
-        } => fail_stake(deps, env, key, validator, amount),
+        } => fail_stake(deps, key, amount),
         ProviderMsg::Unstake {
-            key,
-            validator,
-            amount,
-        } => fail_unstake(deps, env, key, validator, amount),
+            key: _,
+            validator: _,
+            amount: _,
+        } => fail_unstake(),
     }
 }
 
@@ -258,29 +263,28 @@ pub fn ack_list_validators(
     for val in res.validators {
         VALIDATORS.save(deps.storage, &val, &Validator::new())?;
     }
-    RETRIES.update(deps.storage, |mut r| -> Result<crate::state::RetryState, StdError> {
-        r.list_validators_reset();
+    LIST_VALIDATORS_RETRIES.update(deps.storage, |mut r| -> Result<u8, StdError> {
+        r -= 1;
         Ok(r)
     })?;
-    Ok(IbcBasicResponse::new()
-        .add_attribute("action", "ack list_validators"))
+    Ok(IbcBasicResponse::new().add_attribute("action", "ack list_validators"))
 }
 
 pub fn fail_list_validators(deps: DepsMut, env: Env) -> Result<IbcBasicResponse, ContractError> {
     // check if we should retry
-    let mut retries = RETRIES.load(deps.storage)?;
-    if !retries.list_validators_should_retry() {
-        retries.list_validators_reset();
-        RETRIES.save(deps.storage, &retries)?;
-        return Ok(IbcBasicResponse::new().add_event(Event::new("list_validators_fail")))
+    let mut retries = LIST_VALIDATORS_RETRIES.load(deps.storage)?;
+    if !retries == 0 {
+        retries = LIST_VALIDATORS_MAX_RETRIES;
+        LIST_VALIDATORS_RETRIES.save(deps.storage, &retries)?;
+        return Ok(IbcBasicResponse::new().add_event(Event::new("list_validators_fail")));
     }
-    RETRIES.save(deps.storage, &retries)?;
+    LIST_VALIDATORS_RETRIES.save(deps.storage, &(retries - 1))?;
 
-    // retry
+    // do retry
     let channel_id = CHANNEL.load(deps.storage)?;
     let packet = ProviderMsg::ListValidators {};
     let msg = IbcMsg::SendPacket {
-        channel_id: channel_id,
+        channel_id,
         data: to_binary(&packet)?,
         timeout: build_timeout(deps.as_ref(), &env)?,
     };
@@ -289,72 +293,60 @@ pub fn fail_list_validators(deps: DepsMut, env: Env) -> Result<IbcBasicResponse,
         .add_message(msg))
 }
 
-fn ack_stake(deps: DepsMut, staker: String, validator: String, amount: Uint128) -> Result<IbcBasicResponse, ContractError> {
+fn ack_stake(
+    deps: DepsMut,
+    staker: String,
+    validator: String,
+    amount: Uint128,
+) -> Result<IbcBasicResponse, ContractError> {
     let staker = deps.api.addr_validate(&staker)?;
 
-    if amount.is_zero() {
-        return Ok(IbcBasicResponse::new().add_event(Event::new("ack_stake_zero_amount")));
-    }
+    // We check if the validator exists before we send the packet.
+    let mut val = VALIDATORS.load(deps.storage, &validator)?;
+    let mut stake = STAKED
+        .may_load(deps.storage, (&staker, &validator))?
+        .unwrap_or_default();
 
-    let mut val = VALIDATORS
-        .may_load(deps.storage, &validator)?
-        .ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
-    let mut stake = STAKED.load(deps.storage, (&staker, &validator))?;
+    // First calculate rewards with old stake (or set default if first delegation)
+    stake.calc_pending_rewards(
+        val.rewards.rewards_per_token,
+        val.shares_to_tokens(stake.shares),
+    )?;
+
     stake.stake_validator(&mut val, amount);
     STAKED.save(deps.storage, (&staker, &validator), &stake)?;
     VALIDATORS.save(deps.storage, &validator, &val)?;
 
-    Ok(IbcBasicResponse::new()
-        .add_event(Event::new("ack_stake")))
+    Ok(IbcBasicResponse::new().add_event(Event::new("ack_stake")))
 }
 
 pub fn fail_stake(
     deps: DepsMut,
-    env: Env,
     staker: String,
-    validator: String,
     amount: Uint128,
 ) -> Result<IbcBasicResponse, ContractError> {
-    let mut retries = RETRIES.load(deps.storage)?;
-    let packet = ProviderMsg::Stake {
-        validator,
-        amount,
-        key: staker.into(),
+    let staker = deps.api.addr_validate(&staker)?;
+    let cfg = CONFIG.load(deps.storage)?;
+
+    // We failed to stake, so we return the funds back to lockup
+    let msg = WasmMsg::Execute {
+        contract_addr: cfg.lockup.into_string(),
+        msg: to_binary(&ClaimProviderMsg::SlashClaim {
+            owner: staker.into_string(),
+            amount,
+        })?,
+        funds: vec![],
     };
-    let msg = IbcMsg::SendPacket {
-        channel_id: CHANNEL.load(deps.storage)?,
-        data: to_binary(&packet)?,
-        timeout: build_timeout(deps.as_ref(), &env)?,
-    };
+
     Ok(IbcBasicResponse::new()
-        .add_event(Event::new("retry_stake"))
+        .add_event(Event::new("failed_stake"))
         .add_message(msg))
 }
 
-pub fn ack_unstake(
-    deps: DepsMut,
-) -> Result<IbcBasicResponse , ContractError> {
+pub fn ack_unstake() -> Result<IbcBasicResponse, ContractError> {
     Ok(IbcBasicResponse::new().add_event(Event::new("ack_unstake")))
 }
 
-pub fn fail_unstake(
-    deps: DepsMut,
-    env: Env,
-    staker: String,
-    validator: String,
-    amount: Uint128,
-) -> Result<IbcBasicResponse, ContractError> {
-    let packet = ProviderMsg::Unstake {
-        validator,
-        amount,
-        key: staker.to_string(),
-    };
-    let msg = IbcMsg::SendPacket {
-        channel_id: CHANNEL.load(deps.storage)?,
-        data: to_binary(&packet)?,
-        timeout: build_timeout(deps.as_ref(), &env)?,
-    };
-    Ok(IbcBasicResponse::new()
-        .add_event(Event::new("retry_unstake"))
-        .add_message(msg))
+pub fn fail_unstake() -> Result<IbcBasicResponse, ContractError> {
+    Ok(IbcBasicResponse::new().add_event(Event::new("failed_unstake")))
 }
