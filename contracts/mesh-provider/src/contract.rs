@@ -132,7 +132,7 @@ pub fn execute_receive_claim(
 
     // Verify we have this validator, if not we can't continue.
     if !VALIDATORS.has(deps.storage, &validator) {
-        return Err(ContractError::UnknownValidator(validator.clone()));
+        return Err(ContractError::UnknownValidator(validator));
     }
 
     // send out IBC packet for staking change, update contract state on ack
