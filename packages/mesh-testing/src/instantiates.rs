@@ -13,6 +13,13 @@ use crate::{
 };
 
 use mesh_provider::msg::InstantiateMsg as ProviderInit;
+use mesh_slasher::msg::InstantiateMsg as SlasherInit;
+
+pub fn get_mesh_slasher_init_msg() -> SlasherInit {
+    SlasherInit {
+        owner: CREATOR_ADDR.to_string(),
+    }
+}
 
 pub fn get_mesh_provider_init_msg(slasher_code_id: u64, lockup_addr: Option<&str>) -> ProviderInit {
     let lockup_addr = lockup_addr.unwrap_or(LOCKUP_ADDR);

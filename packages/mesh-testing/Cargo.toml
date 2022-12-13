@@ -21,6 +21,7 @@ schemars         = { workspace = true }
 serde            = { workspace = true }
 thiserror        = { workspace = true }
 meta-staking     = { workspace = true }
+mesh-ibc         = { workspace = true }
 mesh-consumer    = { workspace = true }
 mesh-provider    = { workspace = true }
 mesh-slasher     = { workspace = true }
