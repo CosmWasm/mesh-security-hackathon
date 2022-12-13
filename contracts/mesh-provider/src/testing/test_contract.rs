@@ -23,7 +23,7 @@ use crate::{
 };
 
 use super::utils::{
-    executes::execute_claim_rewards, helpers::add_rewards, queries::query_provider_config,
+    execute::execute_claim_rewards, helpers::add_rewards, query::query_provider_config,
     setup::setup_with_contract,
 };
 

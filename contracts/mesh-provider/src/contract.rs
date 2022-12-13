@@ -311,8 +311,8 @@ pub fn execute_claim_rewards(
     // Make sure we have something to send, if its false, funds might be stuck in consumer and need admin. (or we messed up badly)
     if delegator_stake.rewards.pending > Decimal::from_atomics(balance.amount, 0)? {
         return Err(ContractError::WrongBalance {
-            balance: Decimal::new(balance.amount),
-            rewards: delegator_stake.rewards.pending,
+            balance: balance.amount.to_string(),
+            rewards: delegator_stake.rewards.pending.to_string(),
         });
     }
 

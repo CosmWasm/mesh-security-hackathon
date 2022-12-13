@@ -5,7 +5,7 @@ use mesh_testing::{
 
 use crate::{
     msg::ConsumerInfo,
-    testing::utils::queries::{query_provider_config, query_slasher_config},
+    testing::utils::query::{query_provider_config, query_slasher_config},
 };
 
 use super::utils::setup::setup_with_contract;

@@ -1,6 +1,6 @@
-pub mod executes;
+pub mod execute;
 pub mod helpers;
-pub mod queries;
+pub mod query;
 
 pub mod setup;
 pub mod setup_unit;
