@@ -116,7 +116,17 @@ fn test_recieve_claim() {
 
     update_unit_validator(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
 
-    let res = add_unit_stake(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(LOCKUP_ADDR, &[]),
+        ExecuteMsg::ReceiveClaim {
+            owner: DELEGATOR_ADDR.to_string(),
+            amount: Uint128::new(1000),
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap();
 
     assert_eq!(
         res.messages[0].msg,
@@ -142,8 +152,16 @@ fn test_unstake() {
 
     add_unit_stake(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
 
-    let res =
-        remove_unit_stake(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(DELEGATOR_ADDR, &[]),
+        ExecuteMsg::Unstake {
+            amount: Uint128::new(1000),
+            validator: VALIDATOR.to_string(),
+        },
+    )
+    .unwrap();
 
     // No slash, so only 1 msg should exist
     assert_eq!(res.messages.len(), 1);
