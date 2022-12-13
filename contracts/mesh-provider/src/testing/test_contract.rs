@@ -15,15 +15,18 @@ use crate::{
     contract::execute,
     ibc::build_timeout,
     msg::ExecuteMsg,
-    state::{Validator, CONFIG, VALIDATORS},
+    state::CONFIG,
     testing::utils::{
-        executes::execute_slash, helpers::add_validator, queries::query_validators,
-        setup_unit::setup_unit_with_channel,
+        execute::execute_slash, helpers::add_validator, ibc_helpers::remove_unit_stake,
+        query::query_validators, setup_unit::setup_unit_with_channel,
     },
 };
 
 use super::utils::{
-    execute::execute_claim_rewards, helpers::add_rewards, query::query_provider_config,
+    execute::execute_claim_rewards,
+    helpers::add_rewards,
+    ibc_helpers::{add_unit_stake, update_unit_validator},
+    query::query_provider_config,
     setup::setup_with_contract,
 };
 
@@ -76,38 +79,14 @@ fn test_claim_rewards() {
 fn test_unbond() {
     let (mut deps, _) = setup_unit_with_channel(None);
 
-    // First stake
-    let info = mock_info(LOCKUP_ADDR, &[]);
+    update_unit_validator(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
 
-    VALIDATORS
-        .save(deps.as_mut().storage, VALIDATOR, &Validator::default())
-        .unwrap();
-
-    execute(
-        deps.as_mut(),
-        mock_env(),
-        info,
-        ExecuteMsg::ReceiveClaim {
-            owner: DELEGATOR_ADDR.to_string(),
-            amount: Uint128::new(1000),
-            validator: VALIDATOR.to_string(),
-        },
-    )
-    .unwrap();
+    add_unit_stake(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
 
     // To unstake the delegetor need to send the request
     let info = mock_info(DELEGATOR_ADDR, &[]);
 
-    execute(
-        deps.as_mut(),
-        mock_env(),
-        info.clone(),
-        ExecuteMsg::Unstake {
-            amount: Uint128::new(1000),
-            validator: VALIDATOR.to_string(),
-        },
-    )
-    .unwrap();
+    remove_unit_stake(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
 
     // Update block
     let unbound_period = CONFIG.load(deps.as_mut().storage).unwrap().unbonding_period;
@@ -135,24 +114,9 @@ fn test_unbond() {
 fn test_recieve_claim() {
     let (mut deps, _) = setup_unit_with_channel(None);
 
-    // Only lockup can send ReceiveClaim
-    let info = mock_info(LOCKUP_ADDR, &[]);
+    update_unit_validator(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
 
-    VALIDATORS
-        .save(deps.as_mut().storage, VALIDATOR, &Validator::default())
-        .unwrap();
-
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        info,
-        ExecuteMsg::ReceiveClaim {
-            owner: DELEGATOR_ADDR.to_string(),
-            amount: Uint128::new(1000),
-            validator: VALIDATOR.to_string(),
-        },
-    )
-    .unwrap();
+    let res = add_unit_stake(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
 
     assert_eq!(
         res.messages[0].msg,
@@ -174,38 +138,12 @@ fn test_recieve_claim() {
 fn test_unstake() {
     let (mut deps, _) = setup_unit_with_channel(None);
 
-    // First stake
-    let info = mock_info(LOCKUP_ADDR, &[]);
+    update_unit_validator(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
 
-    VALIDATORS
-        .save(deps.as_mut().storage, VALIDATOR, &Validator::default())
-        .unwrap();
+    add_unit_stake(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
 
-    execute(
-        deps.as_mut(),
-        mock_env(),
-        info,
-        ExecuteMsg::ReceiveClaim {
-            owner: DELEGATOR_ADDR.to_string(),
-            amount: Uint128::new(1000),
-            validator: VALIDATOR.to_string(),
-        },
-    )
-    .unwrap();
-
-    // To unstake the delegetor need to send the request (???)
-    let info = mock_info(DELEGATOR_ADDR, &[]);
-
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        info,
-        ExecuteMsg::Unstake {
-            amount: Uint128::new(1000),
-            validator: VALIDATOR.to_string(),
-        },
-    )
-    .unwrap();
+    let res =
+        remove_unit_stake(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
 
     // No slash, so only 1 msg should exist
     assert_eq!(res.messages.len(), 1);
