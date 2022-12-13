@@ -20,8 +20,6 @@ pub struct Config {
 }
 
 pub const LIST_VALIDATORS_MAX_RETRIES: u8 = 5;
-pub const STAKE_MAX_RETRIES: u32 = 5;
-pub const UNSTAKE_MAX_RETRIES: u32 = 5;
 
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const PACKET_LIFETIME: Item<u64> = Item::new("packet_time");
