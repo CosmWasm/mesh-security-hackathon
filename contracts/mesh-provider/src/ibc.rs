@@ -2,12 +2,13 @@
 use cosmwasm_std::entry_point;
 
 use cosmwasm_std::{
-    from_slice, to_binary, Coin, Deps, DepsMut, Env, Event, Ibc3ChannelOpenResponse,
+    from_slice, to_binary, Coin, Deps, DepsMut, Empty, Env, Event, Ibc3ChannelOpenResponse,
     IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg,
     IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, IbcTimeout,
     StdError, Uint128, WasmMsg,
 };
 
+use cw_utils::Expiration;
 use mesh_apis::ClaimProviderMsg;
 use mesh_ibc::{
     check_order, check_version, ConsumerMsg, ListValidatorsResponse, ProviderMsg, RewardsResponse,
@@ -16,8 +17,8 @@ use mesh_ibc::{
 
 use crate::error::ContractError;
 use crate::state::{
-    ValStatus, Validator, CHANNEL, CONFIG, LIST_VALIDATORS_MAX_RETRIES, LIST_VALIDATORS_RETRIES,
-    PACKET_LIFETIME, PORT, STAKED, VALIDATORS,
+    ValStatus, Validator, CHANNEL, CLAIMS, CONFIG, LIST_VALIDATORS_MAX_RETRIES,
+    LIST_VALIDATORS_RETRIES, PACKET_LIFETIME, PORT, STAKED, VALIDATORS,
 };
 
 pub fn build_timeout(deps: Deps, env: &Env) -> Result<IbcTimeout, ContractError> {
@@ -216,12 +217,12 @@ pub fn ibc_packet_ack(
         ) => fail_stake(deps, key, amount),
         (
             ProviderMsg::Unstake {
-                key: _,
-                validator: _,
-                amount: _,
+                key,
+                validator,
+                amount,
             },
             true,
-        ) => ack_unstake(),
+        ) => ack_unstake(deps, env, validator, key, amount),
         (
             ProviderMsg::Unstake {
                 key: _,
@@ -343,8 +344,52 @@ pub fn fail_stake(
         .add_message(msg))
 }
 
-pub fn ack_unstake() -> Result<IbcBasicResponse, ContractError> {
-    Ok(IbcBasicResponse::new().add_event(Event::new("ack_unstake")))
+pub fn ack_unstake(
+    deps: DepsMut,
+    env: Env,
+    validator: String,
+    staker: String,
+    amount: Uint128,
+) -> Result<IbcBasicResponse, ContractError> {
+    let staker = deps.api.addr_validate(&staker)?;
+
+    // updates the stake
+    let mut val = VALIDATORS.load(deps.storage, &validator)?;
+
+    let mut stake = STAKED.load(deps.storage, (&staker, &validator))?;
+
+    // Calculate rewards with old stake
+    stake.calc_pending_rewards(
+        val.rewards.rewards_per_token,
+        val.shares_to_tokens(stake.shares),
+    )?;
+
+    stake.unstake_validator(&mut val, amount)?;
+    // check if we need to slash
+    let slash = stake.take_slash(&val);
+    STAKED.save(deps.storage, (&staker, &validator), &stake)?;
+    VALIDATORS.save(deps.storage, &validator, &val)?;
+
+    // create a future claim on number of shares (so we can adjust for later slashing)
+    let cfg = CONFIG.load(deps.storage)?;
+    let ready = env.block.time.plus_seconds(cfg.unbonding_period);
+    CLAIMS.create_claim(deps.storage, &staker, amount, Expiration::AtTime(ready))?;
+
+    let mut res: IbcBasicResponse<Empty> = IbcBasicResponse::new();
+
+    if let Some(slash) = slash {
+        let msg = WasmMsg::Execute {
+            contract_addr: cfg.lockup.into_string(),
+            msg: to_binary(&ClaimProviderMsg::SlashClaim {
+                owner: staker.into_string(),
+                amount: slash,
+            })?,
+            funds: vec![],
+        };
+        res = res.add_message(msg);
+    }
+
+    Ok(res.add_event(Event::new("ack_unstake")))
 }
 
 pub fn fail_unstake() -> Result<IbcBasicResponse, ContractError> {

@@ -6,7 +6,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
-use cw_utils::{parse_instantiate_response_data, Expiration};
+use cw_utils::parse_instantiate_response_data;
 use mesh_apis::ClaimProviderMsg;
 use mesh_ibc::ProviderMsg;
 
@@ -131,9 +131,9 @@ pub fn execute_receive_claim(
     }
 
     // Verify we have this validator, if not we can't continue.
-    VALIDATORS
-        .may_load(deps.storage, &validator)?
-        .ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
+    if !VALIDATORS.has(deps.storage, &validator) {
+        return Err(ContractError::UnknownValidator(validator.clone()));
+    }
 
     // send out IBC packet for staking change, update contract state on ack
     let packet = ProviderMsg::Stake {
@@ -188,36 +188,13 @@ pub fn execute_unstake(
         return Err(ContractError::ZeroAmount);
     }
 
-    // updates the stake
-    let mut val = VALIDATORS
+    // Verify validator exists and active
+    let val = VALIDATORS
         .may_load(deps.storage, &validator)?
         .ok_or_else(|| ContractError::UnknownValidator(validator.clone()))?;
     if val.status != ValStatus::Active {
         return Err(ContractError::RemovedValidator(validator));
     }
-    let mut stake = STAKED.load(deps.storage, (&info.sender, &validator))?;
-
-    // Calculate rewards with old stake
-    stake.calc_pending_rewards(
-        val.rewards.rewards_per_token,
-        val.shares_to_tokens(stake.shares),
-    )?;
-
-    stake.unstake_validator(&mut val, amount)?;
-    // check if we need to slash
-    let slash = stake.take_slash(&val);
-    STAKED.save(deps.storage, (&info.sender, &validator), &stake)?;
-    VALIDATORS.save(deps.storage, &validator, &val)?;
-
-    // create a future claim on number of shares (so we can adjust for later slashing)
-    let cfg = CONFIG.load(deps.storage)?;
-    let ready = env.block.time.plus_seconds(cfg.unbonding_period);
-    CLAIMS.create_claim(
-        deps.storage,
-        &info.sender,
-        amount,
-        Expiration::AtTime(ready),
-    )?;
 
     // send out IBC packet for staking change
     let packet = ProviderMsg::Unstake {
@@ -230,21 +207,8 @@ pub fn execute_unstake(
         data: to_binary(&packet)?,
         timeout: build_timeout(deps.as_ref(), &env)?,
     };
-    let mut res = Response::new().add_message(msg);
 
-    if let Some(slash) = slash {
-        let msg = WasmMsg::Execute {
-            contract_addr: cfg.lockup.into_string(),
-            msg: to_binary(&ClaimProviderMsg::SlashClaim {
-                owner: info.sender.into_string(),
-                amount: slash,
-            })?,
-            funds: vec![],
-        };
-        res = res.add_message(msg);
-    }
-
-    Ok(res)
+    Ok(Response::new().add_message(msg))
 }
 
 pub fn execute_unbond(
