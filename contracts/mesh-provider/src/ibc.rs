@@ -350,10 +350,7 @@ pub fn ack_unstake(
     amount: Uint128,
 ) -> Result<IbcBasicResponse, ContractError> {
     let staker = deps.api.addr_validate(&staker)?;
-
-    // updates the stake
     let mut val = VALIDATORS.load(deps.storage, &validator)?;
-
     let mut stake = STAKED.load(deps.storage, (&staker, &validator))?;
 
     // Calculate rewards with old stake
@@ -373,7 +370,8 @@ pub fn ack_unstake(
     let ready = env.block.time.plus_seconds(cfg.unbonding_period);
     CLAIMS.create_claim(deps.storage, &staker, amount, Expiration::AtTime(ready))?;
 
-    let mut res: IbcBasicResponse<Empty> = IbcBasicResponse::new();
+    let mut res: IbcBasicResponse<Empty> =
+        IbcBasicResponse::new().add_event(Event::new("ack_unstake"));
 
     if let Some(slash) = slash {
         let msg = WasmMsg::Execute {
@@ -387,7 +385,7 @@ pub fn ack_unstake(
         res = res.add_message(msg);
     }
 
-    Ok(res.add_event(Event::new("ack_unstake")))
+    Ok(res)
 }
 
 pub fn fail_unstake() -> Result<IbcBasicResponse, ContractError> {
