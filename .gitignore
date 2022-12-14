@@ -12,3 +12,5 @@ internal/
 *.log
 
 schema
+
+.DS_Store

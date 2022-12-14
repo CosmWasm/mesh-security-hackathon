@@ -19,10 +19,15 @@ pub struct Config {
     pub rewards_ibc_denom: String,
 }
 
+pub const LIST_VALIDATORS_MAX_RETRIES: u8 = 5;
+
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const PACKET_LIFETIME: Item<u64> = Item::new("packet_time");
 pub const CHANNEL: Item<String> = Item::new("channel");
 pub const PORT: Item<String> = Item::new("port");
+
+/// The number of retries remaining to query mesh-consumer
+pub const LIST_VALIDATORS_RETRIES: Item<u8> = Item::new("list_validators_retry_state");
 
 // info on each validator, including voting and slashing
 pub const VALIDATORS: Map<&str, Validator> = Map::new("validators");
