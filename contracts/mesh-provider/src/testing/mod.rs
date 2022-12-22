@@ -4,3 +4,4 @@ mod utils;
 mod test_contract;
 mod test_ibc;
 mod test_instantiate;
+mod test_queries;

@@ -1,6 +1,7 @@
 // File to setup unit testing for IBC stuff.
 
 use cosmwasm_std::{
+    from_binary,
     testing::{mock_env, mock_info},
     to_binary, Addr, Deps, DepsMut, Ibc3ChannelOpenResponse, IbcAcknowledgement, IbcBasicResponse,
     IbcChannel, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg,
@@ -17,13 +18,12 @@ use mesh_testing::{
 };
 
 use crate::{
-    contract::instantiate,
+    contract::{instantiate, query},
     ibc::{
         ibc_channel_close, ibc_channel_connect, ibc_channel_open, ibc_packet_ack,
         ibc_packet_receive,
     },
-    msg::{ConsumerInfo, InstantiateMsg, SlasherInfo},
-    state::{Validator, VALIDATORS},
+    msg::{AccountResponse, ConsumerInfo, InstantiateMsg, QueryMsg, SlasherInfo, ValidatorResponse},
     ContractError,
 };
 
@@ -147,6 +147,32 @@ pub fn remove_stake_unit(
 }
 
 // Queries
-pub fn query_validators_unit(deps: Deps, validator: &str) -> Result<Validator, StdError> {
-    VALIDATORS.load(deps.storage, validator)
+pub fn query_validators_unit(deps: Deps, validator: &str) -> Result<ValidatorResponse, StdError> {
+    let res = query(
+        deps,
+        mock_env(),
+        QueryMsg::Validator {
+            address: validator.to_string(),
+        },
+    );
+
+    match res {
+        Ok(res) => Ok(from_binary(&res).unwrap()),
+        Err(err) => Err(err),
+    }
+}
+
+pub fn query_account_unit(deps: Deps, address: &str) -> Result<AccountResponse, StdError> {
+    let res = query(
+        deps,
+        mock_env(),
+        QueryMsg::Account {
+            address: address.to_string(),
+        },
+    );
+
+    match res {
+        Ok(res) => Ok(from_binary(&res).unwrap()),
+        Err(err) => Err(err),
+    }
 }
