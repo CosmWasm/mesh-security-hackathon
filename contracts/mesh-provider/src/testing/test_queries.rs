@@ -1,7 +1,10 @@
 use cosmwasm_std::Uint128;
-use mesh_testing::constants::{VALIDATOR, DELEGATOR_ADDR};
+use mesh_testing::constants::{DELEGATOR_ADDR, VALIDATOR};
 
-use super::utils::{setup_unit::setup_unit_with_channel, ibc_helpers::{update_validator_unit, add_stake_unit, query_account_unit}};
+use super::utils::{
+    ibc_helpers::{add_stake_unit, query_account_unit, update_validator_unit},
+    setup_unit::setup_unit_with_channel,
+};
 
 #[test]
 fn test_query_account() {

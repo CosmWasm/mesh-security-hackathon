@@ -1,16 +1,20 @@
 use cosmwasm_std::{
     coin, testing::mock_env, to_binary, Addr, IbcChannelCloseMsg, IbcPacketReceiveMsg, Uint128,
+    WasmMsg,
 };
+use mesh_apis::ClaimProviderMsg;
 use mesh_ibc::{ConsumerMsg, RewardsResponse, UpdateValidatorsResponse, IBC_APP_VERSION};
 use mesh_testing::{
     addr,
-    constants::{CHANNEL_ID, DELEGATOR_ADDR, RELAYER_ADDR, REWARDS_IBC_DENOM, VALIDATOR},
+    constants::{
+        CHANNEL_ID, DELEGATOR_ADDR, LOCKUP_ADDR, RELAYER_ADDR, REWARDS_IBC_DENOM, VALIDATOR,
+    },
     ibc_helpers::{ack_unwrap, mock_channel, mock_packet},
 };
 
 use crate::{
     ibc::{ibc_channel_close, ibc_packet_receive},
-    state::ValStatus,
+    state::{ValStatus, LIST_VALIDATORS_MAX_RETRIES, LIST_VALIDATORS_RETRIES},
     testing::utils::ibc_helpers::{
         add_stake_unit, get_default_init_msg, ibc_connect, ibc_open, ibc_open_channel,
         query_validators_unit, update_validator_unit,
@@ -19,7 +23,10 @@ use crate::{
 };
 
 use super::utils::{
-    ibc_helpers::ibc_close_channel,
+    ibc_helpers::{
+        add_stake_fail_unit, ibc_close_channel, list_validators_fail_unit, list_validators_unit,
+        remove_stake_fail_unit,
+    },
     setup_unit::{setup_unit, setup_unit_with_channel},
 };
 
@@ -120,4 +127,70 @@ fn test_recieve_rewards() {
     .unwrap();
     let res: RewardsResponse = ack_unwrap(res.acknowledgement);
     assert_eq!(res, RewardsResponse {});
+}
+
+#[test]
+fn test_list_validators() {
+    let (mut deps, _) = setup_unit_with_channel(None);
+
+    list_validators_unit(deps.as_mut()).unwrap();
+    let validator = query_validators_unit(deps.as_ref(), VALIDATOR).unwrap();
+    assert_eq!(validator.status, ValStatus::Active)
+}
+
+#[test]
+fn test_list_validators_fail() {
+    let (mut deps, _) = setup_unit_with_channel(None);
+
+    let res = list_validators_fail_unit(deps.as_mut()).unwrap();
+    let retries_num = LIST_VALIDATORS_RETRIES.load(deps.as_ref().storage).unwrap();
+
+    assert_eq!(res.messages.len(), 1); // We do a retry
+    assert_eq!(retries_num, LIST_VALIDATORS_MAX_RETRIES - 1);
+
+    // do 4 more retries
+    list_validators_fail_unit(deps.as_mut()).unwrap();
+    list_validators_fail_unit(deps.as_mut()).unwrap();
+    list_validators_fail_unit(deps.as_mut()).unwrap();
+    list_validators_fail_unit(deps.as_mut()).unwrap();
+
+    // on last retry
+    let res = list_validators_fail_unit(deps.as_mut()).unwrap();
+    let retries_num = LIST_VALIDATORS_RETRIES.load(deps.as_ref().storage).unwrap();
+
+    // We retried 5 times, we should stop retrying and reset count
+    assert_eq!(res.messages.len(), 0); // We do a retry
+    assert_eq!(retries_num, LIST_VALIDATORS_MAX_RETRIES);
+}
+
+#[test]
+fn test_add_stake_fail() {
+    let (mut deps, _) = setup_unit_with_channel(None);
+
+    let res =
+        add_stake_fail_unit(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
+
+    assert_eq!(
+        res.messages[0].msg,
+        WasmMsg::Execute {
+            contract_addr: LOCKUP_ADDR.to_string(),
+            msg: to_binary(&ClaimProviderMsg::SlashClaim {
+                owner: DELEGATOR_ADDR.to_string(),
+                amount: Uint128::new(1000)
+            })
+            .unwrap(),
+            funds: vec![]
+        }
+        .into()
+    );
+}
+
+#[test]
+fn test_remove_stake_fail() {
+    let (mut deps, _) = setup_unit_with_channel(None);
+
+    let res = remove_stake_fail_unit(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000))
+        .unwrap();
+
+    assert_eq!(res.events[0].ty, "failed_unstake")
 }
