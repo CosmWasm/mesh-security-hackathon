@@ -74,8 +74,8 @@ pub fn ibc_connect(
     ibc_channel_connect(deps.branch(), mock_env(), connect_msg)
 }
 
-pub fn ibc_open_channel(mut deps: DepsMut) -> Result<(), ContractError> {
-    let channel = mock_channel(CHANNEL_ID, IBC_APP_VERSION);
+pub fn ibc_open_channel(mut deps: DepsMut, channel: &str) -> Result<(), ContractError> {
+    let channel = mock_channel(channel, IBC_APP_VERSION);
 
     ibc_open(deps.branch(), channel.clone())?;
     ibc_connect(deps.branch(), channel)?;
@@ -94,7 +94,7 @@ pub fn update_validator_unit(
     deps: DepsMut,
     added: Vec<String>,
     removed: Vec<String>,
-) -> IbcReceiveResponse {
+) -> Result<IbcReceiveResponse, ContractError> {
     let packet = mock_packet(to_binary(&ConsumerMsg::UpdateValidators { added, removed }).unwrap());
 
     ibc_packet_receive(
@@ -102,7 +102,6 @@ pub fn update_validator_unit(
         mock_env(),
         IbcPacketReceiveMsg::new(packet, addr!(RELAYER_ADDR)),
     )
-    .unwrap()
 }
 
 pub fn add_stake_unit(

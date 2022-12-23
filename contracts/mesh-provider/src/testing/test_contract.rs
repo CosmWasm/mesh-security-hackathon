@@ -3,19 +3,20 @@ use std::str::FromStr;
 use cosmwasm_std::{
     coins,
     testing::{mock_env, mock_info},
-    to_binary, Decimal, IbcMsg, Uint128, WasmMsg,
+    to_binary, Addr, Decimal, IbcMsg, Uint128, WasmMsg,
 };
 use mesh_apis::ClaimProviderMsg;
 use mesh_ibc::ProviderMsg;
-use mesh_testing::constants::{
-    CHANNEL_ID, DELEGATOR_ADDR, LOCKUP_ADDR, REWARDS_IBC_DENOM, VALIDATOR,
+use mesh_testing::{
+    addr,
+    constants::{CHANNEL_ID, DELEGATOR_ADDR, LOCKUP_ADDR, REWARDS_IBC_DENOM, VALIDATOR},
 };
 
 use crate::{
     contract::execute,
     ibc::build_timeout,
     msg::ExecuteMsg,
-    state::{ValStatus, CONFIG},
+    state::{DelegatorRewards, Stake, ValStatus, CONFIG, STAKED},
     testing::utils::{
         execute::execute_slash, helpers::add_validator, query::query_validators,
         setup_unit::setup_unit_with_channel,
@@ -123,9 +124,9 @@ fn test_claim_rewards_failing() {
 
 #[test]
 fn test_unbond() {
-    let (mut deps, _) = setup_unit_with_channel(None);
+    let (mut deps, _) = setup_unit_with_channel(None, CHANNEL_ID);
 
-    update_validator_unit(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
+    update_validator_unit(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]).unwrap();
 
     add_stake_unit(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
 
@@ -163,9 +164,9 @@ fn test_unbond() {
 
 #[test]
 fn test_recieve_claim() {
-    let (mut deps, _) = setup_unit_with_channel(None);
+    let (mut deps, _) = setup_unit_with_channel(None, CHANNEL_ID);
 
-    update_validator_unit(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
+    update_validator_unit(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]).unwrap();
 
     let res = execute(
         deps.as_mut(),
@@ -230,9 +231,9 @@ fn test_recieve_claim() {
 
 #[test]
 fn test_unstake() {
-    let (mut deps, _) = setup_unit_with_channel(None);
+    let (mut deps, _) = setup_unit_with_channel(None, CHANNEL_ID);
 
-    update_validator_unit(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]);
+    update_validator_unit(deps.as_mut(), vec![VALIDATOR.to_string()], vec![]).unwrap();
 
     add_stake_unit(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(1000)).unwrap();
 
@@ -264,6 +265,37 @@ fn test_unstake() {
         .into()
     );
 
+    // add staked to slash
+    STAKED
+        .save(
+            deps.as_mut().storage,
+            (&addr!(DELEGATOR_ADDR), VALIDATOR),
+            &Stake {
+                locked: Uint128::new(1000),
+                shares: Uint128::new(900),
+                rewards: DelegatorRewards {
+                    pending: Decimal::zero(),
+                    paid_rewards_per_token: Decimal::zero(),
+                },
+            },
+        )
+        .unwrap();
+    let res =
+        remove_stake_unit(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::new(900)).unwrap();
+    assert_eq!(
+        res.messages[0].msg,
+        WasmMsg::Execute {
+            contract_addr: LOCKUP_ADDR.to_string(),
+            msg: to_binary(&ClaimProviderMsg::SlashClaim {
+                owner: DELEGATOR_ADDR.to_string(),
+                amount: Uint128::new(100)
+            })
+            .unwrap(),
+            funds: vec![]
+        }
+        .into()
+    );
+
     // Try with 0 amount
     let err = execute(
         deps.as_mut(),
@@ -278,7 +310,7 @@ fn test_unstake() {
     assert_eq!(err, ContractError::ZeroAmount);
 
     // Try with removed validator
-    update_validator_unit(deps.as_mut(), vec![], vec![VALIDATOR.to_string()]);
+    update_validator_unit(deps.as_mut(), vec![], vec![VALIDATOR.to_string()]).unwrap();
     let err = execute(
         deps.as_mut(),
         mock_env(),

@@ -72,10 +72,7 @@ pub fn ibc_channel_connect(
     };
 
     // save the port id for future use
-    match PORT.may_load(deps.storage)? {
-        Some(port) => return Err(ContractError::PortExists(port)),
-        None => PORT.save(deps.storage, port_id)?,
-    };
+    PORT.save(deps.storage, port_id)?;
 
     let packet = ProviderMsg::ListValidators {};
     let msg = IbcMsg::SendPacket {
@@ -115,7 +112,10 @@ pub fn ibc_packet_receive(
 ) -> Result<IbcReceiveResponse, ContractError> {
     // paranoia: ensure it was sent on proper channel
     let caller = msg.packet.dest.channel_id;
-    if CHANNEL.load(deps.storage)? != caller {
+    let channel = CHANNEL
+        .may_load(deps.storage)?
+        .ok_or_else(|| ContractError::UnknownChannel(caller.clone()))?;
+    if channel != caller {
         return Err(ContractError::UnknownChannel(caller));
     }
 

@@ -18,10 +18,13 @@ pub fn setup_unit(init_msg: Option<InstantiateMsg>) -> (OwnedDepsType, Addr) {
     (deps, provider_addr)
 }
 
-pub fn setup_unit_with_channel(init_msg: Option<InstantiateMsg>) -> (OwnedDepsType, Addr) {
+pub fn setup_unit_with_channel(
+    init_msg: Option<InstantiateMsg>,
+    channel: &str,
+) -> (OwnedDepsType, Addr) {
     let (mut deps, consumer_addr) = setup_unit(init_msg);
 
-    ibc_open_channel(deps.as_mut()).unwrap();
+    ibc_open_channel(deps.as_mut(), channel).unwrap();
 
     (deps, consumer_addr)
 }
