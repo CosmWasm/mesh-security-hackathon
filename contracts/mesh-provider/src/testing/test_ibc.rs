@@ -216,7 +216,7 @@ fn test_recieve_rewards_failing() {
         ContractError::UnknownValidator("some_validator".to_string())
     );
 
-    // add stake zero
+    // Add stake zero
     add_stake_unit(deps.as_mut(), DELEGATOR_ADDR, VALIDATOR, Uint128::zero()).unwrap();
 
     let err_packet = mock_packet(

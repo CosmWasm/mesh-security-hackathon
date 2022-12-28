@@ -118,7 +118,7 @@ fn test_claim_rewards_failing() {
         mesh_provider_addr.clone(),
         Decimal::from_atomics(1000_u128, 0).unwrap(),
     );
-    //Shoudl error with balance too low
+    // Should error with balance too low
     execute_claim_rewards(&mut app, mesh_provider_addr.as_str(), VALIDATOR).unwrap_err();
 }
 
@@ -265,7 +265,7 @@ fn test_unstake() {
         .into()
     );
 
-    // add staked to slash
+    // Add staked to slash
     STAKED
         .save(
             deps.as_mut().storage,
