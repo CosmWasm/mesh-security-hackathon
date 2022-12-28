@@ -21,6 +21,25 @@ pub fn add_validator(app: &mut App, addr: Addr) {
     });
 }
 
+pub fn add_stake(app: &mut App, addr: Addr, rewards_amount: Decimal) {
+    update_storage(app, addr.as_bytes(), &mut |storage| {
+        STAKED
+            .save(
+                storage,
+                (&addr!(DELEGATOR_ADDR), VALIDATOR),
+                &Stake {
+                    locked: Uint128::new(1000),
+                    shares: Uint128::new(1000),
+                    rewards: DelegatorRewards {
+                        pending: rewards_amount,
+                        paid_rewards_per_token: Decimal::zero(),
+                    },
+                },
+            )
+            .unwrap();
+    });
+}
+
 pub fn add_rewards(app: &mut App, addr: Addr) {
     // Fund the contract to have enough rewards to send
     app.sudo(SudoMsg::Bank(BankSudo::Mint {

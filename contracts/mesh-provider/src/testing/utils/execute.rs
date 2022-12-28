@@ -14,6 +14,7 @@ pub fn execute_slash(
     contract_addr: &str,
     validator: &str,
     slash_amount: &str,
+    force_unbond: bool,
 ) -> AnyResult<AppResponse> {
     app.execute_contract(
         addr!(slasher_addr),
@@ -21,7 +22,7 @@ pub fn execute_slash(
         &ExecuteMsg::Slash {
             validator: validator.to_string(),
             percentage: Decimal::from_str(slash_amount).unwrap(),
-            force_unbond: false,
+            force_unbond,
         },
         &[],
     )

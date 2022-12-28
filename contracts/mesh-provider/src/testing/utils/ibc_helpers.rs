@@ -1,29 +1,34 @@
 // File to setup unit testing for IBC stuff.
 
+use std::vec;
+
 use cosmwasm_std::{
+    from_binary,
     testing::{mock_env, mock_info},
     to_binary, Addr, Deps, DepsMut, Ibc3ChannelOpenResponse, IbcAcknowledgement, IbcBasicResponse,
     IbcChannel, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcReceiveResponse, StdError, Uint128,
 };
-use mesh_ibc::{ConsumerMsg, ProviderMsg, IBC_APP_VERSION};
+use mesh_ibc::{ConsumerMsg, ListValidatorsResponse, ProviderMsg, IBC_APP_VERSION};
 use mesh_testing::{
     addr,
     constants::{
         CHANNEL_ID, CONNECTION_ID, CREATOR_ADDR, LOCKUP_ADDR, RELAYER_ADDR, REWARDS_IBC_DENOM,
+        VALIDATOR,
     },
-    ibc_helpers::{mock_channel, mock_packet, to_ack_success},
+    ibc_helpers::{mock_channel, mock_packet, to_ack_error, to_ack_success},
     instantiates::get_mesh_slasher_init_msg,
 };
 
 use crate::{
-    contract::instantiate,
+    contract::{instantiate, query},
     ibc::{
         ibc_channel_close, ibc_channel_connect, ibc_channel_open, ibc_packet_ack,
         ibc_packet_receive,
     },
-    msg::{ConsumerInfo, InstantiateMsg, SlasherInfo},
-    state::{Validator, VALIDATORS},
+    msg::{
+        AccountResponse, ConsumerInfo, InstantiateMsg, QueryMsg, SlasherInfo, ValidatorResponse,
+    },
     ContractError,
 };
 
@@ -69,8 +74,8 @@ pub fn ibc_connect(
     ibc_channel_connect(deps.branch(), mock_env(), connect_msg)
 }
 
-pub fn ibc_open_channel(mut deps: DepsMut) -> Result<(), ContractError> {
-    let channel = mock_channel(CHANNEL_ID, IBC_APP_VERSION);
+pub fn ibc_open_channel(mut deps: DepsMut, channel: &str) -> Result<(), ContractError> {
+    let channel = mock_channel(channel, IBC_APP_VERSION);
 
     ibc_open(deps.branch(), channel.clone())?;
     ibc_connect(deps.branch(), channel)?;
@@ -89,7 +94,7 @@ pub fn update_validator_unit(
     deps: DepsMut,
     added: Vec<String>,
     removed: Vec<String>,
-) -> IbcReceiveResponse {
+) -> Result<IbcReceiveResponse, ContractError> {
     let packet = mock_packet(to_binary(&ConsumerMsg::UpdateValidators { added, removed }).unwrap());
 
     ibc_packet_receive(
@@ -97,7 +102,6 @@ pub fn update_validator_unit(
         mock_env(),
         IbcPacketReceiveMsg::new(packet, addr!(RELAYER_ADDR)),
     )
-    .unwrap()
 }
 
 pub fn add_stake_unit(
@@ -115,6 +119,29 @@ pub fn add_stake_unit(
         .unwrap(),
     );
     let ack = IbcAcknowledgement::new(to_ack_success(()));
+
+    ibc_packet_ack(
+        deps,
+        mock_env(),
+        IbcPacketAckMsg::new(ack, original_packet, addr!(RELAYER_ADDR)),
+    )
+}
+
+pub fn add_stake_fail_unit(
+    deps: DepsMut,
+    delegator: &str,
+    validator: &str,
+    amount: Uint128,
+) -> Result<IbcBasicResponse, ContractError> {
+    let original_packet = mock_packet(
+        to_binary(&ProviderMsg::Stake {
+            key: delegator.to_string(),
+            amount,
+            validator: validator.to_string(),
+        })
+        .unwrap(),
+    );
+    let ack = IbcAcknowledgement::new(to_ack_error("error"));
 
     ibc_packet_ack(
         deps,
@@ -146,7 +173,80 @@ pub fn remove_stake_unit(
     )
 }
 
+pub fn remove_stake_fail_unit(
+    deps: DepsMut,
+    delegator: &str,
+    validator: &str,
+    amount: Uint128,
+) -> Result<IbcBasicResponse, ContractError> {
+    let original_packet = mock_packet(
+        to_binary(&ProviderMsg::Unstake {
+            key: delegator.to_string(),
+            amount,
+            validator: validator.to_string(),
+        })
+        .unwrap(),
+    );
+    let ack = IbcAcknowledgement::new(to_ack_error("error"));
+
+    ibc_packet_ack(
+        deps,
+        mock_env(),
+        IbcPacketAckMsg::new(ack, original_packet, addr!(RELAYER_ADDR)),
+    )
+}
+
+pub fn list_validators_unit(deps: DepsMut) -> Result<IbcBasicResponse, ContractError> {
+    let original_packet = mock_packet(to_binary(&ProviderMsg::ListValidators {}).unwrap());
+    let ack = IbcAcknowledgement::new(to_ack_success(ListValidatorsResponse {
+        validators: vec![VALIDATOR.to_string()],
+    }));
+
+    ibc_packet_ack(
+        deps,
+        mock_env(),
+        IbcPacketAckMsg::new(ack, original_packet, addr!(RELAYER_ADDR)),
+    )
+}
+
+pub fn list_validators_fail_unit(deps: DepsMut) -> Result<IbcBasicResponse, ContractError> {
+    let original_packet = mock_packet(to_binary(&ProviderMsg::ListValidators {}).unwrap());
+    let ack = IbcAcknowledgement::new(to_ack_error("error"));
+
+    ibc_packet_ack(
+        deps,
+        mock_env(),
+        IbcPacketAckMsg::new(ack, original_packet, addr!(RELAYER_ADDR)),
+    )
+}
+
 // Queries
-pub fn query_validators_unit(deps: Deps, validator: &str) -> Result<Validator, StdError> {
-    VALIDATORS.load(deps.storage, validator)
+pub fn query_validators_unit(deps: Deps, validator: &str) -> Result<ValidatorResponse, StdError> {
+    let res = query(
+        deps,
+        mock_env(),
+        QueryMsg::Validator {
+            address: validator.to_string(),
+        },
+    );
+
+    match res {
+        Ok(res) => Ok(from_binary(&res).unwrap()),
+        Err(err) => Err(err),
+    }
+}
+
+pub fn query_account_unit(deps: Deps, address: &str) -> Result<AccountResponse, StdError> {
+    let res = query(
+        deps,
+        mock_env(),
+        QueryMsg::Account {
+            address: address.to_string(),
+        },
+    );
+
+    match res {
+        Ok(res) => Ok(from_binary(&res).unwrap()),
+        Err(err) => Err(err),
+    }
 }
