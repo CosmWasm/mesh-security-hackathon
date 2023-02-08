@@ -36,7 +36,7 @@ pub enum ContractError {
     #[error("Contract has run out of funds to delegate for consumer chain")]
     NoFundsToDelegate {},
 
-    #[error("Cannot undelegate from a a validator that does not have delegations")]
+    #[error("Cannot undelegate or claim rewards from a validator that does not have delegations")]
     NoDelegationsForValidator {},
 
     #[error("Contract does not have enough funds for consumer")]

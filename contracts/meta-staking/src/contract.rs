@@ -98,8 +98,6 @@ mod execute {
         validator: String,
         amount: Uint128,
     ) -> Result<Response, ContractError> {
-        // TODO Validate validator valoper address
-
         // If its a first delegation to a validator, we set validator rewards to 0
         let validator_rewards = VALIDATORS_REWARDS.may_load(deps.storage, &validator)?;
 
@@ -156,8 +154,6 @@ mod execute {
         validator: String,
         amount: Uint128,
     ) -> Result<Response, ContractError> {
-        // TODO Validate validator valoper address
-
         let mut consumer = (CONSUMERS.may_load(deps.storage, &info.sender)?)
             .ok_or(ContractError::NoConsumer {})?;
 
