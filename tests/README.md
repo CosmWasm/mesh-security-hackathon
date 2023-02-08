@@ -37,7 +37,7 @@ npm run fix
 Compile the contracts for uploading.
 
 ```sh
-./devtools/build_integration_wasm.sh
+./scripts/build_integration_wasm.sh
 ```
 
 NOTE: you need to run this each time your contract changes.
@@ -49,13 +49,13 @@ This actually runs the test codes on contracts. To do so, we need to start two b
 Terminal 1:
 
 ```
-./ci-scripts/wasmd/start.sh
+./docker/wasmd/start.sh
 ```
 
 Terminal 2:
 
 ```
-./ci-scripts/osmosis/start.sh
+./docker/osmosis/start.sh
 ```
 
 If those start properly, you should see a series of `executed block` messages. If they fail, check `debug.log` in that directory for full log messages.
