@@ -1,6 +1,6 @@
-# ibc-tests-ics20
+# Mesh Security IBC tests
 
-Simple repo showing how to use ts-relayer as a library to test cw20-ics20 contract
+These tests leverage `ts-relayer` to test mesh-security contract interactions between two real blockchain binaries.
 
 ## Setup
 
@@ -40,77 +40,20 @@ Compile the contracts for uploading.
 ./scripts/build_integration_wasm.sh
 ```
 
-NOTE: you need to run this each time your contract changes.
+**NOTE: you need to run this each time your contract changes.**
 
 ### Run two chains in docker
 
-This actually runs the test codes on contracts. To do so, we need to start two blockchains in the background and then run the process. This requires that you have docker installed and running on your local machine. If you don't, please do that first before running the scripts. (Also, they only work on Linux and MacOS... sorry Windows folks, you are welcome to PR an equivalent).
+Start `wasmd` and `osmosisd` chains using docker compose:
 
-Terminal 1:
-
+```bash
+docker-compose up
 ```
-./docker/wasmd/start.sh
-```
-
-Terminal 2:
-
-```
-./docker/osmosis/start.sh
-```
-
-If those start properly, you should see a series of `executed block` messages. If they fail, check `debug.log` in that directory for full log messages.
 
 ### Run tests
 
-Terminal 3:
+In a separate terminal:
 
 ```
 npm run test
 ```
-
-You may run and re-run tests many times. When you are done with it and want to free up some system resources (stop running two blockchains in the background), you need to run these commands to stop them properly:
-
-```
-./scripts/wasmd/stop.sh
-./scripts/osmosisd/stop.sh
-```
-
-## Codegen
-
-We use [ts-codegen](https://github.com/CosmWasm/ts-codegen) to generate bindings to some contracts.
-Read for more info of follow this quick start:
-
-Install ts-codegen
-
-```bash
-npm install -g @cosmwasm/ts-codegen
-```
-
-Generate schema for the contract
-
-```bash
-cd ls ../contracts/callback-capturer
-cargo schema
-cd -
-```
-
-Generate bindings
-
-```bash
-mkdir -p src/bindings
-
-cosmwasm-ts-codegen generate \
-          --plugin client \
-          --schema ls ../contracts/callback-capturer/schema \
-          --out ./src/bindings \
-          --name CallbackCapturer
-```
-
-cosmwasm-ts-codegen generate \
- --plugin client \
- --schema ls ../contracts/meta-staking/schema \
- --out ./src/bindings \
- --name MetaStaking \
- --no-bundle
-
-(You can safely say "no" for "enable bundle")
