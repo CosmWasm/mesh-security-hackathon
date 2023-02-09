@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  osmosis:
+    image: "confio/osmosis-ci:9.0.0"
+    ports:
+      - "26653:26657"
+    user: root
+    volumes:
+      - ${PWD}/docker/osmosis/template:/template
+  wasmd:
+    image: "confio/wasm-ci:0.27.0"
+    ports:
+      - "26659:26657"
+    user: root
+    volumes:
+      - ${PWD}/docker/wasmd/template:/template
