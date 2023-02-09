@@ -10,24 +10,10 @@ Ensure you have node 14+ (16+ recommended):
 node --version
 ```
 
-Then install via npm as typical:
+Then install via yarn or npm as typical:
 
 ```
-npm install
-```
-
-## Development
-
-Build the source:
-
-```
-npm run build
-```
-
-Clean it up with prettier and eslint:
-
-```
-npm run fix
+yarn
 ```
 
 ## Testing
@@ -55,5 +41,13 @@ docker-compose up
 In a separate terminal:
 
 ```
-npm run test
+yarn test
+```
+
+## Development
+
+Clean up test code with prettier and eslint:
+
+```
+yarn fix
 ```
