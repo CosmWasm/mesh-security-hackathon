@@ -139,15 +139,15 @@ jobs:
           path: ~/ibc
       - restore_cache:
           keys:
-            - v1-dependencies-{{ checksum "package-lock.json" }}
-      - run: npm install --frozen-lockfile
+            - v1-dependencies-{{ checksum "../yarn.lock" }}
+      - run: yarn
       - save_cache:
           paths:
             - node_modules
-          key: v1-dependencies-{{ checksum "package-lock.json" }}
-      - run: npm run build
-      - run: npm run test:lint
-      - run: npm run test:prettier
+          key: v1-dependencies-{{ checksum "../yarn.lock" }}
+      - run: yarn build
+      - run: yarn test:lint
+      - run: yarn test:prettier
 
   integration:
     machine:
@@ -178,19 +178,19 @@ jobs:
           # Moving to trash is faster than deleting (gvfs-trash is not installed on this image)
           command: mkdir -p ~/.local/share/Trash && mv "$NVM_DIR" ~/.npm ~/.local/share/Trash
       - run:
-          name: Install nodejs
+          name: Install nodejs and yarn
           # In the current image, `sudo apt install nodejs` requires `sudo apt update` which is too slow
           command: |
             curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
-            sudo apt-get install -y nodejs
+            sudo apt-get install -y nodejs yarn
       - run:
           name: Version information
-          command: echo "node $(node --version)"; echo "npm $(npm --version)"
+          command: echo "node $(node --version)"; echo "yarn $(yarn --version)"
       - restore_cache:
           name: Restore Npm Package Cache
           keys:
-            - v1-packages-{{ checksum "package-lock.json" }}
-      - run: npm install --frozen-lockfile
+            - v1-packages-{{ checksum "../yarn.lock" }}
+      - run: yarn
       - run:
           name: Wait for chains to start up
           command: |
@@ -205,12 +205,12 @@ jobs:
       - run:
           command: ls -l internal
       - run:
-          command: npm run build
+          command: yarn build
       - run:
-          command: npm run test:unit
+          command: yarn test:unit
       - save_cache:
           name: Save Npm Package Cache
-          key: v1-packages-{{ checksum "package-lock.json" }}
+          key: v1-packages-{{ checksum "../yarn.lock" }}
           paths:
             - node_modules
       - run:
