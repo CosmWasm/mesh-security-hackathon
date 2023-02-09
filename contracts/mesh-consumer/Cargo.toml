@@ -41,3 +41,7 @@ thiserror        = { workspace = true }
 [dev-dependencies]
 mesh-testing  = { workspace = true }
 cw-multi-test = { workspace = true }
+
+[[bin]]
+name = "schema"
+doc  = false

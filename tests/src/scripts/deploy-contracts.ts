@@ -1,11 +1,10 @@
 import { SigningCosmWasmClient, toBinary } from "@cosmjs/cosmwasm-stargate";
 import { assert } from "@cosmjs/utils";
-
-import { InstantiateMsg as ConsumerInitMsg } from "../bindings/MeshConsumer.types";
-import { InstantiateMsg as LockupInitMsg } from "../bindings/MeshLockup.types";
-import { MeshProviderClient } from "../bindings/MeshProvider.client";
-import { InstantiateMsg as ProviderInitMsg } from "../bindings/MeshProvider.types";
-import { Coin, InstantiateMsg as StakingInitMsg } from "../bindings/MetaStaking.types";
+import { InstantiateMsg as ConsumerInitMsg } from "mesh-security/contracts/mesh-consumer/MeshConsumer.types";
+import { InstantiateMsg as LockupInitMsg } from "mesh-security/contracts/mesh-lockup/MeshLockup.types";
+import { MeshProviderClient } from "mesh-security/contracts/mesh-provider/MeshProvider.client";
+import { InstantiateMsg as ProviderInitMsg } from "mesh-security/contracts/mesh-provider/MeshProvider.types";
+import { Coin, InstantiateMsg as StakingInitMsg } from "mesh-security/contracts/meta-staking/MetaStaking.types";
 
 import { connect, getMnemonic, pprint, setupContracts } from "./helpers";
 import { connections, junoTestConfig, osmoTestConfig } from "./networks";
@@ -35,9 +34,9 @@ async function installProvider(
 ): Promise<ProviderInfo> {
   console.debug("Upload contracts to provider...");
   const providerContracts = {
-    mesh_lockup: "./src/contracts/mesh_lockup.wasm",
-    mesh_provider: "./src/contracts/mesh_provider.wasm",
-    mesh_slasher: "./src/contracts/mesh_slasher.wasm",
+    mesh_lockup: "./internal/mesh_lockup.wasm",
+    mesh_provider: "./internal/mesh_provider.wasm",
+    mesh_slasher: "./internal/mesh_slasher.wasm",
   };
   const wasmIds = await setupContracts(client, signer, providerContracts);
 
@@ -100,8 +99,8 @@ async function installConsumer(
 ): Promise<ConsumerInfo> {
   console.debug("Upload contracts to consumer...");
   const consumerContracts = {
-    mesh_consumer: "./src/contracts/mesh_consumer.wasm",
-    meta_staking: "./src/contracts/meta_staking.wasm",
+    mesh_consumer: "./internal/mesh_consumer.wasm",
+    meta_staking: "./internal/meta_staking.wasm",
   };
   const wasmIds = await setupContracts(client, signer, consumerContracts);
 
