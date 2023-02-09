@@ -13,7 +13,7 @@ gen-schema:
 	./scripts/schema.sh
 
 gen-typescript:
-	# git checkout typescript/contracts # Clear out any old or invalid state.
+	git checkout typescript/contracts # Clear out any old or invalid state.
 	yarn --cwd ./typescript install --frozen-lockfile
 	yarn --cwd ./typescript build
 	yarn --cwd ./typescript codegen

@@ -4,16 +4,9 @@ import { StargateClient } from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
+import { MeshProviderClient } from "mesh-security/contracts/mesh-provider/MeshProvider.client";
+import { MetaStakingClient } from "mesh-security/contracts/meta-staking/MetaStaking.client";
 
-// eslint-disable-next-line import/order
-import { MeshProviderClient } from "./bindings/MeshProvider.client";
-
-const pprint = (x: unknown) => console.log(JSON.stringify(x, undefined, 2));
-
-const { osmosis: oldOsmo, setup, wasmd } = testutils;
-const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
-
-import { MetaStakingClient } from "./bindings/MetaStaking.client";
 import {
   assertPacketsFromA,
   assertPacketsFromB,
@@ -27,6 +20,11 @@ import {
   sleepBlocks,
   subCoins,
 } from "./utils";
+
+const pprint = (x: unknown) => console.log(JSON.stringify(x, undefined, 2));
+
+const { osmosis: oldOsmo, setup, wasmd } = testutils;
+const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
 let wasmIds: Record<string, number> = {};
 let osmosisIds: Record<string, number> = {};
@@ -357,7 +355,7 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   const metaStakingClient = new MetaStakingClient(wasmClient.sign, wasmClient.senderAddress, wasmMetaStaking);
   const remoteStakedTokens = await metaStakingClient.allDelegations({ consumer: wasmMeshConsumer });
   console.log("Remote staked tokens: ");
-  pprint(remoteStakedTokens.delegations);
+  pprint(remoteStakedTokens);
 
   // TODO: Currently we do not withdraw rewards from validator when we stake/unstake
   // This leads to a problem where rewards are only calculated based on latest staked token when we call withdrawDelegatorReward
