@@ -8,11 +8,11 @@ to be resolved before we can use this in production are listed below.
 
 ## Architecture
 
-Please check out this overview of all contratcs in a deployed state.
+Please check out the [architectural documentation](./docs/README.md), which gives a thorough view
+of all the components in a completed system.
 
-![Overview](./docs/MeshSecurity.png)
-
-You can also look at [Sunny's original flipboard](https://docs.google.com/presentation/d/13JrSdzodhAGRj59-P5e9sxyoDPvVm7ZVvw1GzR8OilQ/edit#slide=id.g15d37737ae2_0_885) to get view of the various flows involved.
+You can also look at [Sunny's original flipboard](https://docs.google.com/presentation/d/13JrSdzodhAGRj59-P5e9sxyoDPvVm7ZVvw1GzR8OilQ/edit#slide=id.g15d37737ae2_0_885)
+to get view of the various flows involved.
 
 ## Contracts
 
