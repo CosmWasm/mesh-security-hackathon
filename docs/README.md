@@ -18,6 +18,11 @@ provided by staking tokens to secure validators on multiple chains.  This provid
 scale bidirectionally, while avoiding some sort of infinite-loop recursion, as
 chains can only provide security in their native token(s).
 
+## Use Cases
+
+Before we dig into the architecture of Mesh Security, please take a look at
+the [use cases we aim to serve](./UseCases.md).
+
 ## Definitions
 
 * **Pairing** - a trust relationship between two chains, such that one promises to lock up slashable
@@ -49,6 +54,9 @@ chains can only provide security in their native token(s).
   prevented from returning. Tokens staked to it would be partially slashed and should be unstaked
   as soon as possible, as they will receive no more rewards. Stake to a jailed validator still must
   wait the unbonding period to be liquid.
+* **Latency** - Time delay from an action being initiated and the effects being reflected in
+  another contract or chain. This doesn't refer to the unbonding period, but rather the delay between
+  initiating bonding or unbonding on the provider and the equivalent action occurring on the consumer. 
 
 ## Limitations
 
@@ -65,10 +73,12 @@ requests that occurred in that period.
 
 Below are links to detailed documents on various sub-systems:
 
-* [Lockup Contract]
+* [Vault and Creditor](./Vault.md)
 * [Local Staking]
 * [Aside: DAO DAO MVP]
+* [Remote Provider]
 * [IBC Protocol Design]
-* [Remote Staking]
+* [Consumer]
+* [Staking]
 * [Handling Slashing]
 * [Reward Flow]
