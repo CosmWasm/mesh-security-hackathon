@@ -58,6 +58,27 @@ the [use cases we aim to serve](./UseCases.md).
   another contract or chain. This doesn't refer to the unbonding period, but rather the delay between
   initiating bonding or unbonding on the provider and the equivalent action occurring on the consumer. 
 
+## Sections
+
+Below are links to detailed documents on various sub-systems:
+
+Provider:
+  * [Vault and Creditor](./Vault.md)
+  * [Local Staking]
+  * [Aside: DAO DAO MVP]
+  * [Remote Provider]
+
+Consumer:
+  * [Consumer]
+  * [Meta-Staking]
+
+IBC Protocol:
+  * [Cross-Chain Staking]
+  * [Reward Flow]
+
+Later:
+  * [Handling Slashing]
+
 ## Limitations
 
 **Unbonding Limits**
@@ -68,17 +89,3 @@ We must batch together multiple unbonding requests so there are never more than 
 active at once. The typical solution for LSDs is to divide the unbonding period into segments,
 so if the unbonding period is 3 weeks, the contract initiates unbonding every 3 days for all
 requests that occurred in that period.
-
-## Sections
-
-Below are links to detailed documents on various sub-systems:
-
-* [Vault and Creditor](./Vault.md)
-* [Local Staking]
-* [Aside: DAO DAO MVP]
-* [Remote Provider]
-* [IBC Protocol Design]
-* [Consumer]
-* [Staking]
-* [Handling Slashing]
-* [Reward Flow]
