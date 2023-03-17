@@ -73,9 +73,9 @@ Below are links to detailed documents on various sub-systems:
   * [Meta-Staking] - Better name
   * SDK Changes
 
-IBC Protocol:
-  * [Cross-Chain Staking]
-  * [Reward Flow]
+[IBC Protocol](./ibc/Overview.md):
+  * [Cross-Chain Staking](./ibc/Staking.md)
+  * [Reward Flow](./ibc/Rewards.md)
 
 Later:
   * [Handling Slashing]
