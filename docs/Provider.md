@@ -53,7 +53,41 @@ accept the provider's tokens and can place multiple restrictions and limits
 on to how much power can be granted into any external chain.
 [Read more about consumers](./Consumers.md).
 
-## DAO use case
+## Stakers and Governance
+
+Both [local stakers](./LocalStaking.md) and [external stakers](./ExternalStaking.md)
+allow the user to bond to the validator of their choice on the associated chain.
+The question arises as to what influence the cross-staked user can have on chain governance.
+
+For MVP, all these delegations provide full governance power to the validator
+that was selected, but the cross-staker may not directly vote
+on any of these issues (they inherit the validator's vote).
+**For MVP, no override of votes**
+
+For local staking (in the native token), the end goal is the cross-staker has the
+same governance rights as if they had staked directly and can override
+the validator's voice if they request. However, this is relatively complex when
+one local staking contract hold delegations from many staker to the same validator,
+and takes careful design with weighted votes and probably something
+like cron cat to trigger this. 
+
+**We aim to have full participation in local votes by v2**
+
+For external staking, the cross-staker will never be able to override
+the vote, as they are not expected to be very active in local governance
+on these external protocols. (If they want to participate, they can take the
+cross-staking rewards and delegate those tokens directly to get a voice.)
+
+There will be two supported configurations for external staking.
+Either the cross-staked tokens provides governance voting power
+to the validator in the same proportion that it provides Tendermint voting power.
+Or the cross-staked tokens only provide Tendermint voting power (security)
+without granting more governance power to that validator.
+There are [use cases](../UseCases.md) for each configuration.
+
+**By v2, we will be able to configure if cross-staked tokens provide governance power to the validator**
+
+## DAO DAO Extension
 
 After discussing this general diagram, we realized there is some value in 
 a simplified version of this, which may also be a great starting place to
