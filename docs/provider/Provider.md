@@ -161,12 +161,15 @@ flowchart LR
   B -- $WYND --> C(Local Staker);
   C -- Stake --> D(WYND DAO Staking)
   B -- Lein --> E(External Staker Juno);
-  E -- virtual $JUNO --> F[Native Staking];
+  E -- virtual stake --> F(Meta-Staking);
+  F -- $JUNO --> G[Native Staking];
 ```
 
 Note this would require a different implementation for vault (to handle cw20),
 and likely a different "local staker" interface (you don't select validators, but rather unbonding time).
-The "External Staker JUNO" could likely be borrowed from 
+The "External Staker JUNO" would be similar to the normal [Receiver model](../consumer/Receiver.md)
+and we will need a full implementation of the [Consumer side](../consumer/Consumer.md)
+implemented on the same chain.
 
 **Recommendation** We do not build this either as MVP or v1, and view later if it makes
 sense at all. However, we should consider this use case in our designs to ensure our interfaces
