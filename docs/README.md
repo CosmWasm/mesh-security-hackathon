@@ -5,7 +5,39 @@ These attempt to explain a full-refined v2 state. As needed, we will include
 simplifications used for MVP (testnet) or v1 (production-ready, feature-limited)
 as footnotes in the documents.
 
-![Mesh Security Overview](./MeshSecurity.png)
+```mermaid
+flowchart TD
+  %%{init: {'theme': 'forest'}}%%
+  
+  subgraph Osmosis
+  A{{$OSMO}} -- User Deposit --> B(Vault);
+  B -- $OSMO --> C(Local Staker);
+  C -- $OSMO --> D[Native Staking]
+  B -- Lein --> E(External Staker Juno);
+  B -- Lein --> G(External Staker Stars);
+  end
+  
+  E -. IBC .-> M;
+  H -. IBC .-> N;
+
+  subgraph Akash
+  H{{Akash Provider}};
+  end
+
+  subgraph Juno
+  M(Osmosis Receiver) -- virtual stake --> O(Meta-Staking);
+  N(Akash Receiver) -- virtual stake --> O(Meta-Staking);
+  O -- $JUNO --> P[Native Staking];
+  end
+
+  G -. IBC .-> R;
+
+  subgraph Stargaze
+  R{{Osmosis Receiver}} -- virtual stake --> S(Meta-Staking);
+  S -- $STARS --> T[Native Staking];
+  end
+
+```
 
 You can get a good overview of the whole system flow in the above diagram. 
 The design should allow one chain to provide security to multiple chains, while
@@ -69,17 +101,15 @@ Below are links to detailed documents on various sub-systems:
   * TODO - Rust interfaces
 
 [Consumer](./consumer/Consumer.md):
-  * [Consumer] - TODO new name here... "receiver?"
-  * [Meta-Staking] - Better name
+  * [Receiver](./consumer/Receiver.md)
+  * [Meta-Staking](./consumer/MetaStaking.md)
   * SDK Changes
 
 [IBC Protocol](./ibc/Overview.md):
   * [Cross-Chain Staking](./ibc/Staking.md)
   * [Reward Flow](./ibc/Rewards.md)
-
-Later:
-  * [Handling Slashing]
-
+  * [Handling Slashing Evidence](./ibc/Slashing.md)
+  
 ## Limitations
 
 **Unbonding Limits**
