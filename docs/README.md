@@ -62,11 +62,10 @@ the [use cases we aim to serve](./UseCases.md).
 
 Below are links to detailed documents on various sub-systems:
 
-Provider:
+[Provider](./Provider.md):
   * [Vault and Creditor](./Vault.md)
-  * [Local Staking]
-  * [Aside: DAO DAO MVP]
-  * [Remote Provider]
+  * [Local Staking](./LocalStaking.md)
+  * [External Staking](./ExternalStaking.md)
 
 Consumer:
   * [Consumer]
