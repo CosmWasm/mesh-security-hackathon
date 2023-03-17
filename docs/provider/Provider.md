@@ -51,7 +51,7 @@ responsible for converting these "virtual tokens" into delegations
 in the native staking module. Note that the consumer must first opt-in to
 accept the provider's tokens and can place multiple restrictions and limits
 on to how much power can be granted into any external chain.
-[Read more about consumers](./Consumers.md).
+[Read more about consumers](../consumers/Consumer.md).
 
 ## Stakers and Governance
 

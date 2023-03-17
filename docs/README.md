@@ -62,14 +62,16 @@ the [use cases we aim to serve](./UseCases.md).
 
 Below are links to detailed documents on various sub-systems:
 
-[Provider](./Provider.md):
-  * [Vault and Creditor](./Vault.md)
-  * [Local Staking](./LocalStaking.md)
-  * [External Staking](./ExternalStaking.md)
+[Provider](./provider/Provider.md):
+  * [Vault and Creditor](./provider/Vault.md)
+  * [Local Staking](./provider/LocalStaking.md)
+  * [External Staking](./provider/ExternalStaking.md)
+  * TODO - Rust interfaces
 
-Consumer:
-  * [Consumer]
-  * [Meta-Staking]
+[Consumer](./consumer/Consumer.md):
+  * [Consumer] - TODO new name here... "receiver?"
+  * [Meta-Staking] - Better name
+  * SDK Changes
 
 IBC Protocol:
   * [Cross-Chain Staking]
