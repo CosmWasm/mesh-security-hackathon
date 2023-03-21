@@ -102,7 +102,7 @@ Below are links to detailed documents on various sub-systems:
 
 [Consumer](./consumer/Consumer.md):
   * [Receiver](./consumer/Receiver.md)
-  * [Meta-Staking](./consumer/MetaStaking.md)
+  * [Virtual Staking](./consumer/VirtualStaking.md)
   * SDK Changes
 
 [IBC Protocol](./ibc/Overview.md):
