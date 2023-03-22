@@ -5,6 +5,14 @@ native staking module in special ways. It manages an allow list of authorized Re
 and is responsible for converting their "virtual stake" into actual stake, as well
 as providing them with their share of the rewards.
 
+## Previous Work
+
+There is a lot of overlap with this design and Osmosis' [design of SuperFluid Staking](https://github.com/osmosis-labs/osmosis/tree/main/x/superfluid).
+Before commenting on the technical feasibility or implementation on the SDK side, it would be good to review this in depth.
+This is probably the biggest change made to staking functionality without forking `x/staking` and should be leveraged for the MVP at least.
+
+(Note to author as well as all reviewers)
+
 ## Components
 
 Virtual Staking will be a mix of a Cosmos SDK module and a CosmWasm contract. The contract will provide
