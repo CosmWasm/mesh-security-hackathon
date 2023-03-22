@@ -43,15 +43,39 @@ Thus this cross-stake will trigger the receiver to request the virtual staking m
 
 ### Virtual Staking
 
-**TODO** Call the "virtual staking" module
+(Note: Current design of [Virtual Staking](./VirtualStaking) is based around `CustomMsg` rather than a contract)
 
-(Note, we must set the validators. Where do we maintain state? Just diffs between recevier and "virtual staking"?)
+Each receiver can call into the Virtual Staking Module, declaring it delegates N `CONS` tokens to validator `V`.
+It may delegate many times to the same or different validators. The Virtual Staking Module ensures that the Receiver address
+is authorized and applies any caps to the impact of the virtual stake.
+
+The VirtualStaking module makes all delegations in the name of the Receiver contract, which allows the native x/staking
+book keeping to properly split the rewards among each Receiver.
 
 ## Rewards Flow
 
-**TODO**
+Once per epoch, the virtual staking module will trigger rewards. This will send a number of messages to the Receiver,
+specifying which validators the rewards belong to, along with the native reward tokens themselves. 
+
+The Receiver will then [transfer all these tokens via ICS20](../ibc/Overview.md) to the corresponding `External Staking` contract
+on the Provider chain, and send a message over the standard IBC channel to inform the `External Staking` contract how to distribute them.
+(If we get callbacks on ics20, we send the metadata only after tokens have arrived. Until then (for MVP), we send them concurrently and hope)
 
 ## Unstaking Flow
 
-**TODO**
+The Receiver can also unstake some tokens. These will be held in escrow on the Provider and are susceptible to slashing upon proper evidence
+submission. Since the virtual stake is, well, "virtual" and slashing has no impact, the delegation numbers can be immediately reduced
+on the consumer's native staking module.
+
+For MVP, we just trigger and unbonding, and when the tokens return to the Virtual Staking Module, they can be burnt (or reused for future delegations).
+The native x/staking module limits us to 7 simultaneous unbonding (per Receiver), so we need to queue these up and execute them in batches.
+This is a standard limitation of liquid staking modules.  For more explanation, [see the stride docs](https://docs.stride.zone/docs/unstaking):
+
+> The Stride blockchain initiates the unbonding process by grouping the records of all of the unbondings on the chain.
+> Unbondings are grouped because Cosmos chains do not allow more than 7 unbondings at a time within a 21 day period.
+> This is a security measure put in place across the Cosmos ecosystem. This does not impact the average user, but it 
+> is the reason Stride processes requests every 4 days.
+
+For V1, we modify the staking module to treat virtual stake specially and can just directly update the stake, without adding to the unbonding queue.
+This will allow us to perform more than 7 unbonding simulataneously.
 
