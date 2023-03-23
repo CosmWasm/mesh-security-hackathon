@@ -1,7 +1,7 @@
 # Virtual Staking
 
 Virtual Staking is a permissioned contract on the Consumer side that can interact with the
-native staking module in special ways. It manages an allow list of authorized Receivers
+native staking module in special ways. It manages an allow list of authorized Converters
 and is responsible for converting their "virtual stake" into actual stake, as well
 as providing them with their share of the rewards.
 
@@ -25,10 +25,10 @@ we will usually refer to them together as one single unit, "Virtual Staking".
 
 The contract must provide the following:
 
-* Interface for the ["Stake Receiver"](./Receiver.md) to "virtually stake"
-* An list of Receivers and their allowed maximums set by on-chain governance
+* Interface for the ["Stake Converter"](./Converter.md) to "virtually stake"
+* An list of Converters and their allowed maximums set by on-chain governance
 * A query interface to the above
-* Ability to send staking reward tokens to the receiver contracts
+* Ability to send staking reward tokens to the converter contracts
 
 ### Module
 
@@ -46,9 +46,9 @@ The Virtual Staking **Module** also maintains the current state of each of the r
 
 ```go
 type StakePermission struct {
-  /// Limit we cap the virtual stake of this receiver.
+  /// Limit we cap the virtual stake of this converter.
   /// Defined as a multiplier to the total amount of native stake.
-  /// eg. 1.0 means this receiver can "virtually stake" as much as the native module, giving 50-50 split if there is only one receiver
+  /// eg. 1.0 means this converter can "virtually stake" as much as the native module, giving 50-50 split if there is only one converter
   MaxStakingRatio: sdk.Dec,
   
   /// Virtual stake always contributes to the tendermint voting power.
@@ -64,17 +64,17 @@ type StakePermission struct {
 ```
 
 The Virtual Staking Module also has a BeginBlock hook called once per epoch (param setting, eg 1 day), that will trigger all reward withdrawals.
-This epoch has a different start for each receiver (based on when they were authorized), so they happen staggered over time.
-When the epoch finishes for one Receiver, the Module will withdraw rewards from all delegations that receiver made, and send those tokens
-to the Receiver along with the info of which validator these are for.
+This epoch has a different start for each converter (based on when they were authorized), so they happen staggered over time.
+When the epoch finishes for one Converter, the Module will withdraw rewards from all delegations that converter made, and send those tokens
+to the Converter along with the info of which validator these are for.
 
-The implementation may choose to call the Receiver eg 50 times, once for each validator, or call it once, with all the info it needs
-to map which token corresponds to which validator. The Receiver in turn will make a number of IBC packets to send the tokens and this
+The implementation may choose to call the Converter eg 50 times, once for each validator, or call it once, with all the info it needs
+to map which token corresponds to which validator. The Converter in turn will make a number of IBC packets to send the tokens and this
 metadata back to the External Staking module on the Provider chain.
 
 **TODO** Question: as I design this, I realize the params and all access control are best inside the module. So it can eg. update the current stake
 when the native staking supply changes (using sdk hooks). The contract is becoming a very light-weight wrapper, and maybe best just to add some CustomMsg
-here. Receivers directly call the Virtual Staking Module and there is no need to have a contract. **I would like some feedback on this change**
+here. Converters directly call the Virtual Staking Module and there is no need to have a contract. **I would like some feedback on this change**
 
 ## Roadmap
 
@@ -82,6 +82,6 @@ Define which pieces are implemented when:
 
 MVP: We stake virtual tokens (like SuperFluid), but have no special unbonding power, and these influence governance normally
 
-V1: We can turn the governance influence on and off per receiver. We can also unbond virtual stake immediately as
+V1: We can turn the governance influence on and off per converter. We can also unbond virtual stake immediately as
 
 V2: Make improvements here as possible (rebonding, fractional governance multiplier)

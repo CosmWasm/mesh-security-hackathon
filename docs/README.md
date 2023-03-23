@@ -25,15 +25,15 @@ flowchart TD
   end
 
   subgraph Juno
-  M(Osmosis Receiver) -- virtual stake --> O(Meta-Staking);
-  N(Akash Receiver) -- virtual stake --> O(Meta-Staking);
-  O -- $JUNO --> P[Native Staking];
+  M(Osmosis Converter) -- virtual stake --> O(Virtual Staking 1);
+  N(Akash Converter) -- virtual stake --> P(Virtual Staking 2);
+  O & P -- $JUNO --> Q[Native Staking];
   end
 
   G -. IBC .-> R;
 
   subgraph Stargaze
-  R{{Osmosis Receiver}} -- virtual stake --> S(Meta-Staking);
+  R{{Osmosis Receiver}} -- virtual stake --> S(Virtual Staking);
   S -- $STARS --> T[Native Staking];
   end
 
@@ -95,13 +95,13 @@ the [use cases we aim to serve](./UseCases.md).
 Below are links to detailed documents on various sub-systems:
 
 [Provider](./provider/Provider.md):
-  * [Vault and Creditor](./provider/Vault.md)
+  * [Vault](./provider/Vault.md)
   * [Local Staking](./provider/LocalStaking.md)
   * [External Staking](./provider/ExternalStaking.md)
   * TODO - Rust interfaces
 
 [Consumer](./consumer/Consumer.md):
-  * [Receiver](./consumer/Receiver.md)
+  * [Converter](./consumer/Converter.md)
   * [Virtual Staking](./consumer/VirtualStaking.md)
   * SDK Changes
 

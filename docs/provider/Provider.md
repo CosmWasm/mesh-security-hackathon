@@ -10,13 +10,17 @@ on multiple external chains connected via IBC:
 ```mermaid
 flowchart LR
   %%{init: {'theme': 'forest'}}%%
+  subgraph Osmosis
   A{{$OSMO}} -- User Deposit --> B(Vault);
   B -- $OSMO --> C(Local Staker);
   C -- Stake --> D[Native Staking]
   B -- Lein --> E(External Staker Juno);
-  E -. IBC .-> F(Juno Consumer);
   B -- Lein --> G(External Staker Stars);
-  G -. IBC .-> H(Stars Consumer);
+  end
+
+  E -. IBC .-> F{{Juno Consumer}};
+  G -. IBC .-> H{{Stars Consumer}};
+
 ```
 
 ## Flows

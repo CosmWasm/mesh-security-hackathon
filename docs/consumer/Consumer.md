@@ -10,11 +10,18 @@ This is the other half of [the provider flow](../provider/Provider.md)
 ```mermaid
 flowchart LR
   %%{init: {'theme': 'forest'}}%%
-  
-  A{{Osmosis Provider}} -. IBC .-> C(Osmosis Receiver);
-  B{{Juno Provider}} -. IBC .-> D(Juno Receiver);
-  C & D -- virtual stake --> E(Meta-Staking);
-  E -- $STARS --> F[Native Staking];
+
+  A{{Osmosis Provider}};
+  B{{Juno Provider}};
+
+  subgraph Stargaze
+  C(Osmosis Converter) -- virtual stake --> E(Virtual Staking 1);
+  D(Juno Converter) -- virtual stake --> F(Virtual Staking 2);
+  E & F -- $STARS --> G[Native Staking];
+  end
+
+  A -. IBC .-> C;
+  B -. IBC .-> D;
 ```
 
 ## Weighting of Providers
