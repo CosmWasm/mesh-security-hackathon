@@ -1,9 +1,8 @@
 # Virtual Staking
 
 Virtual Staking is a permissioned contract on the Consumer side that can interact with the
-native staking module in special ways. It manages an allow list of authorized Converters
-and is responsible for converting their "virtual stake" into actual stake, as well
-as providing them with their share of the rewards.
+native staking module in special ways. There are usually multiple Virtual Staking contracts
+on one Consumer chain, one for each active Provider, linked 1-to-1 with a Converter.
 
 ## Previous Work
 
@@ -13,33 +12,66 @@ This is probably the biggest change made to staking functionality without forkin
 
 (Note to author as well as all reviewers)
 
+## Extensibility
+
+Virtual Staking is primarily the interface exposed to the Convert contract, so we can use wildly
+different implementations of it on different chains. Since we want to limit the customizations,
+I will describe the simplest workable customizations for a Cosmos SDK chain.
+
+Some chains may want to provide more native powers, and extend the Virtual Staking contract with a custom
+one to make use of them. Other architectures, like Picasso or cw-sdk, may have a wildly different architecture
+for interacting with the staking module. That would require a Virtual Staking contract that fulfills the
+high-level design points below, but not the implementation.
+
+To keep things clear for now, I will focus on the standard contract and module we aim to ship as part
+of the basic design.
+
 ## Components
 
-Virtual Staking will be a mix of a Cosmos SDK module and a CosmWasm contract. The contract will provide
-the single point of access to the module and be the only address that can call it. The SDK module will
-manage the actual interactions with the native staking module. I will call them "Virtual Staking Contract"
-and "Virtual Staking Module" (or just "Contract" and "Module") in this document. Outside of this document,
-we will usually refer to them together as one single unit, "Virtual Staking".
+Virtual Staking will be a mix of a Cosmos SDK module and a CosmWasm contract. 
+We need to expose some special functionality through the SDK Module and `CustomMsg` type.
+The module will contain a list of which contract has what limit, which can only be updated
+by the native governance. The interface is limited and can best be described as Rust types:
+
+```rust
+#[cw_serde]
+pub enum CustomMsg {
+  /// Embed one level here, so we are independent of other custom messages (like TokenFactory, etc) 
+  VirtualStake(VirtualStakeMsg),
+}
+
+#[cw_serde]
+/// These are the functionality 
+pub enum VirtualStakeMsg {
+  /// This mints "virtual stake" if possible and bonds to this validator.
+  Bond {
+    amount: Uint128,
+    validator: String,
+  },
+  /// This unbonds immediately, not like standard staking Undelegate
+  Unbond {
+    amount: Uint128,
+    validator: String,
+  },
+}
+```
 
 ### Contract
 
-The contract must provide the following:
+Each Virtual Staking contract is deployed with a Converter contract and is tied to it.
+It only accepts messages from that Converter and sends all rewards to that Converter.
+The general flows it provides are:
 
-* Interface for the ["Stake Converter"](./Converter.md) to "virtually stake"
-* An list of Converters and their allowed maximums set by on-chain governance
-* A query interface to the above
-* Ability to send staking reward tokens to the converter contracts
+* Accept Stake message from Converter and execute custom Bond message
+* Accept Unstake message from Converter and execute custom Unbond message
+* Trigger Reward Withdrawals periodically and send to the Converter
 
 ### Module
 
-The module must provide the following:
-
-* Config address for registered virtual staking contract to "virtually stake"
-* Mints "virtual tokens" (that don't affect supply) and stakes them to validators (like Osmosis' superfluid staking module)
-* Handle unbondings cheaply (ideally not the "7 pending" limit)
-* V1/V2: Configuration whether "virtual tokens" also count in governance voting.
-
-## Functionality
+The module maintains a list of addresses (for Virtual Staking contracts), along with a max cap of
+virtual tokens for each. It's main purpose is to process `Bond` and `Unbond` messages from
+any registered contract up to the max cap. Note that it mints "virtual tokens" that don't affect
+max supply and can only be used for staking.
 
 The Virtual Staking **Module** maintains an access map `Addr => StakePermission` which can only be updated by chain governance (param change).
 The Virtual Staking **Module** also maintains the current state of each of the receivers.
@@ -47,21 +79,21 @@ The Virtual Staking **Module** also maintains the current state of each of the r
 ```go
 type StakePermission struct {
   /// Limit we cap the virtual stake of this converter.
-  /// Defined as a multiplier to the total amount of native stake.
-  /// eg. 1.0 means this converter can "virtually stake" as much as the native module, giving 50-50 split if there is only one converter
-  MaxStakingRatio: sdk.Dec,
-  
-  /// Virtual stake always contributes to the tendermint voting power.
-  /// This defines much the virtual stake contributes to the x/gov voting power.
-  /// It must range between 0.0 (stake doesn't give validator any more gov power)
-  /// to 1.0 (stake gives same gov power as normal native staking).
-  /// 
-  /// In MVP, the only allowed setting is 1.0 (treat it like normal staking)
-  /// In 1.0, we improve the native module, allowing minimally 0.0 and 1.0 (boolean flag)
-  /// By 2.0, if possible, we will allow all values between 0.0 and 1.0
-  GovMultiplier: sdk.Dec,
+  /// Defined as a number of "virtual native tokens" this can mint.
+  MaxStakingRatio: sdk.Int,
 }
 ```
+
+Beyond MVP, we wish to add the following functionality:
+
+* Provide WithdrawReward callbacks each epoch (eg 1 day) on BeginBlock to all registered contracts
+* Provide configuration for optional governance multiplier (eg 1 virtual stake leads to 1 tendermint power,
+but may be 0 or 1 or even 0.5 gov voting power)
+
+### Reward Withdrawls
+
+We need to trigger each Virtual Staking contract once an epoch.
+This can be done via CronCat or other bot (for MVP), and ideally via a BeginBlock hook for v1.
 
 The Virtual Staking Module also has a BeginBlock hook called once per epoch (param setting, eg 1 day), that will trigger all reward withdrawals.
 This epoch has a different start for each converter (based on when they were authorized), so they happen staggered over time.
@@ -72,16 +104,13 @@ The implementation may choose to call the Converter eg 50 times, once for each v
 to map which token corresponds to which validator. The Converter in turn will make a number of IBC packets to send the tokens and this
 metadata back to the External Staking module on the Provider chain.
 
-**TODO** Question: as I design this, I realize the params and all access control are best inside the module. So it can eg. update the current stake
-when the native staking supply changes (using sdk hooks). The contract is becoming a very light-weight wrapper, and maybe best just to add some CustomMsg
-here. Converters directly call the Virtual Staking Module and there is no need to have a contract. **I would like some feedback on this change**
-
 ## Roadmap
 
 Define which pieces are implemented when:
 
-MVP: We stake virtual tokens (like SuperFluid), but have no special unbonding power, and these influence governance normally
+MVP: We stake virtual tokens (like SuperFluid), can unbond rapdily, and these influence governance normally
 
-V1: We can turn the governance influence on and off per converter. We can also unbond virtual stake immediately as
+V1: We can turn the governance influence on and off per converter. We also get native callbacks for
+triggering rewards
 
 V2: Make improvements here as possible (rebonding, fractional governance multiplier)

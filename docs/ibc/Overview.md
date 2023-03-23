@@ -31,28 +31,28 @@ Provider side and the Consumer side. This is done in multiple stages.
 
 Establish a channel (allow list):
 
-1. Admin deploys _Receiver_ on Consumer side.
-2. Admin deploys _External Staker_ on Provider side, registering (connection, port) from _Receiver_ contract from (1)
-3. Admin updates _Receiver_ (1) with the (connection, port) from (2)
-4. Anyone establishes a new channel between _Receiver_ and _External Staker_. They ensure the other side matches the whitelist.
-5. Neither contract accept any more channels. They only accept one channel and only what matches the allow list.
+2. Admin deploys _Converter_ and _Virtual Staking_ on Consumer side, both referencing each other.
+3. Admin deploys _External Staker_ on Provider side, registering `(connection, port)` from _Converter_ contract from (1)
+4. Admin updates _Converter_ (1) to allow the `(connection, port)` from (2)
+5. Anyone establishes a new channel between _Converter_ and _External Staker_.
+Both contracts ensure the other side matches the stored `(connection, port)` and refused the channel otherwise.
+6. Neither contract accept any more channels. They only accept one channel and only what matches their config.
 
 Now that we have a channel and know which contract is talking to whom, we need
 to authorize them:
 
 1. Admin removes their admin rights on both contracts (or passes to chain governance)
-2. Due Dilligence performed on configuration of both contracts and the channel
-3. Consumer chain governance votes to authorize this _Receiver_ on the _Meta-Staking_ module.
-Also defining how much stake they can possibly issue and other trust configurations.
-4. Authorization on the Provider chain [is not required](https://github.com/CosmWasm/mesh-security/blob/begin-architecture/docs/provider/Vault.md#design-decisions), but the default cross-stake application should add the _External Staker_ to the recommended list. 
+2. Due diligence performed on configuration of both contracts and the channel
+3. Consumer chain governance votes to authorize this _Virtual Staking_ contract to have special
+privileges on the staking system (see [Virtual Staking](../consumer/VirtualStaking.md)).
+4. Authorization on the Provider chain [is not required](https://github.com/CosmWasm/mesh-security/blob/begin-architecture/docs/provider/Vault.md#design-decisions),
+but the default cross-stake frontend application should add the _External Staker_ to the recommended list. 
 
 Once this has been completed, everything is set up and the token holders on the provider side
 can now safely cross-stake on the consumer side with one click.
 
-Note that the majority of the setup is permissionless.
-And it just requires one governance vote on the consumer side
-to authorize that connection to stake virtual tokens, which is
-essential for any security guarantees. 
+Note that the majority of the setup is permissionless.  And it just requires one governance vote on the 
+consumer side to authorize ability to stake virtual tokens, which is essential for any security guarantees. 
 No forks, no complicated processes... just one proposal.
 
 ## Protocol design

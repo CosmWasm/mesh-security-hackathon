@@ -22,6 +22,37 @@ define a price oracle contract on setup. (see ["Price Normalization"](#price-nor
 Once the connection is established, the provider can send various "virtual stake" messages to the converter, which is responsible
 for processing them and normalizing for the local "virtual staking" module.
 
+### High level
+
+**TODO** combine this with the below section
+
+The Converter does two transformations.
+This first is convert the token based on a price oracle. (For example,
+if we are sent 1000 JUNO, we convert to 1200 OSMO based on some oracle, for example
+TWAP feed updated daily).
+
+The second step is to apply a discount, which captures both the volatility of the remote asset
+(discount should be greater than any expected change between oracle feed updates), as well as
+a general feeling that $1000 of remote assets shouldn't have the same power as $1000 of native
+assets. For example, the Converter is configured with a 50% discount for the JUNO provider,
+and thus those 1000 JUNO actually turn into 600 OSMO of "virtual stake".
+
+By itself, a Converter cannot impact the local staking system.  It must connect to the _Meta-Staking_ system,
+which will convert the "virtual stake" into actual stake in the dPoS system, and produce the rewards as well.
+The _Meta-Staking_ system is a permissioned contract that can access custom Cosmos SDK functionality
+to mint virtual tokens, which it then staked on the Converter's behalf.
+
+We cannot let any receiver mint arbitrary tokens, or we lose all security, so each receiver has permission
+of a maximum amount of "virtual stake" that it can provide to the system. Anything over that is ignored,
+after which point, the average rewards per cross-staker start to diminish as they split a limited resource.
+
+The allow list in the Meta-Staking contract to manage the value of various Converters is of critical importance
+for the security design of Mesh Security. Not all remote chains are treated equally and we need to be selective
+of how much security we allow to rest on any given token
+
+**TODO** links to more details
+
+
 ### Price normalization
 
 When we receive a "virtual stake" message for 1 provider token, we need to perform a few steps to normalize it to the
