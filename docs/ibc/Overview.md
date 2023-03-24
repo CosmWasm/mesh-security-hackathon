@@ -26,8 +26,15 @@ flowchart RL
 ## Deployment
 
 As mentioned in [the consumer section](../consumer/Consumer.md),
-we need to establish a trust relationship between the
-Provider side and the Consumer side. This is done in multiple stages.
+we need to establish a trust relationship between the Provider side and the Consumer side. This is done in multiple stages.
+
+I refer to "Admin" here in most of the setup, which can be any address that can make calls on two chains.
+It is responsible for proper configuration, but revokes all it's power before the provider-consumer pairing has any
+voting power (permitted to virtually stake). It can be a normal account, a ledger, a cosmos sdk native multisig,
+a DAO using ICA to act on two chains. In theory this could be on-chain governance, but that would be unwieldy.
+
+I recommend using the approach of a single actor deploying (for simplicity), then using governance to authorize
+the connection once it is all configured (for security).
 
 Establish a channel (allow list):
 
