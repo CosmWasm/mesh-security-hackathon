@@ -4,23 +4,28 @@ The Stake Converter is on the consumer side and is connected to an External Stak
 This handles the normalization of the external tokens and _converts_ them into "Virtual Stake".
 There is a 1:1 connection between a Converter and a [Virtual Staking Contract](./VirtualStaking.md)
 which handles the actual issuance.
-The converter is connected to the Provider chain via IBC and handles the various packets coming from it.
 
-**TODO** This was called the "Consumer contract" in previous versions and probably needs a better name
+The converter is connected to the Provider chain via IBC and handles the various packets coming from it.
 
 ## Setup
 
-When we [deploy the contracts](../ibc/Overview.md#deployment), we connect the Stake Converter on the consumer chain
-with an [External Staking](../provider/ExternalStaking.md) contract on the Provider. Once this connection is established,
-Consumer governance can authorize this Stake Converter with some ability to mint on the ["Virtual Staking" contract](./VirtualStaking.md).
+When we [deploy the contracts](../ibc/Overview.md#deployment), we connect the Stake Converter on the consumer 
+chain with an [External Staking](../provider/ExternalStaking.md) contract on the Provider. Once this 
+connection is established, Consumer governance can authorize this Stake Converter with some ability to mint
+on the ["Virtual Staking" contract](./VirtualStaking.md).
 
-Note that when we deploy the Stake Converter, we configure the address of the "virtual staking" contract. We must also
-define a price oracle contract on setup. (see ["Price Normalization"](#price-normalization) below)
+When we deploy the Stake Converter, we must also configure the address of the
+["Virtual Staking" contract](./VirtualStaking.md) that it will use to stake tokens.
+In addition, we must define a price feed on setup.
+(see [Price Normalization / Price Feeds](#price-feeds) below)
 
 ## Staking Flow
 
-Once the connection is established, the provider can send various "virtual stake" messages to the converter, which is responsible
-for processing them and normalizing for the local "virtual staking" module.
+Once the connection is established, the provider can send various "virtual stake" messages to the converter,
+which is responsible for processing them and normalizing for the local "virtual staking" module. These
+packets are sent via a dedicated channel between the provider chain and the consumer chain to ensure
+there are no other security assumptions (3rd party modules) involved in sending this critical staking
+info.
 
 ### High level
 
@@ -58,9 +63,8 @@ of how much security we allow to rest on any given token
 When we receive a "virtual stake" message for 1 provider token, we need to perform a few steps to normalize it to the
 local staking tokens. 
 
-The first step is simply doing a price conversion. The actual logic giving the price feed is located in an Oracle contract (configured upon init).
-We recommend using an (eg daily) TWAP on a DEX with good liquidity - ideally on the consumer chain, but this implementation is left up
-to the particular chain it is being deployed on. With this TWAP we convert eg. 1 PROV to 18 CONS.
+The first step is simply doing a price conversion. This is done via a [Price Feed](#price-feeds), which is
+defined on setup and can call into arbitrary logic depending on the chain.
 
 The second step is to apply a discount. This discount reduced the value of the cross-stake to a value below what we would get from the pure
 currency conversion above. This has two purposes: the first is to provide a margin of error when the price deviates far from the TWAP, so
@@ -73,6 +77,39 @@ In this case, let's assume a discount of 40%. A user on the provider chain cross
 `100 PROV * 18 CONS/PROV * (1 - 0.4) = 1080 CONS`
 
 Thus this cross-stake will trigger the converter to request the virtual staking module to stake 1080 CONS.
+
+The discount is stored in the Converter contract and can only be updated by the admin (on-chain governance).
+
+### Price Feeds
+
+In order to perform the conversion of remote stake into local units, the Converter needs a 
+trustable price feed. Since this logic may be chain dependent, we don't want to define it in the Converter
+contract, but rather allow chains to plug in their custom price feed without modifying any of
+the complex logic required to properly stake.
+
+There are many possible price feed implementations, a few of the main ones we consider are:
+
+**Gov-defined feed.** This is a simple contract that stores a constant price value, which is always
+returns when asked for the price. On-chain governance can send a vote to update this price
+value when needed. __This is good for mocks, or new chaina with no solid price feed and wanting a stable peg__
+
+**Local Oracle** If there is a DEX on the consumer chain with sufficient liquidity and volume
+on this asset pair (local staking - remote staking), then we can use that for a price feed.
+Assuming it keeps a proper TWAP oracle on the pair, we sample this every day and can get the average
+price over the last day, which is quite hard to manipulate for such a long time.
+__This is good for an established chain with solid DEX infrastructure, like Osmosis or Juno__
+
+**Remote Oracle** More dynamic than the gov-defined feed, but less secure than the local Oracle,
+we can do an IBC query on a DEX on another chain to find the price feed. This works like the 
+Local Oracle, except the DEX being queries lives on eg. Osmosis. Note that it introduces another
+security dependency, as if the DEX chain goes Byzantine, it could impact the security of the consumer
+chain. __This is a better option if the local staking token has a liquid market, but there is
+no established DEX on the chain itself (like Stargaze).__ 
+
+The actual logic giving the price feed is located in an Oracle contract (configured upon init).
+We recommend using an (eg daily) TWAP on a DEX with good liquidity - ideally on the consumer chain, but this implementation is left up
+to the particular chain it is being deployed on. With this TWAP we convert eg. 1 PROV to 18 CONS.
+
 
 ### Virtual Staking
 

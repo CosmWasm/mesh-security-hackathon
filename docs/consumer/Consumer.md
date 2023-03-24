@@ -14,14 +14,17 @@ flowchart LR
   A{{Osmosis Provider}};
   B{{Juno Provider}};
 
+  A -. IBC .-> D;
+
   subgraph Stargaze
-  C(Osmosis Converter) -- virtual stake --> E(Virtual Staking 1);
-  D(Juno Converter) -- virtual stake --> F(Virtual Staking 2);
-  E & F -- $STARS --> G[Native Staking];
+  C(Osmosis Price feed) --> D(Osmosis Converter)
+  D -- virtual stake --> E(Virtual Staking 1);
+  K(Juno Converter) -- virtual stake --> L(Virtual Staking 2);
+  M(Juno Price feed) --> K;
+  E & L -- $STARS --> G[Native Staking];
   end
 
-  A -. IBC .-> C;
-  B -. IBC .-> D;
+  B -. IBC .-> K;
 ```
 
 ## Converting Foreign Stake
