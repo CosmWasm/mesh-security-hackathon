@@ -27,36 +27,9 @@ packets are sent via a dedicated channel between the provider chain and the cons
 there are no other security assumptions (3rd party modules) involved in sending this critical staking
 info.
 
-### High level
-
-**TODO** combine this with the below section
-
-The Converter does two transformations.
-This first is convert the token based on a price oracle. (For example,
-if we are sent 1000 JUNO, we convert to 1200 OSMO based on some oracle, for example
-TWAP feed updated daily).
-
-The second step is to apply a discount, which captures both the volatility of the remote asset
-(discount should be greater than any expected change between oracle feed updates), as well as
-a general feeling that $1000 of remote assets shouldn't have the same power as $1000 of native
-assets. For example, the Converter is configured with a 50% discount for the JUNO provider,
-and thus those 1000 JUNO actually turn into 600 OSMO of "virtual stake".
-
-By itself, a Converter cannot impact the local staking system.  It must connect to the _Meta-Staking_ system,
-which will convert the "virtual stake" into actual stake in the dPoS system, and produce the rewards as well.
-The _Meta-Staking_ system is a permissioned contract that can access custom Cosmos SDK functionality
-to mint virtual tokens, which it then staked on the Converter's behalf.
-
-We cannot let any receiver mint arbitrary tokens, or we lose all security, so each receiver has permission
-of a maximum amount of "virtual stake" that it can provide to the system. Anything over that is ignored,
-after which point, the average rewards per cross-staker start to diminish as they split a limited resource.
-
-The allow list in the Meta-Staking contract to manage the value of various Converters is of critical importance
-for the security design of Mesh Security. Not all remote chains are treated equally and we need to be selective
-of how much security we allow to rest on any given token
-
-**TODO** links to more details
-
+By itself, a Converter cannot impact the local staking system.  It must connect to the [Virtual Staking system](./VirtualStaking.md),
+which will convert the "virtual stake" into actual stake in the dPoS system, and return the rewards as well. This
+document focuses on the flow from IBC packets to the virtual stake.
 
 ### Price normalization
 
@@ -64,13 +37,14 @@ When we receive a "virtual stake" message for 1 provider token, we need to perfo
 local staking tokens. 
 
 The first step is simply doing a price conversion. This is done via a [Price Feed](#price-feeds), which is
-defined on setup and can call into arbitrary logic depending on the chain.
+defined on setup and can call into arbitrary logic depending on the chain. (For example,
+if we are sent 1000 JUNO, we convert to 1200 OSMO based on some price feed)
 
-The second step is to apply a discount. This discount reduced the value of the cross-stake to a value below what we would get from the pure
+The second step is to apply a discount. This discount reduces the value of the cross-stake to a value below what we would get from the pure
 currency conversion above. This has two purposes: the first is to provide a margin of error when the price deviates far from the TWAP, so
-the cross-stake is not overvalued above native staking; the second is to encourage local staking over remote staking. Loooking at the asset's historical
-volatility can provide a good estimate for the first step, as a floor for minimum discount. Beyond that, consumer chain tokenomics and governance
-design is free to increase the discount as they feel beneficial.
+the cross-stake is not overvalued above native staking; the second is to encourage local staking over remote staking. Looking at the
+asset's historical volatility can provide a good estimate for the first step, as a floor for minimum discount. Beyond that, consumer 
+chain tokenomics and governance design is free to increase the discount as they feel beneficial.
 
 In this case, let's assume a discount of 40%. A user on the provider chain cross-stakes 100 PROV. We end up with a weight of
 
@@ -110,17 +84,14 @@ The actual logic giving the price feed is located in an Oracle contract (configu
 We recommend using an (eg daily) TWAP on a DEX with good liquidity - ideally on the consumer chain, but this implementation is left up
 to the particular chain it is being deployed on. With this TWAP we convert eg. 1 PROV to 18 CONS.
 
-
 ### Virtual Staking
 
-(Note: Current design of [Virtual Staking](./VirtualStaking) is based around `CustomMsg` rather than a contract)
+Each Converter is connected 1:1 with a [Virtual Staking Contract](./VirtualStaking.md). This contract manages
+the stake and has limited permissions to call into a native SDK module to mint "virtual tokens" and stake them,
+as well as immediately unbonding them. This contract ensures the delegations are properly distributed.
 
-Each converter can call into the Virtual Staking Module, declaring it delegates N `CONS` tokens to validator `V`.
-It may delegate many times to the same or different validators. The Virtual Staking Module ensures that the Converter address
-is authorized and applies any caps to the impact of the virtual stake.
-
-The VirtualStaking module makes all delegations in the name of the Converter contract, which allows the native x/staking
-book keeping to properly split the rewards among each Converter.
+The Converter simply tells the virtual staking contract it wishes to bond/unbond N tokens and that contract
+manages all minting of tokens and distribution among multiple validators.
 
 ## Rewards Flow
 

@@ -42,7 +42,7 @@ Now that we have a channel and know which contract is talking to whom, we need
 to authorize them:
 
 1. Admin removes their admin rights on both contracts (or passes to chain governance)
-2. Due diligence performed on configuration of both contracts and the channel
+2. Due diligence performed on configuration of both contracts and the channel. Parties from both chains can verify the contract code and configuration.
 3. Consumer chain governance votes to authorize this _Virtual Staking_ contract to have special
 privileges on the staking system (see [Virtual Staking](../consumer/VirtualStaking.md)).
 4. Authorization on the Provider chain [is not required](https://github.com/CosmWasm/mesh-security/blob/begin-architecture/docs/provider/Vault.md#design-decisions),
