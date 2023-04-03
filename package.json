@@ -1,4 +1,7 @@
 {
   "private": true,
-  "workspaces": ["typescript", "tests"]
+  "workspaces": [
+    "typescript",
+    "tests"
+  ]
 }
