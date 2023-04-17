@@ -1,5 +1,13 @@
 # mesh-security (Hackathon / Prototype status)
 
+**Note** this is working (but fragile) code from Sep 2022 Medellin HackWasm. Feel free to bang on it to
+understand Mesh Security better. As of April 2023, we have started a new repo 
+[osmosis-labs/mesh-security](https://github.com/osmosis-labs/mesh-security), which will host
+work towards a full production-quality implementation of Mesh Security, written by the same
+developers and many more.
+
+## What it is
+
 An implementation of Sunny's [Mesh Security](https://youtu.be/Z2ZBKo9-iRs?t=4937) talk from Cosmoverse 2022.
 
 This should run on any CosmWasm enabled chain. This is MVP design and gives people
