@@ -1,5 +1,5 @@
 [package]
-name    = "mesh-lockup"
+name    = "mesh-vault"
 authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
 
 edition       = { workspace = true }

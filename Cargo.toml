@@ -43,7 +43,7 @@ test-case     = "2.2.0"
 codegen-units = 1
 incremental   = false
 
-[profile.release.package.mesh-lockup]
+[profile.release.package.mesh-vault]
 codegen-units = 1
 incremental   = false
 

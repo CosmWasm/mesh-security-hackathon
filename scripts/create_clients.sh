@@ -13,12 +13,12 @@ cosmwasm-ts-codegen generate \
  --name MeshConsumer \
  --no-bundle
 
- #Create client for mesh-lockup
+ #Create client for mesh-vault
 cosmwasm-ts-codegen generate \
  --plugin client \
- --schema ls ../contracts/mesh-lockup/schema \
+ --schema ls ../contracts/mesh-vault/schema \
  --out ./src/bindings \
- --name MeshLockup \
+ --name MeshVault \
  --no-bundle
 
  #Create client for mesh-provider

@@ -4,10 +4,10 @@
 * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
 */
 
-import * as _2 from "./MeshLockup.types";
-import * as _3 from "./MeshLockup.client";
+import * as _2 from "./MeshVault.types";
+import * as _3 from "./MeshVault.client";
 export namespace contracts {
-  export const MeshLockup = { ..._2,
+  export const MeshVault = { ..._2,
     ..._3
   };
 }
