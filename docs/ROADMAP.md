@@ -31,3 +31,32 @@ This will include all optional features we consider feasible in a realistic time
 will have much deeper security model, and have received some external reviews (maybe audit if someone pays).
 This should be stable enough such that chains with solid market caps could provide peer security (being both
 provider and consumer).
+
+## Plan for MVP
+
+A higher-level backlog for what it takes to create the MVP.
+
+**Part 1**
+
+* Start new repo for production mesh-security (port ideas from prototype, but we don't need to build on it)
+* Finalize the documentation for provider side
+* Define all contract interfaces / APIs as Rust files
+* Produce stub-contracts with proper APIs (all `unimplemented!()`)
+
+**Part 2** 
+
+* Produce mock contracts with proper APIs (all with dummy testing implementation)
+  * Mocks should also be usable for UI testing with eg 1 minute unbonding
+* Write and test vault contract (that calls mock local and remote staking via multi-test)
+  * Ensure vault accepts both native and cw20 tokens
+  * All configuration options should be implemented
+* Finalize the documentation for the consumer side, including the custom SDK modules
+* Create initial designs (wireframes) for the UI, focusing around vault and local/remote staking 
+
+**Part 3**
+
+* Implement local staking module (simple version - no optional features)
+* Implement remote staking module, provider side (simple version - no optional features)
+* Implement mock converter, consumer side (connects via IBC properly, but )
+* Full stack IBC test from `token -> vault -> remote staking -> converter`, bonding and unbonding
+* Usable UI for provider side (mocking out remote providers), with bonding and unbonding
