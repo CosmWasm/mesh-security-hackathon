@@ -563,26 +563,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mesh-lockup"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cosmwasm-storage",
- "cw-multi-test",
- "cw-storage-plus 1.0.1",
- "cw-utils 1.0.1",
- "cw2 1.0.1",
- "derivative",
- "mesh-apis",
- "schemars",
- "serde",
- "test-case",
- "thiserror",
-]
-
-[[package]]
 name = "mesh-provider"
 version = "0.1.0"
 dependencies = [
@@ -633,6 +613,26 @@ dependencies = [
  "meta-staking",
  "schemars",
  "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "mesh-vault"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-multi-test",
+ "cw-storage-plus 1.0.1",
+ "cw-utils 1.0.1",
+ "cw2 1.0.1",
+ "derivative",
+ "mesh-apis",
+ "schemars",
+ "serde",
+ "test-case",
  "thiserror",
 ]
 

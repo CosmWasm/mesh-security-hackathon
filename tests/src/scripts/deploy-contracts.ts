@@ -1,7 +1,7 @@
 import { SigningCosmWasmClient, toBinary } from "@cosmjs/cosmwasm-stargate";
 import { assert } from "@cosmjs/utils";
 import { InstantiateMsg as ConsumerInitMsg } from "mesh-security/contracts/mesh-consumer/MeshConsumer.types";
-import { InstantiateMsg as LockupInitMsg } from "mesh-security/contracts/mesh-lockup/MeshLockup.types";
+import { InstantiateMsg as LockupInitMsg } from "mesh-security/contracts/mesh-vault/MeshVault.types";
 import { MeshProviderClient } from "mesh-security/contracts/mesh-provider/MeshProvider.client";
 import { InstantiateMsg as ProviderInitMsg } from "mesh-security/contracts/mesh-provider/MeshProvider.types";
 import { Coin, InstantiateMsg as StakingInitMsg } from "mesh-security/contracts/meta-staking/MetaStaking.types";
@@ -10,7 +10,7 @@ import { connect, getMnemonic, pprint, setupContracts } from "./helpers";
 import { connections, junoTestConfig, osmoTestConfig } from "./networks";
 
 interface ProviderInfo {
-  meshLockupAddr: string;
+  meshVaultAddr: string;
   meshProviderAddr: string;
   meshProviderPort: string;
   meshSlasherAddr: string;
@@ -34,19 +34,19 @@ async function installProvider(
 ): Promise<ProviderInfo> {
   console.debug("Upload contracts to provider...");
   const providerContracts = {
-    mesh_lockup: "./internal/mesh_lockup.wasm",
+    mesh_vault: "./internal/mesh_vault.wasm",
     mesh_provider: "./internal/mesh_provider.wasm",
     mesh_slasher: "./internal/mesh_slasher.wasm",
   };
   const wasmIds = await setupContracts(client, signer, providerContracts);
 
-  console.log("Instantiate mesh_lockup on provider");
-  const initMeshLockup: LockupInitMsg = { denom };
-  const { contractAddress: meshLockupAddr } = await client.instantiate(
+  console.log("Instantiate mesh_vault on provider");
+  const initMeshVault: LockupInitMsg = { denom };
+  const { contractAddress: meshVaultAddr } = await client.instantiate(
     signer,
-    wasmIds.mesh_lockup,
-    initMeshLockup as any,
-    "mesh_lockup contract",
+    wasmIds.mesh_vault,
+    initMeshVault as any,
+    "mesh_vault contract",
     "auto"
   );
 
@@ -59,7 +59,7 @@ async function installProvider(
       code_id: wasmIds.mesh_slasher,
       msg: toBinary({ owner: signer }),
     },
-    lockup: meshLockupAddr,
+    lockup: meshVaultAddr,
     // TODO: get real number somehow... look at tendermint client queries or staking?
     unbonding_period: 86400 * 14,
     rewards_ibc_denom: "d",
@@ -81,7 +81,7 @@ async function installProvider(
     throw new Error("Can't find slasher");
   }
 
-  return { meshLockupAddr, meshProviderAddr, meshProviderPort, meshSlasherAddr };
+  return { meshVaultAddr, meshProviderAddr, meshProviderPort, meshSlasherAddr };
 }
 
 async function installConsumer(

@@ -1,5 +1,5 @@
 export const osmoConfig = {
-  meshLockupAddr: "osmo1kf88a6ftgt57t2hg48jfc9679l50tq6jqwsdheuld6467jls2hxstnvnal",
+  meshVaultAddr: "osmo1kf88a6ftgt57t2hg48jfc9679l50tq6jqwsdheuld6467jls2hxstnvnal",
   meshProviderAddr: "osmo19kx57u0nrhqas34qvyhu2ydt4a9rlj6n37l88jqwfc2eesuk9tuq6c6ywj",
   meshProviderPort: "wasm.osmo19kx57u0nrhqas34qvyhu2ydt4a9rlj6n37l88jqwfc2eesuk9tuq6c6ywj",
   meshSlasherAddr: "osmo1fewayl23e89rkejx932ljxf0ylsmtqc49r4myzzsvxcpweptmu0szshpkv",

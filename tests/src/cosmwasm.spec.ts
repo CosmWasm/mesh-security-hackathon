@@ -40,7 +40,7 @@ test.before(async (t) => {
 
   console.debug("Upload contracts to osmosis...");
   const osmosisContracts = {
-    mesh_lockup: "./internal/mesh_lockup.wasm",
+    mesh_vault: "./internal/mesh_vault.wasm",
     mesh_provider: "./internal/mesh_provider.wasm",
     mesh_slasher: "./internal/mesh_slasher.wasm",
   };
@@ -59,7 +59,7 @@ interface SetupInfo {
   wasmMetaStaking: string;
   osmoMeshProvider: string;
   osmoMeshSlasher: string;
-  osmoMeshLockup: string;
+  osmoMeshVault: string;
   meshConsumerPort: string;
   meshProviderPort: string;
   link: Link;
@@ -81,13 +81,13 @@ async function demoSetup(): Promise<SetupInfo> {
   const osmoStargateClient = await setupOsmoStargateClient();
   const wasmStargateClient = await setupWasmStargateClient();
 
-  // instantiate mesh_lockup on osmosis
-  const initMeshLockup = { denom: osmosis.denomStaking };
-  const { contractAddress: osmoMeshLockup } = await osmoClient.sign.instantiate(
+  // instantiate mesh_vault on osmosis
+  const initMeshVault = { denom: osmosis.denomStaking };
+  const { contractAddress: osmoMeshVault } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
-    osmosisIds.mesh_lockup,
-    initMeshLockup,
-    "mesh_lockup contract",
+    osmosisIds.mesh_vault,
+    initMeshVault,
+    "mesh_vault contract",
     "auto"
   );
 
@@ -114,7 +114,7 @@ async function demoSetup(): Promise<SetupInfo> {
         owner: osmoClient.senderAddress,
       }),
     },
-    lockup: osmoMeshLockup,
+    lockup: osmoMeshVault,
     // 0 second unbonding here so we can test it
     unbonding_period: 0,
     rewards_ibc_denom: ibcDenom,
@@ -172,7 +172,7 @@ async function demoSetup(): Promise<SetupInfo> {
     wasmStargateClient,
     wasmMeshConsumer,
     osmoMeshProvider,
-    osmoMeshLockup,
+    osmoMeshVault,
     osmoMeshSlasher,
     wasmMetaStaking,
     meshConsumerPort,
@@ -273,7 +273,7 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
     osmoStargateClient,
     wasmMeshConsumer,
     osmoMeshProvider,
-    osmoMeshLockup,
+    osmoMeshVault,
     wasmMetaStaking,
     link,
     ics20,
@@ -313,7 +313,7 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   const lockedTokens = { amount: "500000", denom: "uosmo" };
   const lockupRes = await osmoClient.sign.execute(
     osmoClient.senderAddress,
-    osmoMeshLockup,
+    osmoMeshVault,
     { bond: {} },
     "auto",
     "memo",
@@ -333,7 +333,7 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   // Grant claim, cross stake 100 tokens to validator on wasmd
   const grantClaimRes = await osmoClient.sign.execute(
     osmoClient.senderAddress,
-    osmoMeshLockup,
+    osmoMeshVault,
     {
       grant_claim: { leinholder: osmoMeshProvider, amount: "500000", validator: validatorAddr },
     },
@@ -446,12 +446,12 @@ test.serial("Happy Path (cross-stake / cross-unstake)", async (t) => {
   t.is(senderBalance.amount, rewardsTosend.amount);
 
   // Make another tx to advanace the block
-  await osmoClient.sign.execute(osmoClient.senderAddress, osmoMeshLockup, { bond: {} }, "auto", "memo", [lockedTokens]);
+  await osmoClient.sign.execute(osmoClient.senderAddress, osmoMeshVault, { bond: {} }, "auto", "memo", [lockedTokens]);
 
   // Unbond 100 tokens from wasmd now that a block has passed
   const unbondRes = await osmoClient.sign.execute(
     osmoClient.senderAddress,
-    osmoMeshLockup,
+    osmoMeshVault,
     { unbond: { amount: "100" } },
     "auto"
   );

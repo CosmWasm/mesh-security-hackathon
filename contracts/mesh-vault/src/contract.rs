@@ -13,7 +13,7 @@ use crate::state::{Config, BALANCES, CONFIG};
 use mesh_apis::ClaimReceiverMsg;
 
 // version info for migration info
-const CONTRACT_NAME: &str = "crates.io:mesh-lockup";
+const CONTRACT_NAME: &str = "crates.io:mesh-vault";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]

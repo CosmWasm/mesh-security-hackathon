@@ -6,8 +6,8 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { Coin, StdFee } from "@cosmjs/amino";
-import { InstantiateMsg, ExecuteMsg, Uint128, QueryMsg, BalanceResponse, Lein } from "./MeshLockup.types";
-export interface MeshLockupReadOnlyInterface {
+import { InstantiateMsg, ExecuteMsg, Uint128, QueryMsg, BalanceResponse, Lein } from "./MeshVault.types";
+export interface MeshVaultReadOnlyInterface {
   contractAddress: string;
   balance: ({
     account
@@ -15,7 +15,7 @@ export interface MeshLockupReadOnlyInterface {
     account: string;
   }) => Promise<BalanceResponse>;
 }
-export class MeshLockupQueryClient implements MeshLockupReadOnlyInterface {
+export class MeshVaultQueryClient implements MeshVaultReadOnlyInterface {
   client: CosmWasmClient;
   contractAddress: string;
 
@@ -37,7 +37,7 @@ export class MeshLockupQueryClient implements MeshLockupReadOnlyInterface {
     });
   };
 }
-export interface MeshLockupInterface extends MeshLockupReadOnlyInterface {
+export interface MeshVaultInterface extends MeshVaultReadOnlyInterface {
   contractAddress: string;
   sender: string;
   bond: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
@@ -70,7 +70,7 @@ export interface MeshLockupInterface extends MeshLockupReadOnlyInterface {
     owner: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }
-export class MeshLockupClient extends MeshLockupQueryClient implements MeshLockupInterface {
+export class MeshVaultClient extends MeshVaultQueryClient implements MeshVaultInterface {
   client: SigningCosmWasmClient;
   sender: string;
   contractAddress: string;
